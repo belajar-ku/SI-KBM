@@ -2,9 +2,10 @@
 -- UPDATE STRUKTUR DATABASE (SAFE TO RUN REPEATEDLY)
 -- ==========================================
 
--- 1. UPDATE TABEL PROFILES (Tambah Wali Kelas & Avatar)
+-- 1. UPDATE TABEL PROFILES (Tambah Kolom Custom)
 alter table public.profiles add column if not exists wali_kelas text;
 alter table public.profiles add column if not exists avatar_url text;
+alter table public.profiles add column if not exists mengajar_mapel text; -- Tambahan Baru
 
 -- 2. UPDATE TABEL SISWA (Tambah NIS)
 alter table public.students add column if not exists nis text;
@@ -60,6 +61,11 @@ create policy "Admin manage tabel_guru"
   on public.tabel_guru for all to authenticated using (
     exists (select 1 from profiles where id = auth.uid() and role = 'admin')
   );
+  
+-- Policy Profiles (PENTING: Agar Admin bisa update user lain)
+create policy "Admin update all profiles" 
+  on public.profiles for update to authenticated 
+  using ( exists (select 1 from profiles where id = auth.uid() and role = 'admin') );
 
 -- INDEXING (Agar pencarian cepat)
 create index if not exists idx_students_kelas on public.students(kelas);
@@ -100,13 +106,10 @@ begin
 end;
 $$;
 
--- SETUP STORAGE (Jalankan di SQL Editor Supabase jika belum ada bucket 'avatars')
+-- SETUP STORAGE
 insert into storage.buckets (id, name, public) 
 values ('avatars', 'avatars', true)
 on conflict (id) do nothing;
-
--- Policy Storage (Allow Public Read, Authenticated Upload)
--- Kita drop dulu policy storage lama jika ada agar tidak duplikat/error
 
 drop policy if exists "Avatar Public Read" on storage.objects;
 create policy "Avatar Public Read"

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types';
-import { Search, UserCog, Database, GraduationCap, Shield, Edit, Save, X, Loader2, BookOpen } from 'lucide-react';
+import { Search, UserCog, Database, GraduationCap, Shield, Edit, Save, X, Loader2, BookOpen, Check } from 'lucide-react';
 
 const UsersData: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -51,7 +51,8 @@ const UsersData: React.FC = () => {
     setSaving(true);
 
     try {
-      const { error } = await supabase
+      // 1. Update ke tabel PROFILES (Ini yang digunakan oleh Aplikasi/Input Jadwal)
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({
           mengajar_mapel: editFormData.mengajar_mapel,
@@ -59,9 +60,24 @@ const UsersData: React.FC = () => {
         })
         .eq('id', editingUser.id);
 
-      if (error) throw error;
+      if (profileError) throw profileError;
 
-      // Update local state agar tidak perlu fetch ulang
+      // 2. Sinkronisasi ke TABEL_GURU (Master Data - agar sinkron jika punya NIP)
+      // Ini penting agar data master guru tetap backup dan konsisten
+      if (editingUser.nip) {
+         const { error: guruError } = await supabase
+           .from('tabel_guru')
+           .update({
+             mapel: editFormData.mengajar_mapel,
+             wali_kelas: editFormData.wali_kelas
+           })
+           .eq('nip', editingUser.nip);
+         
+         // Kita log saja warningnya, karena mungkin NIP tidak ada di tabel_guru (misal akun admin manual)
+         if (guruError) console.warn("Sync tabel_guru warning (NIP mungkin tidak ditemukan):", guruError.message);
+      }
+
+      // Update local state agar tidak perlu fetch ulang dan UI responsif
       setProfiles(prev => prev.map(p => 
         p.id === editingUser.id 
           ? { ...p, mengajar_mapel: editFormData.mengajar_mapel, wali_kelas: editFormData.wali_kelas } 
@@ -69,8 +85,9 @@ const UsersData: React.FC = () => {
       ));
 
       setEditingUser(null); // Tutup modal
+      // Opsional: tampilkan toast sukses (saat ini kita close modal saja)
     } catch (err: any) {
-      alert('Gagal update user: ' + err.message);
+      alert('Gagal menyimpan data: ' + err.message);
     } finally {
       setSaving(false);
     }
@@ -217,7 +234,7 @@ const UsersData: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran</label>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran (Disimpan ke Profiles)</label>
                             <input 
                                 type="text"
                                 className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
