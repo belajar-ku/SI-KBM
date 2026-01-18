@@ -2,8 +2,7 @@ import React, { useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
-import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, CheckCircle, AlertCircle, Download, Users, Calendar, GraduationCap, X, KeyRound, ShieldAlert, Eye, EyeOff } from 'lucide-react';
+import { Upload, FileText, CheckCircle, AlertCircle, Download, Users, Calendar, GraduationCap, X, KeyRound, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 
 const ImportData: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'students' | 'teachers' | 'schedules'>('teachers');
@@ -52,35 +51,54 @@ const ImportData: React.FC = () => {
       return Array.from(result).sort((a, b) => a - b).map(String);
   };
 
+  // Helper: Parse CSV Text to JSON
+  const parseCSV = (text: string) => {
+    const lines = text.split(/\r?\n/).filter(line => line.trim() !== '');
+    if (lines.length === 0) return [];
+
+    // Deteksi delimiter (koma atau titik koma) berdasarkan baris pertama
+    const firstLine = lines[0];
+    const delimiter = firstLine.includes(';') ? ';' : ',';
+
+    const headers = firstLine.split(delimiter).map(h => h.trim().replace(/^"|"$/g, ''));
+
+    return lines.slice(1).map(line => {
+      const values = line.split(delimiter).map(v => v.trim().replace(/^"|"$/g, ''));
+      const row: any = {};
+      headers.forEach((header, index) => {
+        // Handle jika values kurang dari headers
+        row[header] = values[index] || '';
+      });
+      return row;
+    });
+  };
+
   const downloadTemplate = () => {
-    let data: any[] = [];
-    let filename = '';
+    let csvContent = "";
+    let filename = "";
 
     if (activeTab === 'teachers') {
-        data = [
-            { "NIP": "198001012010011001", "Nama Lengkap": "Budi Santoso S.Pd", "Mata Pelajaran": "Matematika;IPA", "Wali Kelas": "7A" },
-            { "NIP": "199002022019032002", "Nama Lengkap": "Siti Aminah S.Pd", "Mata Pelajaran": "Bahasa Indonesia", "Wali Kelas": "8B" }
-        ];
-        filename = 'template_guru.xlsx';
+        csvContent = "NIP;Nama Lengkap;Mata Pelajaran;Wali Kelas\n198001012010011001;Budi Santoso S.Pd;Matematika,IPA;7A\n199002022019032002;Siti Aminah S.Pd;Bahasa Indonesia;8B";
+        filename = 'template_guru.csv';
     } else if (activeTab === 'students') {
-        data = [
-            { "NISN": "0012345678", "NIS": "1001", "Nama Lengkap": "Ahmad Dahlan", "Kelas": "7A" },
-            { "NISN": "0087654321", "NIS": "1002", "Nama Lengkap": "Dewi Sartika", "Kelas": "7B" }
-        ];
-        filename = 'template_siswa.xlsx';
+        csvContent = "NISN;NIS;Nama Lengkap;Kelas\n0012345678;1001;Ahmad Dahlan;7A\n0087654321;1002;Dewi Sartika;7B";
+        filename = 'template_siswa.csv';
     } else if (activeTab === 'schedules') {
-        data = [
-            { "Hari": "Senin", "Jam Ke": "1-2", "Kelas": "7A", "Mapel": "Matematika", "NIP Guru": "198001012010011001" },
-            { "Hari": "Senin", "Jam Ke": "3-4", "Kelas": "7A", "Mapel": "IPA", "NIP Guru": "198001012010011001" },
-            { "Hari": "Selasa", "Jam Ke": "1-3", "Kelas": "8B", "Mapel": "Bahasa Indonesia", "NIP Guru": "199002022019032002" }
-        ];
-        filename = 'template_jadwal.xlsx';
+        csvContent = "Hari;Jam Ke;Kelas;Mapel;NIP Guru\nSenin;1-2;7A;Matematika;198001012010011001\nSenin;3-4;7A;IPA;198001012010011001\nSelasa;1-3;8B;Bahasa Indonesia;199002022019032002";
+        filename = 'template_jadwal.csv';
     }
 
-    const ws = XLSX.utils.json_to_sheet(data);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Template");
-    XLSX.writeFile(wb, filename);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    if (link.download !== undefined) {
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,17 +110,18 @@ const ImportData: React.FC = () => {
         const reader = new FileReader();
         reader.onload = (evt) => {
             try {
-                const bstr = evt.target?.result;
-                const wb = XLSX.read(bstr, { type: 'binary' });
-                const wsname = wb.SheetNames[0];
-                const ws = wb.Sheets[wsname];
-                const data = XLSX.utils.sheet_to_json(ws);
-                setPreviewData(data);
+                const text = evt.target?.result as string;
+                const data = parseCSV(text);
+                if (data.length === 0) {
+                    setStatus({ type: 'error', msg: 'File CSV kosong atau format salah.' });
+                } else {
+                    setPreviewData(data);
+                }
             } catch (err) {
-                setStatus({ type: 'error', msg: 'File tidak terbaca atau rusak.' });
+                setStatus({ type: 'error', msg: 'Gagal membaca file CSV.' });
             }
         };
-        reader.readAsBinaryString(selectedFile);
+        reader.readAsText(selectedFile);
     }
   };
 
@@ -124,7 +143,7 @@ const ImportData: React.FC = () => {
             const studentsToInsert = previewData.map((row: any) => ({
                 nisn: String(row['NISN'] || row['nisn']),
                 nis: String(row['NIS'] || row['nis']),
-                name: row['Nama Lengkap'] || row['nama'],
+                name: row['Nama Lengkap'] || row['nama'] || row['Nama'],
                 kelas: row['Kelas'] || row['kelas']
             })).filter(s => s.nisn && s.name && s.kelas);
 
@@ -138,7 +157,6 @@ const ImportData: React.FC = () => {
             // 1. Setup Admin Client jika opsi Create Account dipilih
             let adminClient = null;
             if (createAccounts) {
-                // Dapatkan URL dari environment atau string hardcoded dari services/supabase.ts
                 const SUPABASE_URL = 'https://aobgqejpjomgwxiosgin.supabase.co'; 
                 adminClient = createClient(SUPABASE_URL, serviceRoleKey, {
                     auth: {
@@ -151,9 +169,9 @@ const ImportData: React.FC = () => {
             // 2. Persiapkan Data
             const teachersData = previewData.map((row: any) => ({
                 nip: String(row['NIP'] || row['nip']),
-                nama_lengkap: row['Nama Lengkap'] || row['nama'],
-                mapel: row['Mata Pelajaran'] || row['mapel'],
-                wali_kelas: row['Wali Kelas'] || row['wali']
+                nama_lengkap: row['Nama Lengkap'] || row['nama'] || row['Nama'],
+                mapel: row['Mata Pelajaran'] || row['mapel'] || row['Mapel'],
+                wali_kelas: row['Wali Kelas'] || row['wali'] || row['Wali']
             })).filter(t => t.nip && t.nama_lengkap);
 
             let accountCreatedCount = 0;
@@ -184,12 +202,9 @@ const ImportData: React.FC = () => {
                         // Jika user sudah ada (Error: User already registered)
                         if (authError && authError.message.includes('already registered')) {
                              // Coba cari profile yang sudah ada berdasarkan NIP
-                             // Jika tidak ada di profiles, kita tidak bisa tau UUID nya kecuali kita query listUsers (perlu service role juga)
-                             // Tapi kita bisa coba query profiles public table
                              const { data: existProfile } = await supabase.from('profiles').select('id').eq('nip', t.nip).single();
                              userId = existProfile?.id;
                              
-                             // Jika tidak ada di profiles tapi ada di Auth, kita perlu ambil ID dari Auth (listUsers).
                              if (!userId) {
                                  const { data: listUsers } = await adminClient.auth.admin.listUsers();
                                  const foundUser = listUsers.users.find(u => u.email === email);
@@ -197,7 +212,7 @@ const ImportData: React.FC = () => {
                              }
                         }
 
-                        // Upsert Profile (Agar user bisa login dan dikenali sistem)
+                        // Upsert Profile
                         if (userId) {
                             await supabase.from('profiles').upsert({
                                 id: userId,
@@ -228,11 +243,11 @@ const ImportData: React.FC = () => {
             const schedulesToInsert = [];
             
             for (const row of previewData) {
-                const nip = String(row['NIP Guru'] || row['nip guru'] || '');
+                const nip = String(row['NIP Guru'] || row['nip guru'] || row['NIP'] || '');
                 const rawDay = row['Hari'] || row['hari'];
                 const rawHour = row['Jam Ke'] || row['jam ke'] || row['jam'];
                 const kelas = String(row['Kelas'] || row['kelas']);
-                const mapel = row['Mapel'] || row['mapel'];
+                const mapel = row['Mapel'] || row['mapel'] || row['Mata Pelajaran'];
                 
                 let dayNum = 0;
                 if (typeof rawDay === 'number') dayNum = rawDay;
@@ -294,15 +309,15 @@ const ImportData: React.FC = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div>
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FileSpreadsheet className="text-green-600" /> Import Database Excel
+                    <FileText className="text-green-600" /> Import Database CSV
                 </h2>
-                <p className="text-gray-500 text-sm">Upload file Excel (.xlsx) untuk mengisi data sekolah.</p>
+                <p className="text-gray-500 text-sm">Upload file CSV (Comma/Semicolon Separated) untuk mengisi data sekolah.</p>
             </div>
             <button 
                 onClick={downloadTemplate}
                 className="bg-green-600 hover:bg-green-700 text-white px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg hover:shadow-green-500/30 transition-all"
             >
-                <Download size={18} /> Download Template .xlsx
+                <Download size={18} /> Download Template CSV
             </button>
         </div>
 
@@ -381,13 +396,14 @@ const ImportData: React.FC = () => {
                 )}
 
                 <div className="mb-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex gap-3 text-sm text-yellow-800">
-                    <FileSpreadsheet className="flex-shrink-0 mt-1" />
+                    <FileText className="flex-shrink-0 mt-1" />
                     <div>
-                        <p className="font-bold">Tips Pengisian Excel:</p>
+                        <p className="font-bold">Tips Pengisian CSV:</p>
                         <ul className="list-disc ml-4 mt-1 space-y-1">
-                            {activeTab === 'teachers' && <li>Data masuk ke <strong>tabel_guru</strong>.</li>}
-                            {activeTab === 'students' && <li>NISN wajib unik.</li>}
-                            {activeTab === 'schedules' && <li>Jam bisa diisi "1-3" (disimpan 1,2,3). Pastikan NIP Guru sesuai.</li>}
+                            <li>Gunakan <strong>Titik Koma (;)</strong> atau <strong>Koma (,)</strong> sebagai pemisah.</li>
+                            {activeTab === 'teachers' && <li>Format: NIP;Nama;Mapel;Wali</li>}
+                            {activeTab === 'students' && <li>Format: NISN;NIS;Nama;Kelas</li>}
+                            {activeTab === 'schedules' && <li>Format: Hari;Jam;Kelas;Mapel;NIP Guru</li>}
                         </ul>
                     </div>
                 </div>
@@ -400,13 +416,13 @@ const ImportData: React.FC = () => {
                         <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                             <Upload className="text-blue-600" size={32} />
                         </div>
-                        <h3 className="text-lg font-bold text-gray-700">Klik untuk Upload File Excel</h3>
-                        <p className="text-gray-500 text-sm mt-1">Format: .xlsx (Excel Workbook)</p>
+                        <h3 className="text-lg font-bold text-gray-700">Klik untuk Upload File CSV</h3>
+                        <p className="text-gray-500 text-sm mt-1">Format: .csv (Comma/Semicolon Separated)</p>
                         <input 
                             type="file" 
                             ref={fileInputRef} 
                             onChange={handleFileChange} 
-                            accept=".xlsx, .xls" 
+                            accept=".csv, .txt" 
                             className="hidden" 
                         />
                     </div>
@@ -414,7 +430,7 @@ const ImportData: React.FC = () => {
                     <div className="space-y-6 animate-fade-in">
                         <div className="flex items-center justify-between bg-blue-50 p-4 rounded-xl border border-blue-100">
                             <div className="flex items-center gap-3">
-                                <FileSpreadsheet className="text-green-600" size={32} />
+                                <FileText className="text-green-600" size={32} />
                                 <div>
                                     <p className="font-bold text-gray-800">{file.name}</p>
                                     <p className="text-xs text-gray-500">{(file.size / 1024).toFixed(1)} KB • {previewData.length} Baris Data</p>
