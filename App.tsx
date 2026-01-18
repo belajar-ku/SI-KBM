@@ -9,6 +9,7 @@ import ImportData from './pages/ImportData';
 import InputJadwal from './pages/InputJadwal';
 import UsersData from './pages/UsersData';
 import ProfilePage from './pages/ProfilePage';
+import MySchedule from './pages/MySchedule';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -64,6 +65,12 @@ const App: React.FC = () => {
                 <JurnalForm />
              </ProtectedRoute>
           } />
+          
+          <Route path="/jadwal" element={
+             <ProtectedRoute>
+                <MySchedule />
+             </ProtectedRoute>
+          } />
 
           <Route path="/import-data" element={
              <AdminRoute>
@@ -88,7 +95,6 @@ const App: React.FC = () => {
           <Route path="/rekap-absensi" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/kedisiplinan" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/qr" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/jadwal" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
         </Routes>
       </HashRouter>
