@@ -33,8 +33,13 @@ const Dashboard: React.FC = () => {
             <FileEdit size={150} />
         </div>
         <div className="relative z-10">
-            <h1 className="text-2xl font-bold mb-1">Halo, {profile?.full_name?.split(' ')[0]}! 👋</h1>
-            <p className="text-blue-100 text-sm opacity-90">Selamat beraktivitas, pantau KBM hari ini dengan mudah.</p>
+            {/* Logic Sapaan: Admin vs User */}
+            <h1 className="text-2xl font-bold mb-1">
+              {isAdmin ? 'Halo, Admin! 👋' : `Halo, ${profile?.full_name?.split(' ')[0]}! 👋`}
+            </h1>
+            <p className="text-blue-100 text-sm opacity-90">
+              {isAdmin ? 'Kelola data sekolah dengan mudah dan aman.' : 'Selamat beraktivitas, pantau KBM hari ini dengan mudah.'}
+            </p>
         </div>
       </div>
 
@@ -44,23 +49,29 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        <MenuButton label="Isi Jurnal" icon={FileEdit} color="#3498db" path="/jurnal" desc="Input KBM Harian" />
-        <MenuButton label="Jadwalku" icon={CalendarDays} color="#9b59b6" path="/jadwal" desc="Lihat Jadwal Mengajar" />
-        <MenuButton label="Kehadiran" icon={UserCheck} color="#2ecc71" path="/rekap-absensi" desc="Rekap Absensi Siswa" />
-        <MenuButton label="Laporan" icon={Printer} color="#f1c40f" path="/laporan" desc="Cetak Jurnal & Laporan" />
-        <MenuButton label="Kedisiplinan" icon={ShieldAlert} color="#e67e22" path="/kedisiplinan" desc="Poin Pelanggaran" />
-        <MenuButton label="Presensi QR" icon={QrCode} color="#34495e" path="/qr" desc="Scan Kartu Siswa" />
         
-        {/* Menu Khusus Admin */}
-        {isAdmin && (
+        {/* LOGIC STRICT: Jika Admin, Tampilkan Menu Admin SAJA. Jika User, Tampilkan Menu User SAJA. */}
+        
+        {isAdmin ? (
            <>
-             <div className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 my-2 border-t border-gray-100"></div>
-             <p className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Area Administrator</p>
+             {/* Menu Khusus Admin */}
              <MenuButton label="Import Data" icon={Database} color="#e74c3c" path="/import-data" desc="Upload CSV (Massal)" />
              <MenuButton label="Input Jadwal" icon={CalendarPlus} color="#8e44ad" path="/input-jadwal" desc="Input Manual" />
              <MenuButton label="Data User" icon={Users} color="#16a085" path="/users" desc="Kelola Akun Pengguna" />
+             {/* Opsional: Admin mungkin butuh akses fitur user untuk testing, tapi sesuai request kita hide */}
+           </>
+        ) : (
+           <>
+             {/* Menu User / Guru */}
+             <MenuButton label="Isi Jurnal" icon={FileEdit} color="#3498db" path="/jurnal" desc="Input KBM Harian" />
+             <MenuButton label="Jadwalku" icon={CalendarDays} color="#9b59b6" path="/jadwal" desc="Lihat Jadwal Mengajar" />
+             <MenuButton label="Kehadiran" icon={UserCheck} color="#2ecc71" path="/rekap-absensi" desc="Rekap Absensi Siswa" />
+             <MenuButton label="Laporan" icon={Printer} color="#f1c40f" path="/laporan" desc="Cetak Jurnal & Laporan" />
+             <MenuButton label="Kedisiplinan" icon={ShieldAlert} color="#e67e22" path="/kedisiplinan" desc="Poin Pelanggaran" />
+             <MenuButton label="Presensi QR" icon={QrCode} color="#34495e" path="/qr" desc="Scan Kartu Siswa" />
            </>
         )}
+
       </div>
     </Layout>
   );

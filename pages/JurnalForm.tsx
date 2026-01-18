@@ -174,7 +174,14 @@ const JurnalForm: React.FC = () => {
     }
   };
 
-  const Step1 = () => (
+  const CheckCircleIcon = ({className = "text-blue-500"}: {className?: string}) => (
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+  );
+
+  // FIX: Mengubah Step Components menjadi Render Functions
+  // Ini mencegah unmounting/remounting input saat state berubah (mengetik)
+  
+  const renderStep1 = () => (
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
        <div className="flex justify-between items-start mb-6">
            <div>
@@ -304,7 +311,7 @@ const JurnalForm: React.FC = () => {
     </div>
   );
 
-  const Step2 = () => (
+  const renderStep2 = () => (
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
       <h3 className="font-bold text-xl text-gray-800 mb-1">Detail Pembelajaran</h3>
       <p className="text-gray-500 text-xs mb-6">Informasi materi dan jam pelajaran.</p>
@@ -362,7 +369,7 @@ const JurnalForm: React.FC = () => {
             className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]" 
             rows={3}
             value={formData.material}
-            onChange={e => setFormData({...formData, material: e.target.value})}
+            onChange={e => setFormData(prev => ({...prev, material: e.target.value}))}
             placeholder="Ringkasan materi yang diajarkan hari ini..."
           ></textarea>
         </div>
@@ -383,7 +390,7 @@ const JurnalForm: React.FC = () => {
     </div>
   );
 
-  const Step3 = () => (
+  const renderStep3 = () => (
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
        <h3 className="font-bold text-xl text-gray-800 mb-1">Validasi Akhir</h3>
        <p className="text-gray-500 text-xs mb-6">Konfirmasi keadaan kelas dan status KBM.</p>
@@ -444,10 +451,6 @@ const JurnalForm: React.FC = () => {
     </div>
   );
 
-  const CheckCircleIcon = ({className = "text-blue-500"}: {className?: string}) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-  );
-
   return (
     <Layout>
       <div className="max-w-xl mx-auto pb-10">
@@ -471,9 +474,9 @@ const JurnalForm: React.FC = () => {
             </div>
         ) : (
             <>
-                {step === 1 && <Step1 />}
-                {step === 2 && <Step2 />}
-                {step === 3 && <Step3 />}
+                {step === 1 && renderStep1()}
+                {step === 2 && renderStep2()}
+                {step === 3 && renderStep3()}
             </>
         )}
       </div>
