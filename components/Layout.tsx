@@ -1,22 +1,28 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { LogOut, LayoutDashboard, User } from 'lucide-react';
+import { LogOut, LayoutDashboard, User, AlertTriangle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> = ({ children, showNav = true }) => {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // State untuk mengontrol visibilitas Modal Logout
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const handleLogout = async () => {
-    if(window.confirm('Apakah Anda yakin ingin keluar?')) {
-      await signOut();
-      navigate('/');
-    }
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const confirmLogout = async () => {
+    await signOut();
+    setShowLogoutModal(false);
+    navigate('/');
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-poppins">
+    <div className="min-h-screen flex flex-col bg-slate-50 font-poppins relative">
       {showNav && (
         <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 shadow-sm">
           <div className="max-w-7xl mx-auto flex items-center justify-between">
@@ -51,7 +57,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
             </div>
             
             <button 
-              onClick={handleLogout}
+              onClick={handleLogoutClick}
               className="p-2 rounded-full text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
               title="Logout"
             >
@@ -88,6 +94,39 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
       )}
       
       <div className="h-16 md:h-0"></div> {/* Spacer for bottom nav */}
+
+      {/* MODERN LOGOUT MODAL */}
+      {showLogoutModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border border-white/20">
+              <div className="flex flex-col items-center text-center">
+                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600 shadow-sm">
+                      <LogOut size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">Konfirmasi Keluar</h3>
+                  <p className="text-gray-500 text-sm mb-6">
+                    Apakah Anda yakin keluar dari Aplikasi ini?
+                  </p>
+                  
+                  <div className="flex w-full gap-3">
+                      <button 
+                        onClick={() => setShowLogoutModal(false)}
+                        className="flex-1 py-3 px-4 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
+                      >
+                        Batal
+                      </button>
+                      <button 
+                        onClick={confirmLogout}
+                        className="flex-1 py-3 px-4 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-500/30 transition-colors"
+                      >
+                        Ya, Keluar
+                      </button>
+                  </div>
+              </div>
+           </div>
+        </div>
+      )}
+
     </div>
   );
 };
