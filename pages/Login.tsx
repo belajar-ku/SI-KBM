@@ -67,7 +67,7 @@ const Login: React.FC = () => {
                   value={userId}
                   onChange={(e) => setUserId(e.target.value)}
                   className="pl-10 block w-full border-gray-300 rounded-lg focus:ring-[#3498db] focus:border-[#3498db] p-2.5 bg-white/80 text-[#3498db] font-bold placeholder-gray-400"
-                  placeholder="Contoh: 234567"
+                  placeholder="Contoh: 198701012020021003"
                   required
                   autoFocus
                 />
@@ -112,8 +112,7 @@ const Login: React.FC = () => {
           </form>
 
           <p className="mt-6 text-center text-xs text-gray-500">
-            Gunakan ID <strong>234567</strong> untuk login Admin.
-            <br/>(Pastikan user sudah dibuat di Supabase)
+            Pastikan NIP dan Password sudah benar
           </p>
         </div>
       </main>

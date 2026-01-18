@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users } from 'lucide-react';
+import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users, CalendarPlus } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -56,7 +56,8 @@ const Dashboard: React.FC = () => {
            <>
              <div className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 my-2 border-t border-gray-100"></div>
              <p className="col-span-2 md:col-span-3 lg:col-span-4 xl:col-span-5 text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Area Administrator</p>
-             <MenuButton label="Import Data" icon={Database} color="#e74c3c" path="/import-data" desc="Upload Guru, Siswa, Jadwal" />
+             <MenuButton label="Import Data" icon={Database} color="#e74c3c" path="/import-data" desc="Upload CSV (Massal)" />
+             <MenuButton label="Input Jadwal" icon={CalendarPlus} color="#8e44ad" path="/input-jadwal" desc="Input Manual" />
              <MenuButton label="Data User" icon={Users} color="#16a085" path="/users" desc="Kelola Akun Pengguna" />
            </>
         )}

@@ -6,6 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import JurnalForm from './pages/JurnalForm';
 import ImportData from './pages/ImportData';
+import InputJadwal from './pages/InputJadwal';
 import UsersData from './pages/UsersData';
 import ProfilePage from './pages/ProfilePage';
 import { Loader2 } from 'lucide-react';
@@ -67,6 +68,12 @@ const App: React.FC = () => {
           <Route path="/import-data" element={
              <AdminRoute>
                 <ImportData />
+             </AdminRoute>
+          } />
+
+          <Route path="/input-jadwal" element={
+             <AdminRoute>
+                <InputJadwal />
              </AdminRoute>
           } />
 
