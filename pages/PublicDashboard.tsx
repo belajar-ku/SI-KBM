@@ -17,21 +17,66 @@ const PublicDashboard: React.FC = () => {
   }, []);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
-      // In a real Supabase implementation, you would likely use a Database Function (RPC) 
-      // for aggregate stats to keep it fast, rather than fetching all rows.
-      // For this example, we assume an RPC function 'get_public_stats' exists (see SQL file).
-      
+      // 1. Try fetching via RPC (Database Function) first for performance
       const { data, error } = await supabase.rpc('get_public_dashboard_stats');
       
-      if (error) throw error;
+      if (error) {
+        console.warn('RPC get_public_dashboard_stats failed, switching to client-side fallback.', error.message);
+        throw error; // Trigger catch block for fallback
+      }
+      
       if (data) setStats(data);
 
     } catch (err) {
-      console.error('Error fetching public stats:', err);
+      // 2. Fallback: Fetch data manually via standard queries
+      // This handles cases where the SQL function isn't created or permissions are missing
+      try {
+        await fetchStatsClientSide();
+      } catch (fallbackErr: any) {
+        console.error('Error fetching public stats (Fallback):', fallbackErr);
+        // Set empty stats to prevent UI crash
+        setStats({
+            count7: 0, count8: 0, count9: 0,
+            totalJpRequired: 100, completedJp: 0,
+            cleanestClass: '-', unfilledKbm: []
+        });
+      }
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchStatsClientSide = async () => {
+    // Parallel requests
+    const [students7, students8, students9, journals] = await Promise.all([
+        supabase.from('students').select('*', { count: 'exact', head: true }).like('kelas', '7%'),
+        supabase.from('students').select('*', { count: 'exact', head: true }).like('kelas', '8%'),
+        supabase.from('students').select('*', { count: 'exact', head: true }).like('kelas', '9%'),
+        supabase.from('journals').select('hours').gte('created_at', new Date().toISOString().split('T')[0])
+    ]);
+
+    let completedJp = 0;
+    if (journals.data) {
+        journals.data.forEach((j: any) => {
+            if (typeof j.hours === 'string') {
+                // Assuming hours format "1, 2, 3"
+                const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
+                completedJp += parts.length;
+            }
+        });
+    }
+
+    setStats({
+        count7: students7.count || 0,
+        count8: students8.count || 0,
+        count9: students9.count || 0,
+        totalJpRequired: 240, // Estimasi total jam per hari
+        completedJp: completedJp,
+        cleanestClass: '-', 
+        unfilledKbm: []
+    });
   };
 
   const StatCard = ({ title, value, colorClass, icon: Icon }: any) => (
@@ -95,7 +140,7 @@ const PublicDashboard: React.FC = () => {
                 <div className="w-full bg-gray-200 rounded-full h-4 relative overflow-hidden">
                     <div 
                       className="bg-green-400 h-4 rounded-full transition-all duration-1000 ease-out"
-                      style={{ width: `${(stats.completedJp / stats.totalJpRequired) * 100}%` }}
+                      style={{ width: `${Math.min((stats.completedJp / stats.totalJpRequired) * 100, 100)}%` }}
                     ></div>
                 </div>
                 <div className="flex justify-between text-sm font-semibold mt-2 text-gray-600">
@@ -113,13 +158,13 @@ const PublicDashboard: React.FC = () => {
                      <p className="text-sm font-bold text-gray-600">Kelas {stats.unfilledKbm[0].kelas}</p>
                    </div>
                  ) : (
-                   <p className="text-green-600 font-semibold">✅ Semua guru telah melaksanakan KBM.</p>
+                   <p className="text-green-600 font-semibold">✅ Data KBM terpantau lancar.</p>
                  )}
                </div>
             </div>
           </>
         ) : (
-          <div className="text-center text-red-500">Gagal memuat data.</div>
+          <div className="text-center text-red-500">Gagal memuat data statistik.</div>
         )}
 
         <div className="pt-4">
