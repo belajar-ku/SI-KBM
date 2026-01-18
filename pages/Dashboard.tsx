@@ -1,12 +1,20 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users, CalendarPlus } from 'lucide-react';
+import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users, CalendarPlus, Clock } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, profile } = useAuth();
+  
+  // State untuk jam digital
+  const [time, setTime] = useState(new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => setTime(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const MenuButton = ({ label, icon: Icon, color, path, desc }: any) => (
     <button
@@ -32,14 +40,35 @@ const Dashboard: React.FC = () => {
         <div className="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
             <FileEdit size={150} />
         </div>
-        <div className="relative z-10">
-            {/* Logic Sapaan: Admin vs User */}
-            <h1 className="text-2xl font-bold mb-1">
-              {isAdmin ? 'Halo, Admin! 👋' : `Halo, ${profile?.full_name?.split(' ')[0]}! 👋`}
-            </h1>
-            <p className="text-blue-100 text-sm opacity-90">
-              {isAdmin ? 'Kelola data sekolah dengan mudah dan aman.' : 'Selamat beraktivitas, pantau KBM hari ini dengan mudah.'}
-            </p>
+        
+        {/* Menggunakan Flexbox untuk memisahkan Sapaan (Kiri) dan Waktu (Kanan) */}
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            
+            {/* Sapaan (Kiri) */}
+            <div>
+                <h1 className="text-2xl font-bold mb-1">
+                  {isAdmin ? 'Halo, Admin! 👋' : `Halo, ${profile?.full_name?.split(' ')[0]}! 👋`}
+                </h1>
+                <p className="text-blue-100 text-sm opacity-90">
+                  {isAdmin ? 'Kelola data sekolah dengan mudah dan aman.' : 'Selamat beraktivitas, pantau KBM hari ini dengan mudah.'}
+                </p>
+            </div>
+
+            {/* Real-time Date & Clock (Kanan) */}
+            <div className="flex flex-col items-end text-right">
+                <div className="flex items-center gap-2 text-blue-100 text-xs font-medium bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 shadow-sm">
+                   <Clock size={16} />
+                   <div className="flex flex-col items-end">
+                       <span className="leading-none mb-1">
+                          {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                       </span>
+                       <span className="font-mono font-bold text-sm text-white leading-none tracking-wider">
+                          {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':')}
+                       </span>
+                   </div>
+                </div>
+            </div>
+
         </div>
       </div>
 
@@ -58,7 +87,6 @@ const Dashboard: React.FC = () => {
              <MenuButton label="Import Data" icon={Database} color="#e74c3c" path="/import-data" desc="Upload CSV (Massal)" />
              <MenuButton label="Input Jadwal" icon={CalendarPlus} color="#8e44ad" path="/input-jadwal" desc="Input Manual" />
              <MenuButton label="Data User" icon={Users} color="#16a085" path="/users" desc="Kelola Akun Pengguna" />
-             {/* Opsional: Admin mungkin butuh akses fitur user untuk testing, tapi sesuai request kita hide */}
            </>
         ) : (
            <>
