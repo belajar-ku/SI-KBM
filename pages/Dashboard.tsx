@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { FilePenLine, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users } from 'lucide-react';
+import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ const Dashboard: React.FC = () => {
     <Layout>
       <div className="bg-gradient-to-r from-[#3498db] to-[#2980b9] rounded-2xl p-6 text-white shadow-lg mb-8 relative overflow-hidden">
         <div className="absolute top-0 right-0 opacity-10 transform translate-x-10 -translate-y-10">
-            <FilePenLine size={150} />
+            <FileEdit size={150} />
         </div>
         <div className="relative z-10">
             <h1 className="text-2xl font-bold mb-1">Halo, {profile?.full_name?.split(' ')[0]}! 👋</h1>
@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-        <MenuButton label="Isi Jurnal" icon={FilePenLine} color="#3498db" path="/jurnal" desc="Input KBM Harian" />
+        <MenuButton label="Isi Jurnal" icon={FileEdit} color="#3498db" path="/jurnal" desc="Input KBM Harian" />
         <MenuButton label="Jadwalku" icon={CalendarDays} color="#9b59b6" path="/jadwal" desc="Lihat Jadwal Mengajar" />
         <MenuButton label="Kehadiran" icon={UserCheck} color="#2ecc71" path="/rekap-absensi" desc="Rekap Absensi Siswa" />
         <MenuButton label="Laporan" icon={Printer} color="#f1c40f" path="/laporan" desc="Cetak Jurnal & Laporan" />
