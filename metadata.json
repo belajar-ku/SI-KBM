@@ -1,0 +1,7 @@
+{
+  "name": "SI KBM Modern",
+  "description": "Sistem Informasi Kegiatan Belajar Mengajar with Supabase",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
