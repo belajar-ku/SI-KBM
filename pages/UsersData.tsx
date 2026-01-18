@@ -2,12 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types';
-import { Search, UserCog, Database, GraduationCap, Shield } from 'lucide-react';
+import { Search, UserCog, Database, GraduationCap, Shield, Edit, Save, X, Loader2, BookOpen } from 'lucide-react';
 
 const UsersData: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+
+  // State untuk Edit Modal
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    mengajar_mapel: '',
+    wali_kelas: ''
+  });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetchProfiles();
@@ -16,7 +24,6 @@ const UsersData: React.FC = () => {
   const fetchProfiles = async () => {
     try {
       setLoading(true);
-      // Ambil data dari tabel profiles (User Aktif)
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -31,6 +38,44 @@ const UsersData: React.FC = () => {
     }
   };
 
+  const handleEditClick = (user: Profile) => {
+    setEditingUser(user);
+    setEditFormData({
+      mengajar_mapel: user.mengajar_mapel || '',
+      wali_kelas: user.wali_kelas || ''
+    });
+  };
+
+  const handleSave = async () => {
+    if (!editingUser) return;
+    setSaving(true);
+
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          mengajar_mapel: editFormData.mengajar_mapel,
+          wali_kelas: editFormData.wali_kelas
+        })
+        .eq('id', editingUser.id);
+
+      if (error) throw error;
+
+      // Update local state agar tidak perlu fetch ulang
+      setProfiles(prev => prev.map(p => 
+        p.id === editingUser.id 
+          ? { ...p, mengajar_mapel: editFormData.mengajar_mapel, wali_kelas: editFormData.wali_kelas } 
+          : p
+      ));
+
+      setEditingUser(null); // Tutup modal
+    } catch (err: any) {
+      alert('Gagal update user: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const filteredProfiles = profiles.filter(t => 
     t.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.nip?.includes(searchTerm)
@@ -38,13 +83,13 @@ const UsersData: React.FC = () => {
 
   return (
     <Layout>
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div>
             <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
               <UserCog className="text-blue-600" /> Data User (Profiles)
             </h2>
-            <p className="text-gray-500 text-sm">Daftar pengguna yang memiliki akun login aktif di sistem.</p>
+            <p className="text-gray-500 text-sm">Kelola data akademik pengguna (Mapel & Wali Kelas).</p>
           </div>
           
           <div className="relative w-full md:w-64">
@@ -66,11 +111,11 @@ const UsersData: React.FC = () => {
              <table className="w-full text-sm text-left">
                <thead className="bg-gray-50 text-gray-600 font-bold uppercase text-xs">
                  <tr>
-                   <th className="px-6 py-4">User</th>
-                   <th className="px-6 py-4">NIP</th>
+                   <th className="px-6 py-4">User Info</th>
                    <th className="px-6 py-4">Role</th>
                    <th className="px-6 py-4">Mapel (Profil)</th>
                    <th className="px-6 py-4">Wali Kelas</th>
+                   <th className="px-6 py-4 text-center">Aksi</th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-gray-100">
@@ -87,18 +132,20 @@ const UsersData: React.FC = () => {
                      <tr key={p.id} className="hover:bg-blue-50/50 transition-colors group">
                        <td className="px-6 py-3">
                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-gray-200 overflow-hidden">
+                            <div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">
                                 {p.avatar_url ? (
                                     <img src={p.avatar_url} alt="" className="w-full h-full object-cover"/>
                                 ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">IMG</div>
+                                    <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">
+                                        {p.full_name?.charAt(0)}
+                                    </div>
                                 )}
                             </div>
-                            <span className="font-medium text-gray-800">{p.full_name}</span>
+                            <div>
+                                <div className="font-bold text-gray-800">{p.full_name}</div>
+                                <div className="text-xs text-gray-500 font-mono">{p.nip}</div>
+                            </div>
                          </div>
-                       </td>
-                       <td className="px-6 py-3 font-mono text-xs text-gray-500">
-                         {p.nip}
                        </td>
                        <td className="px-6 py-3">
                           {p.role === 'admin' ? (
@@ -112,7 +159,9 @@ const UsersData: React.FC = () => {
                           )}
                        </td>
                        <td className="px-6 py-3 text-gray-600 max-w-xs truncate" title={p.mengajar_mapel}>
-                         {p.mengajar_mapel || '-'}
+                         {p.mengajar_mapel ? (
+                             <span className="flex items-center gap-1"><BookOpen size={14} className="text-blue-400"/> {p.mengajar_mapel}</span>
+                         ) : <span className="text-gray-300 italic">Belum diisi</span>}
                        </td>
                        <td className="px-6 py-3">
                          {p.wali_kelas ? (
@@ -122,6 +171,15 @@ const UsersData: React.FC = () => {
                          ) : (
                            <span className="text-gray-300">-</span>
                          )}
+                       </td>
+                       <td className="px-6 py-3 text-center">
+                           <button 
+                             onClick={() => handleEditClick(p)}
+                             className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
+                             title="Edit Data Akademik"
+                           >
+                               <Edit size={16} />
+                           </button>
                        </td>
                      </tr>
                    ))
@@ -137,6 +195,74 @@ const UsersData: React.FC = () => {
              </div>
            )}
         </div>
+
+        {/* MODAL EDIT */}
+        {editingUser && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
+                    <div className="bg-blue-600 p-4 flex justify-between items-center text-white">
+                        <h3 className="font-bold flex items-center gap-2">
+                            <UserCog size={20} /> Edit Data Akademik
+                        </h3>
+                        <button onClick={() => setEditingUser(null)} className="hover:bg-white/20 p-1 rounded-full">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
+                            <p className="text-xs text-blue-600 font-bold uppercase">Mengedit User:</p>
+                            <p className="font-bold text-gray-800">{editingUser.full_name}</p>
+                            <p className="text-xs text-gray-500 font-mono">{editingUser.nip}</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran</label>
+                            <input 
+                                type="text"
+                                className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="Contoh: Matematika, IPA"
+                                value={editFormData.mengajar_mapel}
+                                onChange={e => setEditFormData({...editFormData, mengajar_mapel: e.target.value})}
+                            />
+                            <p className="text-[10px] text-gray-400 mt-1">* Pisahkan dengan koma jika lebih dari satu mapel.</p>
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Wali Kelas</label>
+                            <select 
+                                className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                value={editFormData.wali_kelas}
+                                onChange={e => setEditFormData({...editFormData, wali_kelas: e.target.value})}
+                            >
+                                <option value="">-- Bukan Wali Kelas --</option>
+                                {['7A','7B','7C','7D','7E','7F','7G','7H',
+                                  '8A','8B','8C','8D','8E','8F','8G','8H',
+                                  '9A','9B','9C','9D','9E','9F','9G','9H'].map(k => (
+                                    <option key={k} value={k}>{k}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="pt-4 flex gap-3">
+                            <button 
+                                onClick={() => setEditingUser(null)}
+                                className="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
+                            >
+                                Batal
+                            </button>
+                            <button 
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                            >
+                                {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18} />} Simpan
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
       </div>
     </Layout>
   );
