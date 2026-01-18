@@ -24,7 +24,7 @@ const Login: React.FC = () => {
         if (error.message === 'Failed to fetch') {
            setError('Gagal terhubung ke Database. Periksa koneksi internet.');
         } else if (error.message.includes('Invalid login')) {
-           setError('User ID atau Password salah.');
+           setError('User ID atau Password salah. Pastikan akun sudah dibuat di Supabase Auth.');
         } else {
            setError(error.message);
         }
@@ -113,6 +113,7 @@ const Login: React.FC = () => {
 
           <p className="mt-6 text-center text-xs text-gray-500">
             Gunakan ID <strong>234567</strong> untuk login Admin.
+            <br/>(Pastikan user sudah dibuat di Supabase)
           </p>
         </div>
       </main>

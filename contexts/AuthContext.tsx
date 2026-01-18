@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { supabase } from '../services/supabase';
+import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { Session } from '@supabase/supabase-js';
 import { Profile } from '../types';
 
@@ -20,12 +20,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) fetchProfile(session.user.id);
-      else setIsLoading(false);
-    });
+    const initAuth = async () => {
+      // Prevent fetching if config is missing (avoids 404/Network Error loops)
+      if (!isSupabaseConfigured) {
+        setIsLoading(false);
+        return;
+      }
+
+      try {
+        // Check active session safely
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        setSession(session);
+        if (session) {
+          await fetchProfile(session.user.id);
+        } else {
+          setIsLoading(false);
+        }
+      } catch (error) {
+        console.warn("Auth initialization failed (likely no connection):", error);
+        // Do not block app loading on auth error
+        setIsLoading(false);
+      }
+    };
+
+    initAuth();
+
+    if (!isSupabaseConfigured) return;
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
@@ -41,6 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
+      if (!isSupabaseConfigured) return;
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -56,6 +80,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (userId: string, password: string) => {
+    if (!isSupabaseConfigured) {
+      return { error: { message: "Konfigurasi Supabase belum diset. Hubungi Admin." } };
+    }
+
     // LOGIKA USER ID:
     // Supabase membutuhkan email. Kita memanipulasi input User ID menjadi format email palsu.
     // Contoh: Input "234567" -> dikirim sebagai "234567@sekolah.id"
@@ -74,7 +102,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    if (isSupabaseConfigured) {
+      await supabase.auth.signOut();
+    }
     setProfile(null);
     setSession(null);
   };
