@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -8,6 +9,7 @@ import JurnalForm from './pages/JurnalForm';
 import ImportData from './pages/ImportData';
 import InputJadwal from './pages/InputJadwal';
 import UsersData from './pages/UsersData';
+import StudentsData from './pages/StudentsData';
 import ProfilePage from './pages/ProfilePage';
 import MySchedule from './pages/MySchedule';
 import { Loader2 } from 'lucide-react';
@@ -87,6 +89,12 @@ const App: React.FC = () => {
            <Route path="/users" element={
              <AdminRoute>
                 <UsersData />
+             </AdminRoute>
+          } />
+
+          <Route path="/students" element={
+             <AdminRoute>
+                <StudentsData />
              </AdminRoute>
           } />
 

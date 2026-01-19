@@ -1,3 +1,4 @@
+
 export interface Profile {
   id: string;
   nip: string;
@@ -22,8 +23,8 @@ export interface Student {
   nis?: string;
   name: string;
   kelas: string;
-  gender?: 'L' | 'P'; // Baru
-  jenjang?: string;   // Baru
+  gender?: 'L' | 'P';
+  jenjang?: string;
 }
 
 export interface Schedule {
@@ -61,8 +62,11 @@ export interface PublicStats {
   count7: number;
   count8: number;
   count9: number;
+  classDetails: Record<string, number>; // New: {'7A': 32, '7B': 30}
   totalJpRequired: number;
   completedJp: number;
-  cleanestClass: string;
+  absenceCount: number; // Total S+I+A hari ini
+  absenceDetails: { S: number; I: number; A: number }; // Rincian Global
+  absencePerClass: Record<string, number>; // New: {'7A': 1, '7B': 0} (Jumlah yg tidak hadir)
   unfilledKbm: { guru: string; kelas: string; jam: string }[];
 }
