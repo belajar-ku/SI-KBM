@@ -97,13 +97,12 @@ const MySchedule: React.FC = () => {
                             </div>
                             
                             <div className="flex-1">
-                                <h3 className="font-bold text-gray-800 text-lg flex items-center gap-2">
-                                    {item.subject}
+                                <h3 className="font-bold text-gray-800 text-xl flex items-center gap-2">
+                                    Kelas {item.kelas}
                                 </h3>
-                                <div className="flex items-center gap-4 mt-1">
-                                    <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-                                        <MapPin size={12} /> Kelas {item.kelas}
-                                    </span>
+                                <div className="flex items-center gap-2 mt-1 text-gray-600">
+                                    <BookOpen size={16} className="text-blue-500" />
+                                    <span className="font-medium">{item.subject}</span>
                                 </div>
                             </div>
                         </div>

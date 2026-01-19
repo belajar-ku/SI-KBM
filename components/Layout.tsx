@@ -47,11 +47,11 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
                  <div className="absolute -bottom-1 -right-1 bg-green-500 w-3 h-3 rounded-full border-2 border-white"></div>
                </div>
                <div className="leading-tight">
-                 <h2 className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
-                   {profile?.full_name || 'Guru'}
+                 <h2 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-0.5">
+                   UPT SMP NEGERI 1 PASURUAN
                  </h2>
-                 <p className="text-xs text-blue-500 font-medium">
-                   {profile?.role === 'admin' ? 'Administrator' : `NIP. ${profile?.nip || '-'}`}
+                 <p className="text-sm font-bold text-gray-800 group-hover:text-blue-600 transition-colors">
+                   {profile?.full_name || 'Guru'}
                  </p>
                </div>
             </div>
