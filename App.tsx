@@ -12,6 +12,7 @@ import UsersData from './pages/UsersData';
 import StudentsData from './pages/StudentsData';
 import ProfilePage from './pages/ProfilePage';
 import MySchedule from './pages/MySchedule';
+import SettingsPage from './pages/SettingsPage';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -95,6 +96,12 @@ const App: React.FC = () => {
           <Route path="/students" element={
              <AdminRoute>
                 <StudentsData />
+             </AdminRoute>
+          } />
+
+           <Route path="/settings" element={
+             <AdminRoute>
+                <SettingsPage />
              </AdminRoute>
           } />
 

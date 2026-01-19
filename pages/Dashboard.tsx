@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
-import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users, CalendarPlus, Clock, GraduationCap } from 'lucide-react';
+import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users, CalendarPlus, Clock, GraduationCap, Settings } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -89,6 +89,7 @@ const Dashboard: React.FC = () => {
              <MenuButton label="Input Jadwal" icon={CalendarPlus} color="#8e44ad" path="/input-jadwal" desc="Input Manual" />
              <MenuButton label="Data User" icon={Users} color="#16a085" path="/users" desc="Kelola Akun Guru" />
              <MenuButton label="Data Murid" icon={GraduationCap} color="#2980b9" path="/students" desc="Kelola Data Siswa" />
+             <MenuButton label="Setting" icon={Settings} color="#34495e" path="/settings" desc="Pengaturan Aplikasi" />
            </>
         ) : (
            <>

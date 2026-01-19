@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Schedule, Journal } from '../types';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare } from 'lucide-react';
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
@@ -42,7 +43,9 @@ const JurnalForm: React.FC = () => {
     material: '',
     attendance: {} as Record<string, 'S' | 'I' | 'A' | 'D'>,
     cleanliness: '',
-    validation: ''
+    validation: '', // Disimpan sebagai 'hadir_kbm' jika checkbox dicentang
+    notes: '', // Catatan KBM
+    isConfirmed: false // Checkbox state
   });
 
   useEffect(() => {
@@ -125,7 +128,6 @@ const JurnalForm: React.FC = () => {
         if (!selectedSchedule) return;
 
         // Cek apakah jadwal ini SUDAH diisi jurnalnya? (Match Kelas & Mapel)
-        // Note: Idealnya match by schedule_id, tapi struktur jurnal kita simpan manual string.
         const existing = existingJournals.find(j => 
             j.kelas === selectedSchedule.kelas && 
             j.subject === selectedSchedule.subject
@@ -156,7 +158,9 @@ const JurnalForm: React.FC = () => {
                 material: existing.material,
                 attendance: attendanceMap,
                 cleanliness: existing.cleanliness as any,
-                validation: existing.validation as any
+                validation: existing.validation as any,
+                notes: existing.notes || '',
+                isConfirmed: existing.validation === 'hadir_kbm'
             });
 
         } else {
@@ -175,7 +179,9 @@ const JurnalForm: React.FC = () => {
                 material: '',
                 attendance: {},
                 cleanliness: '',
-                validation: ''
+                validation: '',
+                notes: '',
+                isConfirmed: false
             });
         }
       } catch (e) {
@@ -188,12 +194,23 @@ const JurnalForm: React.FC = () => {
   const handleNext = () => setStep(prev => prev + 1);
   const handleBack = () => setStep(prev => prev - 1);
 
+  // Helper untuk mengubah Text ke Title Case
+  const handleMaterialChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      const val = e.target.value;
+      // Regex untuk ubah huruf pertama setiap kata jadi uppercase
+      const titleCased = val.replace(/\b\w/g, l => l.toUpperCase());
+      setFormData({...formData, material: titleCased});
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
       if (!profile) throw new Error("Not authenticated");
 
       let finalJournalId = editJournalId;
+      
+      // Tentukan nilai validation string berdasarkan checkbox
+      const validationStatus = formData.isConfirmed ? 'hadir_kbm' : 'inval'; 
 
       if (editJournalId) {
           // --- UPDATE EXISTING ---
@@ -203,13 +220,14 @@ const JurnalForm: React.FC = () => {
                 hours: formData.hours.join(','),
                 material: formData.material,
                 cleanliness: formData.cleanliness,
-                validation: formData.validation
+                validation: validationStatus,
+                notes: formData.notes
             })
             .eq('id', editJournalId);
             
           if (error) throw error;
 
-          // Update Attendance: Hapus semua log lama, insert baru (Strategi paling aman & mudah)
+          // Update Attendance: Hapus semua log lama, insert baru
           await supabase.from('attendance_logs').delete().eq('journal_id', editJournalId);
 
       } else {
@@ -223,7 +241,8 @@ const JurnalForm: React.FC = () => {
                 hours: formData.hours.join(','),
                 material: formData.material,
                 cleanliness: formData.cleanliness,
-                validation: formData.validation
+                validation: validationStatus,
+                notes: formData.notes
             })
             .select()
             .single();
@@ -240,7 +259,9 @@ const JurnalForm: React.FC = () => {
                 journal_id: finalJournalId,
                 student_id: studentId,
                 student_name: studentName,
-                status: status
+                status: status,
+                teacher_name: profile.full_name, 
+                subject: formData.subject
               };
           });
 
@@ -292,8 +313,8 @@ const JurnalForm: React.FC = () => {
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
        <div className="flex justify-between items-start mb-6">
            <div>
-               <h3 className="font-bold text-xl text-gray-800">Presensi Siswa</h3>
-               <p className="text-gray-500 text-xs">Pilih kelas & tandai siswa yang tidak hadir.</p>
+               <h3 className="font-bold text-xl text-gray-800">Presensi Murid</h3>
+               <p className="text-gray-500 text-xs">Pilih kelas & tandai murid yang tidak hadir/dispensasi.</p>
            </div>
            
            {/* Toggle Mode */}
@@ -302,7 +323,7 @@ const JurnalForm: React.FC = () => {
                  const newMode = inputMode === 'auto' ? 'manual' : 'auto';
                  setInputMode(newMode);
                  setEditJournalId(null);
-                 setFormData({ kelas: '', subject: '', hours: [], material: '', attendance: {}, cleanliness: '', validation: ''});
+                 setFormData({ kelas: '', subject: '', hours: [], material: '', attendance: {}, cleanliness: '', validation: '', notes: '', isConfirmed: false});
              }}
              className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors"
            >
@@ -381,31 +402,33 @@ const JurnalForm: React.FC = () => {
        {formData.kelas && !loading && (
          <div className="animate-fade-in">
            <div className="flex justify-between items-center mb-2">
-               <span className="text-sm font-bold text-gray-700">Daftar Siswa ({students.length})</span>
+               <span className="text-sm font-bold text-gray-700">Daftar Murid ({students.length})</span>
                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded">Default: Hadir</span>
            </div>
            <div className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden max-h-[300px] overflow-y-auto">
              <table className="w-full text-sm">
                <thead className="bg-gray-100 sticky top-0 z-10 shadow-sm">
                  <tr>
-                   <th className="p-3 text-left text-gray-600 font-bold">Nama</th>
-                   <th className="p-3 w-10 text-center"><span className="bg-yellow-100 text-yellow-700 px-1 rounded">S</span></th>
-                   <th className="p-3 w-10 text-center"><span className="bg-blue-100 text-blue-700 px-1 rounded">I</span></th>
-                   <th className="p-3 w-10 text-center"><span className="bg-red-100 text-red-700 px-1 rounded">A</span></th>
+                   <th className="p-3 text-left text-gray-600 font-bold">Nama Murid</th>
+                   <th className="p-3 w-10 text-center"><span className="bg-yellow-100 text-yellow-700 px-1 rounded font-bold">S</span></th>
+                   <th className="p-3 w-10 text-center"><span className="bg-blue-100 text-blue-700 px-1 rounded font-bold">I</span></th>
+                   <th className="p-3 w-10 text-center"><span className="bg-red-100 text-red-700 px-1 rounded font-bold">A</span></th>
+                   <th className="p-3 w-10 text-center"><span className="bg-purple-100 text-purple-700 px-1 rounded font-bold">D</span></th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-gray-100">
                  {students.map(student => (
                    <tr key={student.id} className="bg-white">
                      <td className="p-3 font-medium text-gray-700">{student.name}</td>
-                     {['S', 'I', 'A'].map((status) => (
+                     {['S', 'I', 'A', 'D'].map((status) => (
                        <td key={status} className="p-2 text-center">
                          <input 
                            type="checkbox" 
                            className={`w-5 h-5 rounded cursor-pointer transition-transform transform active:scale-90 ${
                                status === 'S' ? 'text-yellow-500 focus:ring-yellow-500' :
                                status === 'I' ? 'text-blue-500 focus:ring-blue-500' :
-                               'text-red-500 focus:ring-red-500'
+                               status === 'A' ? 'text-red-500 focus:ring-red-500' :
+                               'text-purple-500 focus:ring-purple-500'
                            }`}
                            checked={formData.attendance[student.id] === status}
                            onChange={() => {
@@ -422,7 +445,7 @@ const JurnalForm: React.FC = () => {
                </tbody>
              </table>
            </div>
-           <p className="text-[10px] text-gray-400 mt-2 text-right">* Siswa yang tidak dicentang dianggap <b>Hadir</b>.</p>
+           <p className="text-[10px] text-gray-400 mt-2 text-right">* Murid yang tidak dicentang dianggap <b>Hadir</b>.</p>
          </div>
        )}
 
@@ -514,12 +537,12 @@ const JurnalForm: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">Materi / Bahasan</label>
+          <label className="block text-sm font-bold text-gray-700 mb-2">Materi / Bahasan (Auto Title Case)</label>
           <textarea 
             className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]" 
             rows={3}
             value={formData.material}
-            onChange={e => setFormData(prev => ({...prev, material: e.target.value}))}
+            onChange={handleMaterialChange}
             placeholder="Ringkasan materi yang diajarkan hari ini..."
           ></textarea>
         </div>
@@ -558,7 +581,7 @@ const JurnalForm: React.FC = () => {
              <ul className="text-sm space-y-1 text-gray-600">
                  <li>📚 <b>{formData.subject}</b> (Kelas {formData.kelas})</li>
                  <li>⏰ Jam ke: {formData.hours.join(', ')}</li>
-                 <li>📝 Absen: {Object.keys(formData.attendance).length} Siswa tidak hadir</li>
+                 <li>📝 Absen: {Object.keys(formData.attendance).length} Murid tidak hadir/dispensasi</li>
              </ul>
           </div>
 
@@ -579,17 +602,31 @@ const JurnalForm: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Status Pembelajaran</label>
-            <div className="space-y-2">
-               <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.validation === 'hadir_kbm' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                 <input type="radio" name="validasi" value="hadir_kbm" className="w-4 h-4 text-blue-600" checked={formData.validation === 'hadir_kbm'} onChange={e => setFormData({...formData, validation: e.target.value})} />
-                 <span className="font-medium text-gray-700">Hadir KBM Tatap Muka</span>
-               </label>
-               <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.validation === 'izin_tugas' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                 <input type="radio" name="validasi" value="izin_tugas" className="w-4 h-4 text-blue-600" checked={formData.validation === 'izin_tugas'} onChange={e => setFormData({...formData, validation: e.target.value})} />
-                 <span className="font-medium text-gray-700">Izin (Memberi Tugas)</span>
-               </label>
-            </div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">Validasi</label>
+            <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.isConfirmed ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                 <input 
+                    type="checkbox" 
+                    className="w-5 h-5 text-blue-600 rounded focus:ring-blue-500" 
+                    checked={formData.isConfirmed} 
+                    onChange={e => setFormData({...formData, isConfirmed: e.target.checked})} 
+                 />
+                 <span className="font-bold text-gray-700 text-sm">
+                    Saya "Benar-benar Melaksanakan Kegiatan Belajar Mengajar di Kelas."
+                 </span>
+            </label>
+          </div>
+
+          <div>
+             <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">
+                 <MessageSquare size={16} className="text-blue-500"/> Catatan Selama KBM
+             </label>
+             <textarea 
+                className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px] text-sm" 
+                rows={2}
+                value={formData.notes}
+                onChange={e => setFormData(prev => ({...prev, notes: e.target.value}))}
+                placeholder="Tambahkan catatan khusus jika ada (Opsional)..."
+             ></textarea>
           </div>
        </div>
 
@@ -598,7 +635,7 @@ const JurnalForm: React.FC = () => {
            <ArrowLeft size={18} /> Kembali
          </button>
          <button 
-            disabled={!formData.cleanliness || !formData.validation || loading} 
+            disabled={!formData.cleanliness || !formData.isConfirmed || loading} 
             onClick={handleSubmit} 
             className={`text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg transition-all transform hover:-translate-y-1 ${
                 editJournalId 

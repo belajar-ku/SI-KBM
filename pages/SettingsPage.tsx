@@ -1,0 +1,314 @@
+
+import React, { useEffect, useState } from 'react';
+import { Layout } from '../components/Layout';
+import { supabase } from '../services/supabase';
+import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square } from 'lucide-react';
+import { AppSetting, NonEffectiveDay } from '../types';
+
+const SettingsPage: React.FC = () => {
+  const [settings, setSettings] = useState<Record<string, string>>({
+    academic_year: '',
+    semester: 'Ganjil',
+    headmaster: ''
+  });
+  const [nonEffectiveDays, setNonEffectiveDays] = useState<NonEffectiveDay[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  // New Day Input State
+  const [newDay, setNewDay] = useState({ date: '', reason: '' });
+  
+  // Hours Selection State
+  const [isFullDay, setIsFullDay] = useState(true);
+  const [selectedHours, setSelectedHours] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    setLoading(true);
+    try {
+        const { data, error } = await supabase.from('app_settings').select('*');
+        if (error) throw error;
+        
+        const settingsMap: Record<string, string> = {};
+        let days: NonEffectiveDay[] = [];
+
+        if (data) {
+            data.forEach(item => {
+                if (item.key === 'non_effective_days') {
+                    try {
+                        days = item.value ? JSON.parse(item.value) : [];
+                    } catch (e) {
+                        console.warn("Error parsing non_effective_days JSON:", e);
+                        days = [];
+                    }
+                } else {
+                    settingsMap[item.key] = item.value || '';
+                }
+            });
+        }
+
+        // Merge with existing state to ensure defaults exist if DB is empty
+        setSettings(prev => ({ ...prev, ...settingsMap }));
+        setNonEffectiveDays(days);
+    } catch (err: any) {
+        // Log the actual error message safely
+        const msg = err.message || JSON.stringify(err);
+        console.error("Error fetching settings:", msg);
+        
+        // If table doesn't exist, we just use defaults without alarming the user too much (assuming setup might be pending)
+        if (msg.includes('does not exist')) {
+            console.warn("Table app_settings belum dibuat. Jalankan SUPABASE_SETUP.sql di SQL Editor Supabase.");
+        }
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  const handleSaveGeneral = async () => {
+      setSaving(true);
+      try {
+          // Upsert general settings
+          const updates = Object.entries(settings).map(([key, value]) => ({
+              key, value
+          }));
+
+          const { error } = await supabase.from('app_settings').upsert(updates);
+          if (error) throw error;
+          
+          alert("Pengaturan umum berhasil disimpan!");
+      } catch (err: any) {
+          alert("Gagal menyimpan: " + (err.message || err));
+      } finally {
+          setSaving(false);
+      }
+  };
+
+  const toggleHour = (h: number) => {
+      const val = String(h);
+      setSelectedHours(prev => 
+          prev.includes(val) ? prev.filter(x => x !== val) : [...prev, val]
+      );
+  };
+
+  const handleAddDay = () => {
+      if (!newDay.date || !newDay.reason) {
+          alert("Tanggal dan Keterangan wajib diisi.");
+          return;
+      }
+
+      if (!isFullDay && selectedHours.length === 0) {
+          alert("Pilih minimal satu jam jika bukan Full Day.");
+          return;
+      }
+
+      const hoursString = isFullDay 
+        ? "Full Day" 
+        : selectedHours.sort((a,b) => Number(a) - Number(b)).join(', ');
+
+      const dayToAdd: NonEffectiveDay = {
+          date: newDay.date,
+          reason: newDay.reason,
+          hours: hoursString
+      };
+
+      const updatedDays = [...nonEffectiveDays, dayToAdd];
+      setNonEffectiveDays(updatedDays);
+      
+      // Reset Form
+      setNewDay({ date: '', reason: '' });
+      setIsFullDay(true);
+      setSelectedHours([]);
+
+      saveDays(updatedDays);
+  };
+
+  const handleDeleteDay = (idx: number) => {
+      const updatedDays = nonEffectiveDays.filter((_, i) => i !== idx);
+      setNonEffectiveDays(updatedDays);
+      saveDays(updatedDays);
+  };
+
+  const saveDays = async (days: NonEffectiveDay[]) => {
+      try {
+          const { error } = await supabase.from('app_settings').upsert({
+              key: 'non_effective_days',
+              value: JSON.stringify(days)
+          });
+          if (error) throw error;
+      } catch (err: any) {
+          console.error("Failed to save non-effective days:", err.message || err);
+          alert("Gagal menyimpan hari libur: " + (err.message || "Unknown error"));
+      }
+  };
+
+  if (loading) return <Layout><div className="flex justify-center p-10"><Loader2 className="animate-spin"/></div></Layout>;
+
+  return (
+    <Layout>
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center gap-3 mb-6">
+            <div className="bg-gray-800 p-3 rounded-2xl text-white">
+                <Settings size={28} />
+            </div>
+            <div>
+                <h2 className="text-2xl font-bold text-gray-800">Pengaturan Aplikasi</h2>
+                <p className="text-gray-500 text-sm">Konfigurasi tahun ajaran dan hari libur sekolah.</p>
+            </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-6">
+            {/* KOLOM KIRI: UMUM */}
+            <div className="space-y-6">
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <Info size={18} className="text-blue-500"/> Informasi Sekolah
+                    </h3>
+                    <div className="space-y-4">
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Tahun Ajaran</label>
+                            <input 
+                                className="w-full border rounded-lg p-3 font-medium" 
+                                value={settings['academic_year'] || ''}
+                                onChange={e => setSettings({...settings, academic_year: e.target.value})}
+                                placeholder="Contoh: 2024/2025"
+                            />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Semester</label>
+                            <select 
+                                className="w-full border rounded-lg p-3 bg-white"
+                                value={settings['semester'] || 'Ganjil'}
+                                onChange={e => setSettings({...settings, semester: e.target.value})}
+                            >
+                                <option value="Ganjil">Ganjil</option>
+                                <option value="Genap">Genap</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-1">Nama Kepala Sekolah</label>
+                            <input 
+                                className="w-full border rounded-lg p-3 font-medium" 
+                                value={settings['headmaster'] || ''}
+                                onChange={e => setSettings({...settings, headmaster: e.target.value})}
+                                placeholder="Nama Lengkap & Gelar"
+                            />
+                        </div>
+                        <button 
+                            onClick={handleSaveGeneral}
+                            disabled={saving}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 mt-2 shadow-lg disabled:opacity-50"
+                        >
+                            {saving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Simpan Informasi
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* KOLOM KANAN: HARI NON EFEKTIF */}
+            <div className="space-y-6">
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <Calendar size={18} className="text-red-500"/> Hari Non-Efektif
+                    </h3>
+                    
+                    {/* Add New */}
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1">Tanggal</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full border rounded-lg p-2 text-sm"
+                                    value={newDay.date}
+                                    onChange={e => setNewDay({...newDay, date: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1">Keterangan</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full border rounded-lg p-2 text-sm"
+                                    placeholder="Contoh: Rapat Dinas"
+                                    value={newDay.reason}
+                                    onChange={e => setNewDay({...newDay, reason: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        {/* Opsi Jam */}
+                        <div>
+                             <div className="flex items-center gap-2 mb-2 cursor-pointer" onClick={() => setIsFullDay(!isFullDay)}>
+                                 {isFullDay ? <CheckSquare size={18} className="text-blue-600"/> : <Square size={18} className="text-gray-400"/>}
+                                 <label className="text-sm font-bold text-gray-700 cursor-pointer select-none">Libur Seharian (Full Day)</label>
+                             </div>
+                             
+                             {!isFullDay && (
+                                 <div className="animate-fade-in p-3 bg-gray-100 rounded-xl border border-gray-200">
+                                     <label className="block text-[10px] font-bold text-gray-500 mb-2">Pilih Jam yang Diliburkan:</label>
+                                     <div className="flex flex-wrap gap-2">
+                                         {[1,2,3,4,5,6,7,8,9,10].map(h => (
+                                             <button
+                                                 key={h}
+                                                 onClick={() => toggleHour(h)}
+                                                 className={`w-8 h-8 rounded-lg text-xs font-bold transition-all border ${
+                                                     selectedHours.includes(String(h))
+                                                     ? 'bg-red-500 text-white border-red-500 shadow-sm'
+                                                     : 'bg-white text-gray-600 border-gray-300 hover:border-red-300'
+                                                 }`}
+                                             >
+                                                 {h}
+                                             </button>
+                                         ))}
+                                     </div>
+                                 </div>
+                             )}
+                        </div>
+
+                        <button 
+                           onClick={handleAddDay}
+                           className="w-full bg-green-600 text-white p-2.5 rounded-xl hover:bg-green-700 font-bold flex items-center justify-center gap-2"
+                        >
+                            <Plus size={18} /> Tambah Hari Libur
+                        </button>
+                    </div>
+
+                    {/* List */}
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                        {nonEffectiveDays.length === 0 ? (
+                            <p className="text-center text-gray-400 text-sm py-4">Tidak ada hari libur diinput.</p>
+                        ) : (
+                            nonEffectiveDays.map((day, idx) => (
+                                <div key={idx} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                    <div>
+                                        <div className="font-bold text-gray-800 text-sm">{day.reason}</div>
+                                        <div className="text-xs text-gray-500 flex gap-2 items-center mt-1">
+                                            <Calendar size={12}/>
+                                            <span>{new Date(day.date).toLocaleDateString('id-ID')}</span>
+                                            <span className="text-red-500 font-bold bg-red-50 px-1.5 rounded flex items-center gap-1">
+                                                <Clock size={10}/>
+                                                {day.hours === "Full Day" ? "Full Day" : `Jam ke: ${day.hours}`}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={() => handleDeleteDay(idx)}
+                                        className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-colors"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+      </div>
+    </Layout>
+  );
+};
+
+export default SettingsPage;

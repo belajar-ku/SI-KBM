@@ -48,6 +48,7 @@ export interface Journal {
   cleanliness: 'mengarahkan_piket' | 'sudah_bersih';
   validation: 'izin_tugas' | 'hadir_kbm' | 'inval';
   inval_teacher_name?: string;
+  notes?: string; // New: Catatan KBM
   teacher?: Profile;
 }
 
@@ -56,6 +57,8 @@ export interface AttendanceRecord {
   journal_id: string;
   student_name: string;
   status: 'S' | 'I' | 'A' | 'D';
+  teacher_name?: string; // New
+  subject?: string; // New
 }
 
 export interface PublicStats {
@@ -69,4 +72,16 @@ export interface PublicStats {
   absenceDetails: { S: number; I: number; A: number }; // Rincian Global
   absencePerClass: Record<string, number>; // New: {'7A': 1, '7B': 0} (Jumlah yg tidak hadir)
   unfilledKbm: { guru: string; kelas: string; jam: string }[];
+}
+
+export interface AppSetting {
+  key: string;
+  value: string;
+  description?: string;
+}
+
+export interface NonEffectiveDay {
+  date: string;
+  reason: string;
+  hours: string; // "Full Day" or "1-4"
 }

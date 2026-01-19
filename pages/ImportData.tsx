@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
@@ -83,7 +84,7 @@ const ImportData: React.FC = () => {
     } else if (activeTab === 'students') {
         // UPDATE: Tambah L/P dan Jenjang
         csvContent = "NISN;NIS;Nama Lengkap;Kelas;L/P;Jenjang\n0012345678;1001;Ahmad Dahlan;7A;L;7\n0087654321;1002;Dewi Sartika;7B;P;7";
-        filename = 'template_siswa.csv';
+        filename = 'template_murid.csv';
     } else if (activeTab === 'schedules') {
         csvContent = "Hari;Jam Ke;Kelas;Mapel;NIP Guru\nSenin;1-2;7A;Matematika;198001012010011001\nSenin;3-4;7A;IPA;198001012010011001\nSelasa;1-3;8B;Bahasa Indonesia;199002022019032002";
         filename = 'template_jadwal.csv';
