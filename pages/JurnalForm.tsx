@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Schedule, Journal } from '../types';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, Save } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2 } from 'lucide-react';
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
@@ -25,6 +25,14 @@ const JurnalForm: React.FC = () => {
   
   // Mode: 'auto' (dari jadwal) atau 'manual' (inval/luar jadwal)
   const [inputMode, setInputMode] = useState<'auto' | 'manual'>('auto');
+
+  // Custom Alert State
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({ isOpen: false, type: 'success', title: '', message: '' });
 
   // Form State
   const [formData, setFormData] = useState({
@@ -242,14 +250,33 @@ const JurnalForm: React.FC = () => {
           }
       }
 
-      alert(editJournalId ? '✅ Jurnal berhasil diperbarui!' : '✅ Jurnal berhasil disimpan!');
-      navigate('/dashboard');
+      // TAMPILKAN CUSTOM ALERT SUKSES
+      setAlertState({
+        isOpen: true,
+        type: 'success',
+        title: editJournalId ? 'Berhasil Diperbarui!' : 'Berhasil Disimpan!',
+        message: 'Data jurnal pembelajaran telah tersimpan di sistem.'
+      });
 
     } catch (err: any) {
-      alert(`Error: ${err.message}`);
+      // TAMPILKAN CUSTOM ALERT ERROR
+      setAlertState({
+        isOpen: true,
+        type: 'error',
+        title: 'Gagal Menyimpan',
+        message: err.message || 'Terjadi kesalahan sistem.'
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseAlert = () => {
+      setAlertState(prev => ({ ...prev, isOpen: false }));
+      // Jika sukses, redirect ke dashboard
+      if (alertState.type === 'success') {
+          navigate('/dashboard');
+      }
   };
 
   const CheckCircleIcon = ({className = "text-blue-500"}: {className?: string}) => (
@@ -587,7 +614,7 @@ const JurnalForm: React.FC = () => {
 
   return (
     <Layout>
-      <div className="max-w-xl mx-auto pb-10">
+      <div className="max-w-xl mx-auto pb-10 relative">
         {/* Modern Progress Header */}
         <div className="flex justify-between items-center mb-8 px-2">
             <div>
@@ -619,6 +646,44 @@ const JurnalForm: React.FC = () => {
                 {step === 2 && renderStep2()}
                 {step === 3 && renderStep3()}
             </>
+        )}
+
+        {/* CUSTOM AESTHETIC ALERT MODAL */}
+        {alertState.isOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center transform scale-100 transition-all border border-white/20">
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg ${
+                        alertState.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'
+                    }`}>
+                        {alertState.type === 'success' ? (
+                            <CheckCircle2 size={48} strokeWidth={3} />
+                        ) : (
+                            <XCircle size={48} strokeWidth={3} />
+                        )}
+                    </div>
+                    
+                    <h3 className={`text-2xl font-bold mb-2 ${
+                        alertState.type === 'success' ? 'text-green-700' : 'text-red-700'
+                    }`}>
+                        {alertState.title}
+                    </h3>
+                    
+                    <p className="text-gray-500 text-sm mb-8 leading-relaxed">
+                        {alertState.message}
+                    </p>
+                    
+                    <button 
+                        onClick={handleCloseAlert}
+                        className={`w-full py-3.5 rounded-xl font-bold text-white shadow-lg transition-transform hover:-translate-y-1 active:scale-95 ${
+                            alertState.type === 'success' 
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:shadow-green-500/30' 
+                            : 'bg-gradient-to-r from-red-500 to-rose-600 hover:shadow-red-500/30'
+                        }`}
+                    >
+                        {alertState.type === 'success' ? 'Lanjutkan ke Dashboard' : 'Tutup & Perbaiki'}
+                    </button>
+                </div>
+            </div>
         )}
       </div>
     </Layout>
