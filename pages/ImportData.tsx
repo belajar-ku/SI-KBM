@@ -81,7 +81,8 @@ const ImportData: React.FC = () => {
         csvContent = "NIP;Nama Lengkap;Mata Pelajaran;Wali Kelas\n198001012010011001;Budi Santoso S.Pd;Matematika,IPA;7A\n199002022019032002;Siti Aminah S.Pd;Bahasa Indonesia;8B";
         filename = 'template_guru.csv';
     } else if (activeTab === 'students') {
-        csvContent = "NISN;NIS;Nama Lengkap;Kelas\n0012345678;1001;Ahmad Dahlan;7A\n0087654321;1002;Dewi Sartika;7B";
+        // UPDATE: Tambah L/P dan Jenjang
+        csvContent = "NISN;NIS;Nama Lengkap;Kelas;L/P;Jenjang\n0012345678;1001;Ahmad Dahlan;7A;L;7\n0087654321;1002;Dewi Sartika;7B;P;7";
         filename = 'template_siswa.csv';
     } else if (activeTab === 'schedules') {
         csvContent = "Hari;Jam Ke;Kelas;Mapel;NIP Guru\nSenin;1-2;7A;Matematika;198001012010011001\nSenin;3-4;7A;IPA;198001012010011001\nSelasa;1-3;8B;Bahasa Indonesia;199002022019032002";
@@ -144,7 +145,9 @@ const ImportData: React.FC = () => {
                 nisn: String(row['NISN'] || row['nisn']),
                 nis: String(row['NIS'] || row['nis']),
                 name: row['Nama Lengkap'] || row['nama'] || row['Nama'],
-                kelas: row['Kelas'] || row['kelas']
+                kelas: row['Kelas'] || row['kelas'],
+                gender: row['L/P'] || row['l/p'] || row['Gender'] || row['gender'], // Mapping kolom L/P
+                jenjang: row['Jenjang'] || row['jenjang'] // Mapping kolom Jenjang
             })).filter(s => s.nisn && s.name && s.kelas);
 
             if (studentsToInsert.length > 0) {
@@ -402,7 +405,7 @@ const ImportData: React.FC = () => {
                         <ul className="list-disc ml-4 mt-1 space-y-1">
                             <li>Gunakan <strong>Titik Koma (;)</strong> atau <strong>Koma (,)</strong> sebagai pemisah.</li>
                             {activeTab === 'teachers' && <li>Format: NIP;Nama;Mapel;Wali</li>}
-                            {activeTab === 'students' && <li>Format: NISN;NIS;Nama;Kelas</li>}
+                            {activeTab === 'students' && <li>Format: NISN;NIS;Nama;Kelas;L/P;Jenjang</li>}
                             {activeTab === 'schedules' && <li>Format: Hari;Jam;Kelas;Mapel;NIP Guru</li>}
                         </ul>
                     </div>

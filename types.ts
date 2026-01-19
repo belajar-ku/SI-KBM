@@ -22,6 +22,8 @@ export interface Student {
   nis?: string;
   name: string;
   kelas: string;
+  gender?: 'L' | 'P'; // Baru
+  jenjang?: string;   // Baru
 }
 
 export interface Schedule {

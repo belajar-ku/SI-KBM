@@ -7,8 +7,10 @@ alter table public.profiles add column if not exists wali_kelas text;
 alter table public.profiles add column if not exists avatar_url text;
 alter table public.profiles add column if not exists mengajar_mapel text; -- Tambahan Baru
 
--- 2. UPDATE TABEL SISWA (Tambah NIS)
+-- 2. UPDATE TABEL SISWA (Tambah NIS & Kolom Baru)
 alter table public.students add column if not exists nis text;
+alter table public.students add column if not exists gender text; -- Baru (L/P)
+alter table public.students add column if not exists jenjang text; -- Baru (7, 8, 9)
 
 -- 3. BUAT TABEL JADWAL (SCHEDULES)
 create table if not exists public.schedules (
