@@ -3,8 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Student, Schedule } from '../types';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, Users, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react';
+import { Student, Schedule, Journal } from '../types';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, Save } from 'lucide-react';
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
@@ -18,6 +18,10 @@ const JurnalForm: React.FC = () => {
   const [todaySchedules, setTodaySchedules] = useState<Schedule[]>([]);
   const [allClasses, setAllClasses] = useState<string[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  
+  // State untuk mengecek jurnal yang SUDAH diisi hari ini
+  const [existingJournals, setExistingJournals] = useState<Journal[]>([]);
+  const [editJournalId, setEditJournalId] = useState<string | null>(null); // Jika sedang edit
   
   // Mode: 'auto' (dari jadwal) atau 'manual' (inval/luar jadwal)
   const [inputMode, setInputMode] = useState<'auto' | 'manual'>('auto');
@@ -43,16 +47,27 @@ const JurnalForm: React.FC = () => {
         if (!profile) return;
 
         // 1. Determine Day (1 = Senin, ... 7 = Minggu)
-        // JS: 0=Sun, 1=Mon. 
         const jsDay = new Date().getDay(); 
         const dbDay = jsDay === 0 ? 7 : jsDay;
+        const todayStr = new Date().toISOString().split('T')[0];
 
         // 2. Fetch Today's Schedule
         const { data: schedules } = await supabase
             .from('schedules')
             .select('*')
             .eq('teacher_id', profile.id)
-            .eq('day_of_week', dbDay);
+            .eq('day_of_week', dbDay)
+            .order('hour'); // sort jam
+        
+        // 3. Fetch Jurnal yang SUDAH dibuat hari ini oleh guru ini
+        const { data: journals } = await supabase
+            .from('journals')
+            .select('*')
+            .eq('teacher_id', profile.id)
+            .gte('created_at', `${todayStr} 00:00:00`)
+            .lte('created_at', `${todayStr} 23:59:59`);
+
+        if (journals) setExistingJournals(journals);
         
         if (schedules && schedules.length > 0) {
             setTodaySchedules(schedules);
@@ -61,10 +76,10 @@ const JurnalForm: React.FC = () => {
             setInputMode('manual'); // No schedule today, fallback to manual
         }
 
-        // 3. Fetch All Classes (For Manual Mode)
+        // 4. Fetch All Classes (For Manual Mode)
         const { data: studentData } = await supabase.from('students').select('kelas');
         if (studentData) {
-            const unique = Array.from(new Set(studentData.map(s => s.kelas))).sort();
+            const unique = Array.from(new Set(studentData.map((s: any) => s.kelas))).sort() as string[];
             setAllClasses(unique);
         }
 
@@ -80,11 +95,13 @@ const JurnalForm: React.FC = () => {
     if (formData.kelas) {
       const fetchStudents = async () => {
         setLoading(true);
+        // Jika sedang edit, kita butuh data siswa dulu baru load absensi
         const { data } = await supabase
           .from('students')
           .select('*')
           .eq('kelas', formData.kelas)
           .order('name');
+        
         if (data) setStudents(data);
         setLoading(false);
       };
@@ -93,32 +110,70 @@ const JurnalForm: React.FC = () => {
   }, [formData.kelas]);
 
   // Handle selection from Schedule Dropdown
-  const handleScheduleSelect = (scheduleId: string) => {
-      if (scheduleId === 'manual_override') {
-          setInputMode('manual');
-          setFormData({ ...formData, kelas: '', subject: '', hours: [] });
-          return;
-      }
+  const handleScheduleSelect = async (scheduleId: string) => {
+      setLoading(true);
+      try {
+        const selectedSchedule = todaySchedules.find(s => s.id === scheduleId);
+        if (!selectedSchedule) return;
 
-      const selected = todaySchedules.find(s => s.id === scheduleId);
-      if (selected) {
-          // Parse Hours (e.g., "1, 2" or "1-2")
-          let hoursParsed: string[] = [];
-          if (selected.hour.includes(',')) hoursParsed = selected.hour.split(',').map(s => s.trim());
-          else if (selected.hour.includes('-')) { 
-             // simple range parsing if needed, usually we store comma separated
-             hoursParsed = [selected.hour]; 
-          } else {
-             hoursParsed = [selected.hour];
-          }
+        // Cek apakah jadwal ini SUDAH diisi jurnalnya? (Match Kelas & Mapel)
+        // Note: Idealnya match by schedule_id, tapi struktur jurnal kita simpan manual string.
+        const existing = existingJournals.find(j => 
+            j.kelas === selectedSchedule.kelas && 
+            j.subject === selectedSchedule.subject
+        );
 
-          setFormData(prev => ({
-              ...prev,
-              kelas: selected.kelas,
-              subject: selected.subject,
-              hours: hoursParsed,
-              attendance: {} // reset attendance
-          }));
+        if (existing) {
+            // MODE EDIT
+            setEditJournalId(existing.id);
+            
+            // Ambil data absensi lama
+            const { data: logs } = await supabase
+                .from('attendance_logs')
+                .select('student_id, status')
+                .eq('journal_id', existing.id);
+            
+            const attendanceMap: Record<string, 'S'|'I'|'A'|'D'> = {};
+            if (logs) {
+                logs.forEach(l => {
+                    attendanceMap[l.student_id] = l.status as any;
+                });
+            }
+
+            // Pre-fill Form
+            setFormData({
+                kelas: existing.kelas,
+                subject: existing.subject,
+                hours: existing.hours.split(',').map(s => s.trim()),
+                material: existing.material,
+                attendance: attendanceMap,
+                cleanliness: existing.cleanliness as any,
+                validation: existing.validation as any
+            });
+
+        } else {
+            // MODE BARU (INSERT)
+            setEditJournalId(null);
+            
+            // Parse Hours
+            let hoursParsed: string[] = [];
+            if (selectedSchedule.hour.includes(',')) hoursParsed = selectedSchedule.hour.split(',').map(s => s.trim());
+            else hoursParsed = [selectedSchedule.hour];
+
+            setFormData({
+                kelas: selectedSchedule.kelas,
+                subject: selectedSchedule.subject,
+                hours: hoursParsed,
+                material: '',
+                attendance: {},
+                cleanliness: '',
+                validation: ''
+            });
+        }
+      } catch (e) {
+        console.error("Error selecting schedule", e);
+      } finally {
+        setLoading(false);
       }
   };
 
@@ -130,41 +185,64 @@ const JurnalForm: React.FC = () => {
     try {
       if (!profile) throw new Error("Not authenticated");
 
-      // 1. Insert Journal
-      const { data: journal, error: journalError } = await supabase
-        .from('journals')
-        .insert({
-          teacher_id: profile.id,
-          kelas: formData.kelas,
-          subject: formData.subject,
-          hours: formData.hours.join(','),
-          material: formData.material,
-          cleanliness: formData.cleanliness,
-          validation: formData.validation
-        })
-        .select()
-        .single();
+      let finalJournalId = editJournalId;
 
-      if (journalError) throw journalError;
+      if (editJournalId) {
+          // --- UPDATE EXISTING ---
+          const { error } = await supabase
+            .from('journals')
+            .update({
+                hours: formData.hours.join(','),
+                material: formData.material,
+                cleanliness: formData.cleanliness,
+                validation: formData.validation
+            })
+            .eq('id', editJournalId);
+            
+          if (error) throw error;
 
-      // 2. Insert Attendance
-      const attendanceInserts = Object.entries(formData.attendance).map(([studentId, status]) => {
-          const studentName = students.find(s => s.id === studentId)?.name || 'Unknown';
-          return {
-            journal_id: journal.id,
-            student_id: studentId,
-            student_name: studentName,
-            status: status
-          };
-      });
+          // Update Attendance: Hapus semua log lama, insert baru (Strategi paling aman & mudah)
+          await supabase.from('attendance_logs').delete().eq('journal_id', editJournalId);
 
-      if (attendanceInserts.length > 0) {
-        const { error: attError } = await supabase.from('attendance_logs').insert(attendanceInserts);
-        if (attError) throw attError;
+      } else {
+          // --- INSERT NEW ---
+          const { data: journal, error: journalError } = await supabase
+            .from('journals')
+            .insert({
+                teacher_id: profile.id,
+                kelas: formData.kelas,
+                subject: formData.subject,
+                hours: formData.hours.join(','),
+                material: formData.material,
+                cleanliness: formData.cleanliness,
+                validation: formData.validation
+            })
+            .select()
+            .single();
+
+          if (journalError) throw journalError;
+          finalJournalId = journal.id;
       }
 
-      // Success Animation/Redirect
-      alert('✅ Jurnal berhasil disimpan!');
+      // --- INSERT ATTENDANCE LOGS ---
+      if (finalJournalId) {
+          const attendanceInserts = Object.entries(formData.attendance).map(([studentId, status]) => {
+              const studentName = students.find(s => s.id === studentId)?.name || 'Unknown';
+              return {
+                journal_id: finalJournalId,
+                student_id: studentId,
+                student_name: studentName,
+                status: status
+              };
+          });
+
+          if (attendanceInserts.length > 0) {
+            const { error: attError } = await supabase.from('attendance_logs').insert(attendanceInserts);
+            if (attError) throw attError;
+          }
+      }
+
+      alert(editJournalId ? '✅ Jurnal berhasil diperbarui!' : '✅ Jurnal berhasil disimpan!');
       navigate('/dashboard');
 
     } catch (err: any) {
@@ -178,9 +256,11 @@ const JurnalForm: React.FC = () => {
       <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
   );
 
-  // FIX: Mengubah Step Components menjadi Render Functions
-  // Ini mencegah unmounting/remounting input saat state berubah (mengetik)
-  
+  // Helper Check Schedule status
+  const isScheduleFilled = (sch: Schedule) => {
+      return existingJournals.some(j => j.kelas === sch.kelas && j.subject === sch.subject);
+  };
+
   const renderStep1 = () => (
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
        <div className="flex justify-between items-start mb-6">
@@ -194,7 +274,8 @@ const JurnalForm: React.FC = () => {
              onClick={() => {
                  const newMode = inputMode === 'auto' ? 'manual' : 'auto';
                  setInputMode(newMode);
-                 setFormData({...formData, kelas: '', subject: '', hours: []});
+                 setEditJournalId(null);
+                 setFormData({ kelas: '', subject: '', hours: [], material: '', attendance: {}, cleanliness: '', validation: ''});
              }}
              className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors"
            >
@@ -208,24 +289,43 @@ const JurnalForm: React.FC = () => {
              <div className="space-y-2">
                  <label className="text-sm font-bold text-gray-600">Pilih Jadwal Hari Ini</label>
                  <div className="grid gap-3">
-                     {todaySchedules.map(sch => (
-                         <div 
-                            key={sch.id}
-                            onClick={() => handleScheduleSelect(sch.id)}
-                            className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between ${formData.kelas === sch.kelas && formData.subject === sch.subject ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-gray-100 hover:border-blue-200 bg-white'}`}
-                         >
-                             <div className="flex items-center gap-3">
-                                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white ${formData.kelas === sch.kelas ? 'bg-blue-500' : 'bg-gray-300'}`}>
-                                     {sch.kelas}
-                                 </div>
-                                 <div>
-                                     <p className="font-bold text-gray-800">{sch.subject}</p>
-                                     <p className="text-xs text-gray-500 flex items-center gap-1"><Clock size={12}/> Jam ke-{sch.hour}</p>
-                                 </div>
-                             </div>
-                             {formData.kelas === sch.kelas && <CheckCircleIcon />}
-                         </div>
-                     ))}
+                     {todaySchedules.map(sch => {
+                         const filled = isScheduleFilled(sch);
+                         const isSelected = formData.kelas === sch.kelas && formData.subject === sch.subject;
+                         
+                         return (
+                            <div 
+                                key={sch.id}
+                                onClick={() => handleScheduleSelect(sch.id)}
+                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between group ${
+                                    isSelected 
+                                    ? (filled ? 'border-green-500 bg-green-50 shadow-md' : 'border-blue-500 bg-blue-50 shadow-md') 
+                                    : (filled ? 'border-green-100 bg-green-50/30' : 'border-gray-100 hover:border-blue-200 bg-white')
+                                }`}
+                            >
+                                <div className="flex items-center gap-3">
+                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white transition-colors ${
+                                        filled ? 'bg-green-500' : (isSelected ? 'bg-blue-500' : 'bg-gray-300')
+                                    }`}>
+                                        {sch.kelas}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{sch.subject}</p>
+                                        <p className="text-xs text-gray-500 flex items-center gap-1"><Clock size={12}/> Jam ke-{sch.hour}</p>
+                                    </div>
+                                </div>
+                                
+                                {filled ? (
+                                    <div className="flex items-center gap-1 text-green-600 text-xs font-bold bg-white px-2 py-1 rounded-full border border-green-200">
+                                        <Check size={14} strokeWidth={3} />
+                                        {isSelected ? 'Sedang Diedit' : 'Sudah Diisi'}
+                                    </div>
+                                ) : isSelected && (
+                                    <CheckCircleIcon />
+                                )}
+                            </div>
+                         );
+                     })}
                  </div>
                  <p className="text-xs text-center text-gray-400 mt-2">Kelas tidak ada di list? Ubah ke <b>Mode Manual</b> di pojok kanan atas.</p>
              </div>
@@ -249,7 +349,7 @@ const JurnalForm: React.FC = () => {
          )}
        </div>
 
-       {loading && <div className="text-center py-4 text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Mengambil data siswa...</div>}
+       {loading && <div className="text-center py-4 text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Mengambil data...</div>}
 
        {formData.kelas && !loading && (
          <div className="animate-fade-in">
@@ -303,7 +403,11 @@ const JurnalForm: React.FC = () => {
          <button 
             disabled={!formData.kelas} 
             onClick={handleNext} 
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-blue-500/30 transition-all transform hover:-translate-y-1"
+            className={`text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg transition-all transform hover:-translate-y-1 ${
+                editJournalId 
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:shadow-green-500/30'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/30'
+            }`}
          >
            Lanjut <ArrowRight size={18} />
          </button>
@@ -313,8 +417,17 @@ const JurnalForm: React.FC = () => {
 
   const renderStep2 = () => (
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
-      <h3 className="font-bold text-xl text-gray-800 mb-1">Detail Pembelajaran</h3>
-      <p className="text-gray-500 text-xs mb-6">Informasi materi dan jam pelajaran.</p>
+      <div className="flex justify-between items-center mb-4">
+          <div>
+            <h3 className="font-bold text-xl text-gray-800 mb-1">Detail Pembelajaran</h3>
+            <p className="text-gray-500 text-xs">Informasi materi dan jam pelajaran.</p>
+          </div>
+          {inputMode === 'auto' && (
+              <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-blue-100 flex items-center gap-1">
+                  <Clock size={12}/> Mode Jadwal (Jam Terkunci)
+              </div>
+          )}
+      </div>
 
       <div className="space-y-5">
         <div>
@@ -323,8 +436,10 @@ const JurnalForm: React.FC = () => {
           </label>
           <input 
             type="text"
-            className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-medium"
+            className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-medium bg-gray-50"
             value={formData.subject}
+            // Jika mode auto, mapel dikunci agar sesuai jadwal
+            readOnly={inputMode === 'auto'}
             onChange={e => setFormData({...formData, subject: e.target.value})}
             placeholder="Contoh: Matematika"
           />
@@ -335,20 +450,27 @@ const JurnalForm: React.FC = () => {
                <Clock size={16} className="text-blue-500"/> Jam Ke-
            </label>
            <div className="flex gap-2 flex-wrap">
-             {[1,2,3,4,5,6,7,8,9,10].map(h => (
+             {[1,2,3,4,5,6,7,8,9,10].map(h => {
+               const isSelected = formData.hours.includes(String(h));
+               // Jika Mode Auto: Disable semua checkbox agar user tidak bisa ubah. 
+               // Jam yang dijadwalkan sudah terset dari Step 1.
+               const isDisabled = inputMode === 'auto';
+
+               return (
                <label 
                 key={h} 
-                className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold cursor-pointer transition-all border ${
-                    formData.hours.includes(String(h)) 
-                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-110' 
-                    : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300'
+                className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold transition-all border relative ${
+                    isSelected
+                    ? 'bg-blue-600 text-white border-blue-600 shadow-md transform scale-105' 
+                    : (isDisabled ? 'bg-gray-100 text-gray-400 border-gray-200 cursor-not-allowed' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-300 cursor-pointer')
                 }`}
                >
                  <input 
                    type="checkbox" 
                    className="hidden" 
                    value={h}
-                   checked={formData.hours.includes(String(h))}
+                   disabled={isDisabled}
+                   checked={isSelected}
                    onChange={e => {
                      const val = String(h);
                      let newHours = [...formData.hours];
@@ -359,8 +481,9 @@ const JurnalForm: React.FC = () => {
                  />
                  {h}
                </label>
-             ))}
+             )})}
            </div>
+           {inputMode === 'auto' && <p className="text-[10px] text-gray-400 mt-1 italic">* Jam otomatis terpilih sesuai jadwal.</p>}
         </div>
 
         <div>
@@ -382,7 +505,11 @@ const JurnalForm: React.FC = () => {
          <button 
             disabled={!formData.subject || !formData.material || formData.hours.length === 0} 
             onClick={handleNext} 
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-blue-500/30 transition-all transform hover:-translate-y-1"
+            className={`text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg transition-all transform hover:-translate-y-1 ${
+                editJournalId 
+                ? 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:shadow-green-500/30'
+                : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 hover:shadow-blue-500/30'
+            }`}
          >
            Lanjut <ArrowRight size={18} />
          </button>
@@ -397,7 +524,10 @@ const JurnalForm: React.FC = () => {
        
        <div className="space-y-6">
           <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-             <h4 className="font-bold text-blue-800 text-sm mb-2">Ringkasan</h4>
+             <h4 className="font-bold text-blue-800 text-sm mb-2 flex justify-between">
+                Ringkasan
+                {editJournalId && <span className="bg-green-200 text-green-800 text-[10px] px-2 py-0.5 rounded-full">Mode Edit</span>}
+             </h4>
              <ul className="text-sm space-y-1 text-gray-600">
                  <li>📚 <b>{formData.subject}</b> (Kelas {formData.kelas})</li>
                  <li>⏰ Jam ke: {formData.hours.join(', ')}</li>
@@ -409,12 +539,12 @@ const JurnalForm: React.FC = () => {
             <label className="block text-sm font-bold text-gray-700 mb-2">Kebersihan Kelas</label>
             <div className="grid grid-cols-2 gap-3">
                <label className={`cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center gap-2 transition-all ${formData.cleanliness === 'mengarahkan_piket' ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-gray-100 hover:border-gray-300'}`}>
-                 <input type="radio" name="cleanliness" value="mengarahkan_piket" className="hidden" onChange={e => setFormData({...formData, cleanliness: e.target.value})} />
+                 <input type="radio" name="cleanliness" value="mengarahkan_piket" className="hidden" checked={formData.cleanliness === 'mengarahkan_piket'} onChange={e => setFormData({...formData, cleanliness: e.target.value})} />
                  <Sparkles size={24} className={formData.cleanliness === 'mengarahkan_piket' ? 'text-orange-500' : 'text-gray-300'} />
                  <span className="text-xs font-bold text-center">Mengarahkan Piket</span>
                </label>
                <label className={`cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center gap-2 transition-all ${formData.cleanliness === 'sudah_bersih' ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-100 hover:border-gray-300'}`}>
-                 <input type="radio" name="cleanliness" value="sudah_bersih" className="hidden" onChange={e => setFormData({...formData, cleanliness: e.target.value})} />
+                 <input type="radio" name="cleanliness" value="sudah_bersih" className="hidden" checked={formData.cleanliness === 'sudah_bersih'} onChange={e => setFormData({...formData, cleanliness: e.target.value})} />
                  <CheckCircleIcon className={formData.cleanliness === 'sudah_bersih' ? 'text-green-500' : 'text-gray-300'} />
                  <span className="text-xs font-bold text-center">Sudah Bersih</span>
                </label>
@@ -425,11 +555,11 @@ const JurnalForm: React.FC = () => {
             <label className="block text-sm font-bold text-gray-700 mb-2">Status Pembelajaran</label>
             <div className="space-y-2">
                <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.validation === 'hadir_kbm' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                 <input type="radio" name="validasi" value="hadir_kbm" className="w-4 h-4 text-blue-600" onChange={e => setFormData({...formData, validation: e.target.value})} />
+                 <input type="radio" name="validasi" value="hadir_kbm" className="w-4 h-4 text-blue-600" checked={formData.validation === 'hadir_kbm'} onChange={e => setFormData({...formData, validation: e.target.value})} />
                  <span className="font-medium text-gray-700">Hadir KBM Tatap Muka</span>
                </label>
                <label className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all ${formData.validation === 'izin_tugas' ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-50'}`}>
-                 <input type="radio" name="validasi" value="izin_tugas" className="w-4 h-4 text-blue-600" onChange={e => setFormData({...formData, validation: e.target.value})} />
+                 <input type="radio" name="validasi" value="izin_tugas" className="w-4 h-4 text-blue-600" checked={formData.validation === 'izin_tugas'} onChange={e => setFormData({...formData, validation: e.target.value})} />
                  <span className="font-medium text-gray-700">Izin (Memberi Tugas)</span>
                </label>
             </div>
@@ -443,9 +573,13 @@ const JurnalForm: React.FC = () => {
          <button 
             disabled={!formData.cleanliness || !formData.validation || loading} 
             onClick={handleSubmit} 
-            className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-green-500/30 transition-all transform hover:-translate-y-1"
+            className={`text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 disabled:opacity-50 shadow-lg transition-all transform hover:-translate-y-1 ${
+                editJournalId 
+                ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 hover:shadow-green-500/30'
+                : 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 hover:shadow-blue-500/30'
+            }`}
          >
-           {loading ? 'Menyimpan...' : <><Send size={18} /> Kirim Jurnal</>}
+           {loading ? 'Menyimpan...' : (editJournalId ? <><Edit3 size={18} /> Update Jurnal</> : <><Send size={18} /> Kirim Jurnal</>)}
          </button>
        </div>
     </div>
@@ -457,12 +591,19 @@ const JurnalForm: React.FC = () => {
         {/* Modern Progress Header */}
         <div className="flex justify-between items-center mb-8 px-2">
             <div>
-               <h2 className="text-2xl font-bold text-gray-800">Isi Jurnal</h2>
+               <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+                   {editJournalId && <Edit3 className="text-green-600" size={24} />} 
+                   {editJournalId ? 'Edit Jurnal' : 'Isi Jurnal'}
+               </h2>
                <p className="text-gray-500 text-xs">{step === 1 ? 'Langkah 1 dari 3' : step === 2 ? 'Langkah 2 dari 3' : 'Langkah Terakhir'}</p>
             </div>
             <div className="flex gap-1">
                {[1,2,3].map(i => (
-                 <div key={i} className={`h-2 rounded-full transition-all duration-500 ${step >= i ? 'w-8 bg-blue-500' : 'w-2 bg-gray-200'}`}></div>
+                 <div key={i} className={`h-2 rounded-full transition-all duration-500 ${
+                     step >= i 
+                     ? (editJournalId ? 'w-8 bg-green-500' : 'w-8 bg-blue-500') 
+                     : 'w-2 bg-gray-200'
+                 }`}></div>
                ))}
             </div>
         </div>
