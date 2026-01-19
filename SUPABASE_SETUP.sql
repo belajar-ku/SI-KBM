@@ -65,6 +65,8 @@ create policy "Admin manage tabel_guru"
   );
   
 -- Policy Profiles (PENTING: Agar Admin bisa update user lain)
+-- FIX: Hapus policy lama jika ada sebelum membuat baru
+drop policy if exists "Admin update all profiles" on public.profiles;
 create policy "Admin update all profiles" 
   on public.profiles for update to authenticated 
   using ( exists (select 1 from profiles where id = auth.uid() and role = 'admin') );
