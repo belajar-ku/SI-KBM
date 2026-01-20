@@ -1,18 +1,49 @@
+
 -- ==========================================
--- UPDATE STRUKTUR DATABASE (SAFE TO RUN REPEATEDLY)
+-- SETUP DATABASE LENGKAP (SI KBM)
+-- Jalankan script ini di SQL Editor Supabase
 -- ==========================================
 
--- 1. UPDATE TABEL PROFILES (Tambah Kolom Custom)
-alter table public.profiles add column if not exists wali_kelas text;
-alter table public.profiles add column if not exists avatar_url text;
-alter table public.profiles add column if not exists mengajar_mapel text; 
+-- 1. TABEL PROFILES (Sinkronisasi dengan Auth Users)
+create table if not exists public.profiles (
+  id uuid references auth.users on delete cascade primary key,
+  nip text unique,
+  full_name text,
+  role text default 'user' check (role in ('admin', 'user')),
+  avatar_url text,
+  mengajar_mapel text,
+  wali_kelas text,
+  created_at timestamptz default now()
+);
 
--- 2. UPDATE TABEL SISWA (Tambah NIS & Kolom Baru)
-alter table public.students add column if not exists nis text;
-alter table public.students add column if not exists gender text;
-alter table public.students add column if not exists jenjang text;
+-- Trigger untuk membuat profile otomatis saat user sign up
+create or replace function public.handle_new_user() 
+returns trigger as $$
+begin
+  insert into public.profiles (id, full_name, role)
+  values (new.id, new.raw_user_meta_data->>'full_name', 'user');
+  return new;
+end;
+$$ language plpgsql security definer;
 
--- 3. BUAT TABEL JADWAL (SCHEDULES)
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
+
+-- 2. TABEL SISWA
+create table if not exists public.students (
+  id uuid default gen_random_uuid() primary key,
+  nisn text unique not null,
+  nis text,
+  name text not null,
+  kelas text not null,
+  gender text, -- L/P
+  jenjang text, -- 7, 8, 9
+  created_at timestamptz default now()
+);
+
+-- 3. TABEL JADWAL (SCHEDULES)
 create table if not exists public.schedules (
   id uuid default gen_random_uuid() primary key,
   day_of_week int not null,
@@ -24,7 +55,35 @@ create table if not exists public.schedules (
   created_at timestamptz default now()
 );
 
--- 4. BUAT TABEL GURU
+-- 4. TABEL JURNAL (JOURNALS)
+create table if not exists public.journals (
+  id uuid default gen_random_uuid() primary key,
+  teacher_id uuid references public.profiles(id),
+  kelas text not null,
+  subject text not null,
+  hours text not null,
+  material text,
+  cleanliness text,
+  validation text, -- hadir_kbm, izin_tugas, inval
+  notes text,
+  assessment_type text, -- harian, tugas, none
+  assessment_missing_students text, -- JSON String
+  created_at timestamptz default now()
+);
+
+-- 5. TABEL ATTENDANCE LOGS
+create table if not exists public.attendance_logs (
+  id uuid default gen_random_uuid() primary key,
+  journal_id uuid references public.journals(id) on delete cascade,
+  student_id uuid references public.students(id),
+  student_name text,
+  status text check (status in ('S', 'I', 'A', 'D')),
+  teacher_name text,
+  subject text,
+  created_at timestamptz default now()
+);
+
+-- 6. TABEL GURU (DATA MASTER REFERENSI)
 create table if not exists public.tabel_guru (
   id uuid default gen_random_uuid() primary key,
   nip text unique not null,
@@ -34,107 +93,105 @@ create table if not exists public.tabel_guru (
   created_at timestamptz default now()
 );
 
--- 5. BUAT TABEL ATTENDANCE LOGS
-create table if not exists public.attendance_logs (
-  id uuid default gen_random_uuid() primary key,
-  journal_id uuid references public.journals(id) on delete cascade,
-  student_id uuid references public.students(id),
-  student_name text,
-  status text check (status in ('S', 'I', 'A', 'D')),
-  teacher_name text, -- New Column
-  subject text, -- New Column
-  created_at timestamptz default now()
-);
-
--- CRITICAL FIX: Pastikan kolom baru ada jika tabel sudah dibuat sebelumnya
-alter table public.attendance_logs add column if not exists teacher_name text;
-alter table public.attendance_logs add column if not exists subject text;
-
--- 6. BUAT TABEL SETTINGS (NEW)
+-- 7. TABEL SETTINGS
 create table if not exists public.app_settings (
   key text primary key,
   value text,
   description text
 );
 
--- 7. UPDATE TABEL JOURNALS (Tambah Kolom Notes)
-alter table public.journals add column if not exists notes text;
-
--- Seed Default Settings jika belum ada
+-- SEED SETTINGS DEFAULT
 insert into public.app_settings (key, value, description)
 values 
   ('academic_year', '2024/2025', 'Tahun Ajaran Aktif'),
   ('semester', 'Genap', 'Semester Aktif'),
-  ('headmaster', 'Kepala Sekolah, M.Pd', 'Nama Kepala Sekolah'),
-  ('non_effective_days', '[]', 'JSON Array Hari Libur/Non Efektif')
+  ('headmaster', 'Nama Kepala Sekolah', 'Kepala Sekolah'),
+  ('non_effective_days', '[]', 'Hari Libur'),
+  ('subjects_list', '["Matematika","Bahasa Indonesia","IPA","IPS","PKn","Bahasa Inggris","PJOK","Seni Budaya","Prakarya","PAI","PAK"]', 'Master Mapel')
 on conflict (key) do nothing;
 
+-- ==========================================
+-- ROW LEVEL SECURITY (RLS) & POLICIES
+-- ==========================================
 
--- SECURITY
+-- Enable RLS
+alter table public.profiles enable row level security;
+alter table public.students enable row level security;
 alter table public.schedules enable row level security;
-alter table public.tabel_guru enable row level security;
+alter table public.journals enable row level security;
 alter table public.attendance_logs enable row level security;
+alter table public.tabel_guru enable row level security;
 alter table public.app_settings enable row level security;
 
--- ==========================================
--- RESET & CREATE POLICIES
--- ==========================================
+-- PROFILES
+drop policy if exists "Public read profiles" on public.profiles;
+create policy "Public read profiles" on public.profiles for select to authenticated, anon using (true);
 
--- Policy Schedules
-drop policy if exists "Read schedules" on public.schedules;
-create policy "Read schedules" on public.schedules for select to authenticated using (true);
+drop policy if exists "Users update own profile" on public.profiles;
+create policy "Users update own profile" on public.profiles for update to authenticated using (auth.uid() = id);
 
-drop policy if exists "Admin manage schedules" on public.schedules;
-create policy "Admin manage schedules" on public.schedules for all to authenticated using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-  );
-
--- Policy Tabel Guru
-drop policy if exists "Public read tabel_guru" on public.tabel_guru;
-create policy "Public read tabel_guru" on public.tabel_guru for select to authenticated, anon using (true);
-
-drop policy if exists "Admin manage tabel_guru" on public.tabel_guru;
-create policy "Admin manage tabel_guru" on public.tabel_guru for all to authenticated using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-  );
-  
--- Policy Profiles
 drop policy if exists "Admin update all profiles" on public.profiles;
-create policy "Admin update all profiles" on public.profiles for update to authenticated 
-  using ( exists (select 1 from profiles where id = auth.uid() and role = 'admin') );
+create policy "Admin update all profiles" on public.profiles for update to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
 
--- Policy Students (Agar Admin bisa CRUD Murid)
+-- STUDENTS
 drop policy if exists "Read students" on public.students;
 create policy "Read students" on public.students for select to authenticated, anon using (true);
 
 drop policy if exists "Admin manage students" on public.students;
-create policy "Admin manage students" on public.students for all to authenticated using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-  );
+create policy "Admin manage students" on public.students for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
 
--- Policy Attendance Logs
-drop policy if exists "Public read attendance" on public.attendance_logs;
-create policy "Public read attendance" on public.attendance_logs for select to authenticated, anon using (true);
+-- SCHEDULES
+drop policy if exists "Read schedules" on public.schedules;
+create policy "Read schedules" on public.schedules for select to authenticated, anon using (true);
 
-drop policy if exists "Teacher create attendance" on public.attendance_logs;
-create policy "Teacher create attendance" on public.attendance_logs for insert to authenticated with check (true);
+drop policy if exists "Admin manage schedules" on public.schedules;
+create policy "Admin manage schedules" on public.schedules for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
 
--- Policy App Settings
+-- JOURNALS
+drop policy if exists "Read journals" on public.journals;
+create policy "Read journals" on public.journals for select to authenticated, anon using (true);
+
+drop policy if exists "Teachers create journals" on public.journals;
+create policy "Teachers create journals" on public.journals for insert to authenticated with check (auth.uid() = teacher_id);
+
+drop policy if exists "Teachers update own journals" on public.journals;
+create policy "Teachers update own journals" on public.journals for update to authenticated using (auth.uid() = teacher_id);
+
+-- ATTENDANCE LOGS
+drop policy if exists "Read attendance" on public.attendance_logs;
+create policy "Read attendance" on public.attendance_logs for select to authenticated, anon using (true);
+
+drop policy if exists "Teachers create attendance" on public.attendance_logs;
+create policy "Teachers create attendance" on public.attendance_logs for insert to authenticated with check (true);
+
+drop policy if exists "Teachers delete attendance" on public.attendance_logs;
+create policy "Teachers delete attendance" on public.attendance_logs for delete to authenticated using (true);
+
+-- TABEL GURU
+drop policy if exists "Read tabel_guru" on public.tabel_guru;
+create policy "Read tabel_guru" on public.tabel_guru for select to authenticated, anon using (true);
+
+drop policy if exists "Admin manage tabel_guru" on public.tabel_guru;
+create policy "Admin manage tabel_guru" on public.tabel_guru for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
+
+-- APP SETTINGS
 drop policy if exists "Read settings" on public.app_settings;
 create policy "Read settings" on public.app_settings for select to authenticated, anon using (true);
 
 drop policy if exists "Admin manage settings" on public.app_settings;
-create policy "Admin manage settings" on public.app_settings for all to authenticated using (
-    exists (select 1 from profiles where id = auth.uid() and role = 'admin')
-  );
-  
--- INDEXING
-create index if not exists idx_students_kelas on public.students(kelas);
-create index if not exists idx_schedules_kelas on public.schedules(kelas);
-create index if not exists idx_profiles_nip on public.profiles(nip);
-create index if not exists idx_attendance_created on public.attendance_logs(created_at);
+create policy "Admin manage settings" on public.app_settings for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
 
--- SETUP STORAGE
-insert into storage.buckets (id, name, public) 
-values ('avatars', 'avatars', true)
-on conflict (id) do nothing;
+-- STORAGE POLICIES
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
+
+drop policy if exists "Avatar Public Read" on storage.objects;
+create policy "Avatar Public Read" on storage.objects for select using ( bucket_id = 'avatars' );
+
+drop policy if exists "Avatar Upload" on storage.objects;
+create policy "Avatar Upload" on storage.objects for insert with check ( bucket_id = 'avatars' and auth.role() = 'authenticated' );
+
+-- INDEXING (Performance)
+create index if not exists idx_students_kelas on public.students(kelas);
+create index if not exists idx_schedules_teacher on public.schedules(teacher_id);
+create index if not exists idx_journals_teacher on public.journals(teacher_id);
+create index if not exists idx_attendance_journal on public.attendance_logs(journal_id);

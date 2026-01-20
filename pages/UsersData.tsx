@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
@@ -8,6 +9,9 @@ const UsersData: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Master Data from Settings
+  const [subjectsList, setSubjectsList] = useState<string[]>([]);
 
   // State untuk Edit Modal
   const [editingUser, setEditingUser] = useState<Profile | null>(null);
@@ -18,19 +22,25 @@ const UsersData: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetchProfiles();
+    fetchData();
   }, []);
 
-  const fetchProfiles = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .order('full_name', { ascending: true });
       
-      if (error) throw error;
-      if (data) setProfiles(data);
+      const [profilesRes, settingsRes] = await Promise.all([
+          supabase.from('profiles').select('*').order('full_name', { ascending: true }),
+          supabase.from('app_settings').select('value').eq('key', 'subjects_list').single()
+      ]);
+
+      if (profilesRes.data) setProfiles(profilesRes.data);
+      
+      if (settingsRes.data?.value) {
+          try {
+              setSubjectsList(JSON.parse(settingsRes.data.value));
+          } catch(e) { console.error("Parse subjects error", e); }
+      }
     } catch (err: any) {
       alert('Gagal mengambil data user: ' + err.message);
     } finally {
@@ -51,7 +61,7 @@ const UsersData: React.FC = () => {
     setSaving(true);
 
     try {
-      // 1. Update ke tabel PROFILES (Ini yang digunakan oleh Aplikasi/Input Jadwal)
+      // 1. Update ke tabel PROFILES
       const { error: profileError } = await supabase
         .from('profiles')
         .update({
@@ -62,8 +72,7 @@ const UsersData: React.FC = () => {
 
       if (profileError) throw profileError;
 
-      // 2. Sinkronisasi ke TABEL_GURU (Master Data - agar sinkron jika punya NIP)
-      // Ini penting agar data master guru tetap backup dan konsisten
+      // 2. Sinkronisasi ke TABEL_GURU
       if (editingUser.nip) {
          const { error: guruError } = await supabase
            .from('tabel_guru')
@@ -72,20 +81,16 @@ const UsersData: React.FC = () => {
              wali_kelas: editFormData.wali_kelas
            })
            .eq('nip', editingUser.nip);
-         
-         // Kita log saja warningnya, karena mungkin NIP tidak ada di tabel_guru (misal akun admin manual)
-         if (guruError) console.warn("Sync tabel_guru warning (NIP mungkin tidak ditemukan):", guruError.message);
+         if (guruError) console.warn("Sync tabel_guru warning:", guruError.message);
       }
 
-      // Update local state agar tidak perlu fetch ulang dan UI responsif
       setProfiles(prev => prev.map(p => 
         p.id === editingUser.id 
           ? { ...p, mengajar_mapel: editFormData.mengajar_mapel, wali_kelas: editFormData.wali_kelas } 
           : p
       ));
 
-      setEditingUser(null); // Tutup modal
-      // Opsional: tampilkan toast sukses (saat ini kita close modal saja)
+      setEditingUser(null);
     } catch (err: any) {
       alert('Gagal menyimpan data: ' + err.message);
     } finally {
@@ -234,15 +239,28 @@ const UsersData: React.FC = () => {
                         </div>
 
                         <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran (Disimpan ke Profiles)</label>
-                            <input 
-                                type="text"
-                                className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                placeholder="Contoh: Matematika, IPA"
-                                value={editFormData.mengajar_mapel}
-                                onChange={e => setEditFormData({...editFormData, mengajar_mapel: e.target.value})}
-                            />
-                            <p className="text-[10px] text-gray-400 mt-1">* Pisahkan dengan koma jika lebih dari satu mapel.</p>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran</label>
+                            {subjectsList.length > 0 ? (
+                                <select 
+                                    className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 bg-white"
+                                    value={editFormData.mengajar_mapel}
+                                    onChange={e => setEditFormData({...editFormData, mengajar_mapel: e.target.value})}
+                                >
+                                    <option value="">-- Pilih Mata Pelajaran --</option>
+                                    {subjectsList.map((subj, idx) => (
+                                        <option key={idx} value={subj}>{subj}</option>
+                                    ))}
+                                </select>
+                            ) : (
+                                <input 
+                                    type="text"
+                                    className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500"
+                                    placeholder="Input Manual (Belum ada master mapel)"
+                                    value={editFormData.mengajar_mapel}
+                                    onChange={e => setEditFormData({...editFormData, mengajar_mapel: e.target.value})}
+                                />
+                            )}
+                            <p className="text-[10px] text-gray-400 mt-1">Data Mapel diambil dari Menu Setting.</p>
                         </div>
 
                         <div>

@@ -3,8 +3,8 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Printer, Loader2, FileText, Search, BookOpen, CheckSquare, Square } from 'lucide-react';
-import { formatDateIndo, getWIBDate } from '../utils/dateUtils';
+import { Printer, Loader2, FileText, BookOpen, CheckSquare, Square } from 'lucide-react';
+import { formatDateIndo, formatDateSignature, getWIBDate } from '../utils/dateUtils';
 
 interface JournalReportItem {
     id: string;
@@ -44,15 +44,11 @@ const LaporanJurnal: React.FC = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-        // 1. Fetch App Settings
         const { data: settingsData } = await supabase.from('app_settings').select('*');
         const newSettings: any = {};
         settingsData?.forEach(item => newSettings[item.key] = item.value);
         setSettings(prev => ({ ...prev, ...newSettings }));
 
-        // 2. Fetch Journals with Attendance
-        // Note: Supabase JS doesn't always support deep nested sorting easily in one go for reports,
-        // but we order journals by date descending.
         const { data: journalData, error } = await supabase
             .from('journals')
             .select(`
@@ -69,7 +65,7 @@ const LaporanJurnal: React.FC = () => {
                 )
             `)
             .eq('teacher_id', profile?.id)
-            .order('created_at', { ascending: false }); // Urutkan terbaru dulu
+            .order('created_at', { ascending: false });
 
         if (error) throw error;
         setJournals((journalData as any[]) || []);
@@ -81,13 +77,11 @@ const LaporanJurnal: React.FC = () => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
+  
+  // Use Signature Date Format (without Day Name)
+  const currentDateStr = formatDateSignature(new Date());
 
-  const currentDateStr = formatDateIndo(getWIBDate());
-
-  // Render list murid tidak hadir
   const renderAttendanceList = (logs: any[]) => {
       const absents = logs.filter(l => ['S', 'I', 'A'].includes(l.status));
       if (absents.length === 0) return "NIHIL";
@@ -105,7 +99,6 @@ const LaporanJurnal: React.FC = () => {
 
   return (
     <Layout>
-      {/* --- NAVIGASI (HIDDEN SAAT PRINT) --- */}
       <div className="print:hidden space-y-6 mb-8">
          <div className="flex items-center gap-3">
             <div className="bg-orange-100 p-3 rounded-xl text-orange-600">
@@ -136,7 +129,6 @@ const LaporanJurnal: React.FC = () => {
       ) : (
           <div className="bg-white p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in" ref={componentRef}>
               
-              {/* KOP SURAT */}
                <div className="flex items-center gap-4 mb-6 border-b-2 border-black pb-4">
                      <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-20 w-auto" />
                      <div>
@@ -146,7 +138,6 @@ const LaporanJurnal: React.FC = () => {
                      </div>
                </div>
 
-               {/* TABEL JURNAL */}
                <table className="w-full border-collapse border border-gray-400 text-sm text-black">
                    <thead>
                        <tr className="bg-gray-100">
@@ -169,8 +160,6 @@ const LaporanJurnal: React.FC = () => {
                                <td className="border border-gray-400 p-2">
                                    <div className="font-bold mb-1">{journal.subject}</div>
                                    <div className="mb-2">{journal.material}</div>
-                                   
-                                   {/* Simulasi Checkbox Validasi (Visual Only sesuai request) */}
                                    <div className="flex gap-4 text-xs text-gray-600 mt-2">
                                         <div className="flex items-center gap-1">
                                             {journal.validation === 'hadir_kbm' ? <CheckSquare size={14}/> : <Square size={14}/>}
@@ -193,7 +182,6 @@ const LaporanJurnal: React.FC = () => {
                    </tbody>
                </table>
 
-                {/* TANDA TANGAN */}
                 <div className="mt-10 flex justify-between text-black break-inside-avoid">
                     <div className="text-center">
                         <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>

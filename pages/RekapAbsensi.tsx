@@ -5,7 +5,7 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Profile } from '../types';
 import { Printer, Filter, Loader2, FileText, Search } from 'lucide-react';
-import { formatDateIndo, getWIBDate } from '../utils/dateUtils';
+import { formatDateSignature } from '../utils/dateUtils';
 
 interface AttendanceSummary {
   student: Student;
@@ -23,7 +23,7 @@ const RekapAbsensi: React.FC = () => {
   
   // Dropdown Data
   const [classes, setClasses] = useState<string[]>([]);
-  const [subjectsMap, setSubjectsMap] = useState<Record<string, string>>({}); // Class -> Subject mapping
+  const [subjectsMap, setSubjectsMap] = useState<Record<string, string>>({}); 
   
   // Selection
   const [selectedClass, setSelectedClass] = useState('');
@@ -67,7 +67,7 @@ const RekapAbsensi: React.FC = () => {
       settingsData?.forEach(item => newSettings[item.key] = item.value);
       setSettings(prev => ({ ...prev, ...newSettings }));
 
-      // 2. Fetch Guru Schedules (untuk isi dropdown kelas & mapel otomatis)
+      // 2. Fetch Guru Schedules
       if (!profile) return;
       
       const { data: schedules } = await supabase
@@ -76,11 +76,9 @@ const RekapAbsensi: React.FC = () => {
         .eq('teacher_id', profile.id);
 
       if (schedules) {
-        // Extract Unique Classes
         const uniqueClasses = Array.from(new Set(schedules.map(s => s.kelas))).sort();
         setClasses(uniqueClasses);
 
-        // Map Class to Subject (Assuming 1 subject per class for simplicity, or take the first one)
         const map: Record<string, string> = {};
         schedules.forEach(s => {
             if (!map[s.kelas]) map[s.kelas] = s.subject;
@@ -97,7 +95,6 @@ const RekapAbsensi: React.FC = () => {
   const handleClassChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
       const cls = e.target.value;
       setSelectedClass(cls);
-      // Otomatis set mapel jika ada di mapping
       if (cls && subjectsMap[cls]) {
           setSelectedSubject(subjectsMap[cls]);
       } else {
@@ -110,7 +107,6 @@ const RekapAbsensi: React.FC = () => {
     setLoading(true);
     
     try {
-        // 1. Ambil Siswa di Kelas tsb
         const { data: students } = await supabase
             .from('students')
             .select('*')
@@ -119,8 +115,6 @@ const RekapAbsensi: React.FC = () => {
         
         if (!students) throw new Error("Tidak ada siswa");
 
-        // 2. Cari Jurnal ID yang sesuai (Guru, Kelas, Mapel)
-        // Kita hitung total pertemuan dari jumlah jurnal yang dibuat
         const { data: journals } = await supabase
             .from('journals')
             .select('id')
@@ -132,7 +126,6 @@ const RekapAbsensi: React.FC = () => {
         const meetingsCount = journalIds.length;
         setTotalMeetings(meetingsCount);
 
-        // 3. Ambil Log Absensi berdasarkan Journal ID tsb
         let attendanceLogs: any[] = [];
         if (meetingsCount > 0) {
             const { data: logs } = await supabase
@@ -142,34 +135,22 @@ const RekapAbsensi: React.FC = () => {
             attendanceLogs = logs || [];
         }
 
-        // 4. Agregasi Data
         const summary: AttendanceSummary[] = students.map(student => {
             const studentLogs = attendanceLogs.filter(l => l.student_id === student.id);
-            
             const s = studentLogs.filter(l => l.status === 'S').length;
             const i = studentLogs.filter(l => l.status === 'I').length;
             const a = studentLogs.filter(l => l.status === 'A').length;
             const d = studentLogs.filter(l => l.status === 'D').length;
             
-            // Hadir = Total Pertemuan - (S + I + A)
-            // Dispensasi (D) biasanya dianggap Hadir dalam perhitungan persentase kehadiran sekolah
             const nonPresentCount = s + i + a; 
             const presentCount = Math.max(0, meetingsCount - nonPresentCount);
-
-            const percentage = meetingsCount > 0 
-                ? Math.round((presentCount / meetingsCount) * 100) 
-                : 100;
+            const percentage = meetingsCount > 0 ? Math.round((presentCount / meetingsCount) * 100) : 100;
 
             return {
-                student,
-                s, i, a, d,
-                present: presentCount,
-                percentage: `${percentage}%`
+                student, s, i, a, d, present: presentCount, percentage: `${percentage}%`
             };
         });
-
         setReportData(summary);
-
     } catch (err) {
         console.error(err);
     } finally {
@@ -177,16 +158,13 @@ const RekapAbsensi: React.FC = () => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
-  // Ensure WIB (Asia/Jakarta) Timezone using Utility
-  const currentDateStr = formatDateIndo(getWIBDate());
+  // Updated Date Format: "20 Januari 2026"
+  const currentDateStr = formatDateSignature(new Date());
 
   return (
     <Layout>
-      {/* --- BAGIAN NAVIGASI (HIDDEN SAAT PRINT) --- */}
       <div className="print:hidden space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
@@ -200,7 +178,6 @@ const RekapAbsensi: React.FC = () => {
             </div>
         </div>
 
-        {/* Filter Card */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div className="grid md:grid-cols-3 gap-4 items-end">
                 <div>
@@ -236,7 +213,6 @@ const RekapAbsensi: React.FC = () => {
             </div>
             
             {loading && <div className="mt-4 flex items-center gap-2 text-blue-600 text-sm"><Loader2 className="animate-spin" size={16}/> Sedang memuat data absensi...</div>}
-            
             {!loading && selectedClass && reportData.length === 0 && (
                 <div className="mt-4 p-3 bg-yellow-50 text-yellow-700 rounded-lg text-sm border border-yellow-200 flex items-center gap-2">
                    <Search size={16}/> Belum ada data jurnal/absensi untuk kelas dan mapel ini.
@@ -245,12 +221,8 @@ const RekapAbsensi: React.FC = () => {
         </div>
       </div>
 
-      {/* --- BAGIAN LAPORAN (VISIBLE SAAT PRINT & PREVIEW) --- */}
-      {/* Gunakan class 'print:block' agar tampil saat print. Di layar biasa kita tampilkan juga sebagai preview */}
       {selectedClass && reportData.length > 0 && (
         <div className="mt-8 bg-white p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in" ref={componentRef}>
-            
-            {/* KOP SURAT */}
             <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
                 <div className="flex items-center gap-4">
                      <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-20 w-auto" />
@@ -265,7 +237,6 @@ const RekapAbsensi: React.FC = () => {
                 </div>
             </div>
 
-            {/* TABEL */}
             <table className="w-full border-collapse border border-gray-400 text-sm text-black">
                 <thead>
                     <tr className="bg-gray-200 text-center">
@@ -298,7 +269,6 @@ const RekapAbsensi: React.FC = () => {
                 </tbody>
             </table>
 
-            {/* TANDA TANGAN */}
             <div className="mt-10 flex justify-between text-black break-inside-avoid">
                 <div className="text-center">
                     <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>

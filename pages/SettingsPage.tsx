@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
-import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square, User } from 'lucide-react';
+import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square, User, BookOpen } from 'lucide-react';
 import { AppSetting, NonEffectiveDay, Profile } from '../types';
 
 const SettingsPage: React.FC = () => {
@@ -10,10 +10,13 @@ const SettingsPage: React.FC = () => {
     academic_year: '',
     semester: 'Ganjil',
     headmaster: '',
-    headmaster_nip: '' // Menyimpan NIP Kepala Sekolah
+    headmaster_nip: ''
   });
   const [nonEffectiveDays, setNonEffectiveDays] = useState<NonEffectiveDay[]>([]);
   const [teachers, setTeachers] = useState<Profile[]>([]); // List Guru for Dropdown
+  const [subjectsList, setSubjectsList] = useState<string[]>([]); // Master Mapel
+  const [newSubject, setNewSubject] = useState('');
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -38,7 +41,7 @@ const SettingsPage: React.FC = () => {
           const { data } = await supabase
             .from('profiles')
             .select('*')
-            .neq('nip', null) // Hanya ambil yang punya NIP
+            .neq('nip', null)
             .order('full_name');
           if (data) setTeachers(data);
       } catch (err) {
@@ -53,6 +56,7 @@ const SettingsPage: React.FC = () => {
         
         const settingsMap: Record<string, string> = {};
         let days: NonEffectiveDay[] = [];
+        let subs: string[] = [];
 
         if (data) {
             data.forEach(item => {
@@ -60,8 +64,13 @@ const SettingsPage: React.FC = () => {
                     try {
                         days = item.value ? JSON.parse(item.value) : [];
                     } catch (e) {
-                        console.warn("Error parsing non_effective_days JSON:", e);
                         days = [];
+                    }
+                } else if (item.key === 'subjects_list') {
+                     try {
+                        subs = item.value ? JSON.parse(item.value) : [];
+                    } catch (e) {
+                        subs = [];
                     }
                 } else {
                     settingsMap[item.key] = item.value || '';
@@ -72,6 +81,7 @@ const SettingsPage: React.FC = () => {
         // Merge with existing state
         setSettings(prev => ({ ...prev, ...settingsMap }));
         setNonEffectiveDays(days);
+        setSubjectsList(subs);
     } catch (err: any) {
         console.error("Error fetching settings:", err.message);
     }
@@ -88,12 +98,22 @@ const SettingsPage: React.FC = () => {
               headmaster_nip: selectedTeacher.nip
           }));
       } else {
-          // Reset jika pilih default/kosong
-          setSettings(prev => ({
-              ...prev,
-              headmaster: '',
-              headmaster_nip: ''
-          }));
+          setSettings(prev => ({ ...prev, headmaster: '', headmaster_nip: '' }));
+      }
+  };
+
+  // SUBJECT MANAGEMENT
+  const handleAddSubject = () => {
+      if(newSubject.trim() && !subjectsList.includes(newSubject.trim())) {
+          const updated = [...subjectsList, newSubject.trim()].sort();
+          setSubjectsList(updated);
+          setNewSubject('');
+      }
+  };
+
+  const handleRemoveSubject = (sub: string) => {
+      if(confirm(`Hapus mapel ${sub}?`)) {
+          setSubjectsList(prev => prev.filter(s => s !== sub));
       }
   };
 
@@ -105,10 +125,13 @@ const SettingsPage: React.FC = () => {
               key, value
           }));
 
+          // Add Subjects List
+          updates.push({ key: 'subjects_list', value: JSON.stringify(subjectsList) });
+
           const { error } = await supabase.from('app_settings').upsert(updates);
           if (error) throw error;
           
-          alert("Pengaturan umum berhasil disimpan!");
+          alert("Pengaturan umum & daftar mapel berhasil disimpan!");
       } catch (err: any) {
           alert("Gagal menyimpan: " + (err.message || err));
       } finally {
@@ -116,6 +139,7 @@ const SettingsPage: React.FC = () => {
       }
   };
 
+  // HOLIDAY MANAGEMENT
   const toggleHour = (h: number) => {
       const val = String(h);
       setSelectedHours(prev => 
@@ -128,12 +152,10 @@ const SettingsPage: React.FC = () => {
           alert("Tanggal dan Keterangan wajib diisi.");
           return;
       }
-
       if (!isFullDay && selectedHours.length === 0) {
           alert("Pilih minimal satu jam jika bukan Full Day.");
           return;
       }
-
       const hoursString = isFullDay 
         ? "Full Day" 
         : selectedHours.sort((a,b) => Number(a) - Number(b)).join(', ');
@@ -146,12 +168,9 @@ const SettingsPage: React.FC = () => {
 
       const updatedDays = [...nonEffectiveDays, dayToAdd];
       setNonEffectiveDays(updatedDays);
-      
-      // Reset Form
       setNewDay({ date: '', reason: '' });
       setIsFullDay(true);
       setSelectedHours([]);
-
       saveDays(updatedDays);
   };
 
@@ -169,7 +188,6 @@ const SettingsPage: React.FC = () => {
           });
           if (error) throw error;
       } catch (err: any) {
-          console.error("Failed to save non-effective days:", err.message || err);
           alert("Gagal menyimpan hari libur: " + (err.message || "Unknown error"));
       }
   };
@@ -185,13 +203,14 @@ const SettingsPage: React.FC = () => {
             </div>
             <div>
                 <h2 className="text-2xl font-bold text-gray-800">Pengaturan Aplikasi</h2>
-                <p className="text-gray-500 text-sm">Konfigurasi tahun ajaran dan hari libur sekolah.</p>
+                <p className="text-gray-500 text-sm">Konfigurasi tahun ajaran, kepala sekolah, dan data master.</p>
             </div>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
-            {/* KOLOM KIRI: UMUM */}
+            {/* KOLOM KIRI: UMUM & MAPEL */}
             <div className="space-y-6">
+                {/* SETTING UMUM */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                     <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                         <Info size={18} className="text-blue-500"/> Informasi Sekolah
@@ -218,14 +237,13 @@ const SettingsPage: React.FC = () => {
                             </select>
                         </div>
                         
-                        {/* UPDATE: Dropdown Kepala Sekolah */}
                         <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
                             <label className="block text-xs font-bold text-blue-800 mb-1">Kepala Sekolah</label>
                             <div className="relative">
                                 <User className="absolute left-3 top-3.5 text-blue-400" size={16}/>
                                 <select 
                                     className="w-full border border-blue-200 rounded-lg p-3 pl-9 font-medium bg-white focus:ring-2 focus:ring-blue-500 outline-none" 
-                                    value={settings['headmaster_nip'] || ''} // Bind ke NIP agar unik
+                                    value={settings['headmaster_nip'] || ''}
                                     onChange={handleHeadmasterChange}
                                 >
                                     <option value="">-- Pilih Kepala Sekolah --</option>
@@ -234,8 +252,6 @@ const SettingsPage: React.FC = () => {
                                     ))}
                                 </select>
                             </div>
-                            
-                            {/* NIP Otomatis */}
                             <div className="mt-2 flex items-center gap-2">
                                 <span className="text-[10px] font-bold text-gray-500 bg-white px-2 py-1 rounded border">NIP</span>
                                 <input 
@@ -243,20 +259,54 @@ const SettingsPage: React.FC = () => {
                                     readOnly
                                     className="flex-1 bg-transparent border-none text-xs text-gray-600 font-mono focus:ring-0 p-0"
                                     value={settings['headmaster_nip'] || '-'}
-                                    placeholder="NIP akan muncul otomatis..."
+                                    placeholder="NIP otomatis..."
                                 />
                             </div>
                         </div>
-
-                        <button 
-                            onClick={handleSaveGeneral}
-                            disabled={saving}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 mt-2 shadow-lg disabled:opacity-50"
-                        >
-                            {saving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Simpan Informasi
-                        </button>
                     </div>
                 </div>
+
+                {/* MASTER MAPEL */}
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                     <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <BookOpen size={18} className="text-purple-500"/> Input Mata Pelajaran
+                    </h3>
+                    <div className="space-y-4">
+                        <div className="flex gap-2">
+                             <input 
+                                className="flex-1 border rounded-lg p-2.5 text-sm" 
+                                value={newSubject}
+                                onChange={e => setNewSubject(e.target.value)}
+                                placeholder="Tambah Mapel Baru..."
+                                onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
+                             />
+                             <button 
+                                onClick={handleAddSubject}
+                                className="bg-purple-600 text-white px-3 rounded-lg hover:bg-purple-700"
+                             >
+                                 <Plus size={18} />
+                             </button>
+                        </div>
+                        <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto p-1">
+                            {subjectsList.length === 0 ? <p className="text-gray-400 text-xs italic">Belum ada mapel diinput.</p> :
+                             subjectsList.map((sub, idx) => (
+                                <div key={idx} className="bg-purple-50 text-purple-700 px-2 py-1 rounded-md text-xs font-bold border border-purple-100 flex items-center gap-1 group">
+                                    {sub}
+                                    <button onClick={() => handleRemoveSubject(sub)} className="text-purple-400 hover:text-red-500"><Trash2 size={12}/></button>
+                                </div>
+                             ))
+                            }
+                        </div>
+                    </div>
+                </div>
+
+                <button 
+                    onClick={handleSaveGeneral}
+                    disabled={saving}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                >
+                    {saving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Simpan Semua Pengaturan
+                </button>
             </div>
 
             {/* KOLOM KANAN: HARI NON EFEKTIF */}
@@ -266,7 +316,6 @@ const SettingsPage: React.FC = () => {
                         <Calendar size={18} className="text-red-500"/> Hari Non-Efektif
                     </h3>
                     
-                    {/* Add New */}
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4 space-y-4">
                         <div className="grid grid-cols-2 gap-3">
                             <div>
@@ -290,13 +339,11 @@ const SettingsPage: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Opsi Jam */}
                         <div>
                              <div className="flex items-center gap-2 mb-2 cursor-pointer" onClick={() => setIsFullDay(!isFullDay)}>
                                  {isFullDay ? <CheckSquare size={18} className="text-blue-600"/> : <Square size={18} className="text-gray-400"/>}
                                  <label className="text-sm font-bold text-gray-700 cursor-pointer select-none">Libur Seharian (Full Day)</label>
                              </div>
-                             
                              {!isFullDay && (
                                  <div className="animate-fade-in p-3 bg-gray-100 rounded-xl border border-gray-200">
                                      <label className="block text-[10px] font-bold text-gray-500 mb-2">Pilih Jam yang Diliburkan:</label>
@@ -327,7 +374,6 @@ const SettingsPage: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* List */}
                     <div className="space-y-2 max-h-[300px] overflow-y-auto">
                         {nonEffectiveDays.length === 0 ? (
                             <p className="text-center text-gray-400 text-sm py-4">Tidak ada hari libur diinput.</p>

@@ -31,6 +31,17 @@ export const formatDateIndo = (dateInput: string | Date): string => {
   }).format(date);
 };
 
+// Format Tanggal Tanda Tangan (Contoh: 20 Januari 2025) - Tanpa Nama Hari
+export const formatDateSignature = (dateInput: string | Date): string => {
+  const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
+  return new Intl.DateTimeFormat('id-ID', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'Asia/Jakarta'
+  }).format(date);
+};
+
 // Format Jam (Contoh: 07:30)
 export const formatTimeIndo = (dateInput: string | Date): string => {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
