@@ -4,16 +4,17 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { FileEdit, Printer, UserCheck, ShieldAlert, QrCode, CalendarDays, Database, Users, CalendarPlus, Clock, GraduationCap, Settings } from 'lucide-react';
+import { getWIBDate, formatTimeIndo, formatDateIndo } from '../utils/dateUtils';
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const { isAdmin, profile } = useAuth();
   
   // State untuk jam digital
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState(getWIBDate());
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
+    const timer = setInterval(() => setTime(getWIBDate()), 1000);
     return () => clearInterval(timer);
   }, []);
 
@@ -55,16 +56,16 @@ const Dashboard: React.FC = () => {
                 </p>
             </div>
 
-            {/* Real-time Date & Clock (Kanan) */}
+            {/* Real-time Date & Clock (Kanan) - Updated to WIB */}
             <div className="flex flex-col items-end text-right">
                 <div className="flex items-center gap-2 text-blue-100 text-xs font-medium bg-white/10 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/10 shadow-sm">
                    <Clock size={16} />
                    <div className="flex flex-col items-end">
                        <span className="leading-none mb-1">
-                          {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                          {formatDateIndo(time)}
                        </span>
                        <span className="font-mono font-bold text-sm text-white leading-none tracking-wider">
-                          {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':')}
+                          {formatTimeIndo(time)} WIB
                        </span>
                    </div>
                 </div>

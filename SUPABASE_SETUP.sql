@@ -46,6 +46,10 @@ create table if not exists public.attendance_logs (
   created_at timestamptz default now()
 );
 
+-- CRITICAL FIX: Pastikan kolom baru ada jika tabel sudah dibuat sebelumnya
+alter table public.attendance_logs add column if not exists teacher_name text;
+alter table public.attendance_logs add column if not exists subject text;
+
 -- 6. BUAT TABEL SETTINGS (NEW)
 create table if not exists public.app_settings (
   key text primary key,

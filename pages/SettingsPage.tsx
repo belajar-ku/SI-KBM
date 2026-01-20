@@ -2,16 +2,18 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
-import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square } from 'lucide-react';
-import { AppSetting, NonEffectiveDay } from '../types';
+import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square, User } from 'lucide-react';
+import { AppSetting, NonEffectiveDay, Profile } from '../types';
 
 const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<Record<string, string>>({
     academic_year: '',
     semester: 'Ganjil',
-    headmaster: ''
+    headmaster: '',
+    headmaster_nip: '' // Menyimpan NIP Kepala Sekolah
   });
   const [nonEffectiveDays, setNonEffectiveDays] = useState<NonEffectiveDay[]>([]);
+  const [teachers, setTeachers] = useState<Profile[]>([]); // List Guru for Dropdown
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -23,11 +25,28 @@ const SettingsPage: React.FC = () => {
   const [selectedHours, setSelectedHours] = useState<string[]>([]);
 
   useEffect(() => {
-    fetchSettings();
+    const initData = async () => {
+        setLoading(true);
+        await Promise.all([fetchSettings(), fetchTeachers()]);
+        setLoading(false);
+    };
+    initData();
   }, []);
 
+  const fetchTeachers = async () => {
+      try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .neq('nip', null) // Hanya ambil yang punya NIP
+            .order('full_name');
+          if (data) setTeachers(data);
+      } catch (err) {
+          console.error("Gagal load data guru", err);
+      }
+  };
+
   const fetchSettings = async () => {
-    setLoading(true);
     try {
         const { data, error } = await supabase.from('app_settings').select('*');
         if (error) throw error;
@@ -50,21 +69,32 @@ const SettingsPage: React.FC = () => {
             });
         }
 
-        // Merge with existing state to ensure defaults exist if DB is empty
+        // Merge with existing state
         setSettings(prev => ({ ...prev, ...settingsMap }));
         setNonEffectiveDays(days);
     } catch (err: any) {
-        // Log the actual error message safely
-        const msg = err.message || JSON.stringify(err);
-        console.error("Error fetching settings:", msg);
-        
-        // If table doesn't exist, we just use defaults without alarming the user too much (assuming setup might be pending)
-        if (msg.includes('does not exist')) {
-            console.warn("Table app_settings belum dibuat. Jalankan SUPABASE_SETUP.sql di SQL Editor Supabase.");
-        }
-    } finally {
-        setLoading(false);
+        console.error("Error fetching settings:", err.message);
     }
+  };
+
+  const handleHeadmasterChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      const selectedNip = e.target.value;
+      const selectedTeacher = teachers.find(t => t.nip === selectedNip);
+      
+      if (selectedTeacher) {
+          setSettings(prev => ({
+              ...prev,
+              headmaster: selectedTeacher.full_name,
+              headmaster_nip: selectedTeacher.nip
+          }));
+      } else {
+          // Reset jika pilih default/kosong
+          setSettings(prev => ({
+              ...prev,
+              headmaster: '',
+              headmaster_nip: ''
+          }));
+      }
   };
 
   const handleSaveGeneral = async () => {
@@ -187,15 +217,37 @@ const SettingsPage: React.FC = () => {
                                 <option value="Genap">Genap</option>
                             </select>
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">Nama Kepala Sekolah</label>
-                            <input 
-                                className="w-full border rounded-lg p-3 font-medium" 
-                                value={settings['headmaster'] || ''}
-                                onChange={e => setSettings({...settings, headmaster: e.target.value})}
-                                placeholder="Nama Lengkap & Gelar"
-                            />
+                        
+                        {/* UPDATE: Dropdown Kepala Sekolah */}
+                        <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                            <label className="block text-xs font-bold text-blue-800 mb-1">Kepala Sekolah</label>
+                            <div className="relative">
+                                <User className="absolute left-3 top-3.5 text-blue-400" size={16}/>
+                                <select 
+                                    className="w-full border border-blue-200 rounded-lg p-3 pl-9 font-medium bg-white focus:ring-2 focus:ring-blue-500 outline-none" 
+                                    value={settings['headmaster_nip'] || ''} // Bind ke NIP agar unik
+                                    onChange={handleHeadmasterChange}
+                                >
+                                    <option value="">-- Pilih Kepala Sekolah --</option>
+                                    {teachers.map(t => (
+                                        <option key={t.id} value={t.nip}>{t.full_name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            
+                            {/* NIP Otomatis */}
+                            <div className="mt-2 flex items-center gap-2">
+                                <span className="text-[10px] font-bold text-gray-500 bg-white px-2 py-1 rounded border">NIP</span>
+                                <input 
+                                    type="text" 
+                                    readOnly
+                                    className="flex-1 bg-transparent border-none text-xs text-gray-600 font-mono focus:ring-0 p-0"
+                                    value={settings['headmaster_nip'] || '-'}
+                                    placeholder="NIP akan muncul otomatis..."
+                                />
+                            </div>
                         </div>
+
                         <button 
                             onClick={handleSaveGeneral}
                             disabled={saving}

@@ -13,6 +13,8 @@ import StudentsData from './pages/StudentsData';
 import ProfilePage from './pages/ProfilePage';
 import MySchedule from './pages/MySchedule';
 import SettingsPage from './pages/SettingsPage';
+import RekapAbsensi from './pages/RekapAbsensi';
+import LaporanJurnal from './pages/LaporanJurnal'; // Import halaman baru
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -75,6 +77,18 @@ const App: React.FC = () => {
              </ProtectedRoute>
           } />
 
+          <Route path="/rekap-absensi" element={
+             <ProtectedRoute>
+                <RekapAbsensi />
+             </ProtectedRoute>
+          } />
+
+          <Route path="/laporan" element={
+             <ProtectedRoute>
+                <LaporanJurnal />
+             </ProtectedRoute>
+          } />
+
           <Route path="/import-data" element={
              <AdminRoute>
                 <ImportData />
@@ -106,8 +120,6 @@ const App: React.FC = () => {
           } />
 
           {/* Placeholders for other routes */}
-          <Route path="/laporan" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/rekap-absensi" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/kedisiplinan" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/qr" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 

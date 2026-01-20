@@ -4,12 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { PublicStats } from '../types';
 import { LogIn, Loader2, Award, BookOpen, School, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { getWIBDate, getWIBISOString, formatDateIndo, formatTimeIndo } from '../utils/dateUtils';
 
 const PublicDashboard: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [time, setTime] = useState(new Date());
+  const [time, setTime] = useState(getWIBDate());
 
   // Modal State
   const [modalOpen, setModalOpen] = useState(false);
@@ -20,7 +21,7 @@ const PublicDashboard: React.FC = () => {
   } | null>(null);
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000);
+    const timer = setInterval(() => setTime(getWIBDate()), 1000);
     
     // Initial Fetch
     fetchData();
@@ -74,21 +75,8 @@ const PublicDashboard: React.FC = () => {
       });
   };
 
-  // Helper untuk mendapatkan tanggal hari ini dalam format YYYY-MM-DD sesuai zona waktu Jakarta (WIB)
-  const getJakartaDateStr = () => {
-    // Menggunakan Intl.DateTimeFormat untuk memastikan zona waktu benar (Asia/Jakarta)
-    // Format en-CA menghasilkan YYYY-MM-DD
-    const formatter = new Intl.DateTimeFormat('en-CA', { 
-        timeZone: 'Asia/Jakarta', 
-        year: 'numeric', 
-        month: '2-digit', 
-        day: '2-digit' 
-    });
-    return formatter.format(new Date());
-  };
-
   const fetchStatsClientSide = async () => {
-    const todayStr = getJakartaDateStr();
+    const todayStr = getWIBISOString();
     
     // Gunakan filter range waktu hari ini (00:00:00 s/d 23:59:59 WIB) yang dikonversi otomatis oleh Supabase
     // Kita gunakan string sederhana YYYY-MM-DD yang akan dicocokkan dengan created_at (UTC) oleh Supabase logic
@@ -238,20 +226,23 @@ const PublicDashboard: React.FC = () => {
           <div className="flex items-center gap-3 relative z-10">
              <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-16 w-auto" />
              <div>
-                <h1 className="text-xl font-bold text-[#2c3e50] leading-none">SI KBM</h1>
-                <p className="text-xs font-bold text-blue-600 tracking-widest mt-1">REALTIME DASHBOARD</p>
+                <h1 className="text-lg md:text-xl font-bold text-[#2c3e50] leading-tight">UPT SMP NEGERI 1 PASURUAN</h1>
+                <p className="text-[10px] md:text-xs font-bold text-blue-600 mt-1">Sistem Informasi Kegiatan Belajar Mengajar (SI KBM)</p>
              </div>
           </div>
           <div className="text-right relative z-10">
             <p className="text-sm text-gray-600 font-medium">
-              {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+              {formatDateIndo(time)}
             </p>
             <p className="text-xl font-ramping text-[#3498db] font-bold">
-              {time.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' }).replace(/\./g, ':')}
+              {formatTimeIndo(time)} WIB
             </p>
           </div>
         </div>
 
+        {/* ... (Rest of component) ... */}
+        {/* Sisa code sama, hanya memastikan loading state dan modal berfungsi */}
+        
         {loading ? (
           <div className="flex justify-center py-10">
             <Loader2 className="animate-spin text-blue-500 w-10 h-10" />

@@ -5,7 +5,8 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Schedule, Journal } from '../types';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare } from 'lucide-react';
+import { getWIBISOString, getWIBDate } from '../utils/dateUtils';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History } from 'lucide-react';
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
@@ -24,6 +25,9 @@ const JurnalForm: React.FC = () => {
   const [existingJournals, setExistingJournals] = useState<Journal[]>([]);
   const [editJournalId, setEditJournalId] = useState<string | null>(null); // Jika sedang edit
   
+  // State untuk Materi Terakhir (History)
+  const [lastMaterials, setLastMaterials] = useState<Record<string, string>>({}); // Key: "Kelas-Mapel", Value: "Materi"
+
   // Mode: 'auto' (dari jadwal) atau 'manual' (inval/luar jadwal)
   const [inputMode, setInputMode] = useState<'auto' | 'manual'>('auto');
 
@@ -57,10 +61,11 @@ const JurnalForm: React.FC = () => {
     try {
         if (!profile) return;
 
-        // 1. Determine Day (1 = Senin, ... 7 = Minggu)
-        const jsDay = new Date().getDay(); 
+        // 1. Determine Day based on WIB
+        const wibDate = getWIBDate();
+        const jsDay = wibDate.getDay(); 
         const dbDay = jsDay === 0 ? 7 : jsDay;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = getWIBISOString(); // YYYY-MM-DD WIB
 
         // 2. Fetch Today's Schedule
         const { data: schedules } = await supabase
@@ -70,16 +75,44 @@ const JurnalForm: React.FC = () => {
             .eq('day_of_week', dbDay)
             .order('hour'); // sort jam
         
-        // 3. Fetch Jurnal yang SUDAH dibuat hari ini oleh guru ini
+        // 3. Fetch Jurnal yang SUDAH dibuat HARI INI (WIB) oleh guru ini
+        // Kita gunakan filter range timestamp untuk memastikan akurasi zona waktu
+        // Supabase menyimpan UTC. Kita harus memastikan 'todayStr' dicocokkan dengan benar.
+        // Cara termudah: gunakan format YYYY-MM-DDT00:00:00+07:00
+        const startOfDay = `${todayStr}T00:00:00+07:00`;
+        const endOfDay = `${todayStr}T23:59:59+07:00`;
+
         const { data: journals } = await supabase
             .from('journals')
             .select('*')
             .eq('teacher_id', profile.id)
-            .gte('created_at', `${todayStr} 00:00:00`)
-            .lte('created_at', `${todayStr} 23:59:59`);
+            .gte('created_at', startOfDay)
+            .lte('created_at', endOfDay);
 
         if (journals) setExistingJournals(journals);
         
+        // 4. Fetch History Materi Terakhir (Dari jurnal SEBELUM hari ini)
+        // Kita ambil 50 jurnal terakhir guru ini, lalu filter manual di JS untuk mendapatkan materi terakhir per kelas-mapel
+        const { data: historyJournals } = await supabase
+            .from('journals')
+            .select('kelas, subject, material, created_at')
+            .eq('teacher_id', profile.id)
+            .lt('created_at', startOfDay) // Hanya data SEBELUM hari ini
+            .order('created_at', { ascending: false })
+            .limit(100);
+
+        const materialMap: Record<string, string> = {};
+        
+        if (historyJournals) {
+            historyJournals.forEach(j => {
+                const key = `${j.kelas}-${j.subject}`;
+                if (!materialMap[key]) {
+                    materialMap[key] = j.material;
+                }
+            });
+        }
+        setLastMaterials(materialMap);
+
         if (schedules && schedules.length > 0) {
             setTodaySchedules(schedules);
             setInputMode('auto');
@@ -87,7 +120,7 @@ const JurnalForm: React.FC = () => {
             setInputMode('manual'); // No schedule today, fallback to manual
         }
 
-        // 4. Fetch All Classes (For Manual Mode)
+        // 5. Fetch All Classes (For Manual Mode)
         const { data: studentData } = await supabase.from('students').select('kelas');
         if (studentData) {
             const unique = Array.from(new Set(studentData.map((s: any) => s.kelas))).sort() as string[];
@@ -243,6 +276,8 @@ const JurnalForm: React.FC = () => {
                 cleanliness: formData.cleanliness,
                 validation: validationStatus,
                 notes: formData.notes
+                // created_at akan otomatis diisi DB, biasanya UTC. 
+                // Tidak masalah, karena saat fetch kita convert ke WIB
             })
             .select()
             .single();
@@ -271,7 +306,6 @@ const JurnalForm: React.FC = () => {
           }
       }
 
-      // TAMPILKAN CUSTOM ALERT SUKSES
       setAlertState({
         isOpen: true,
         type: 'success',
@@ -280,7 +314,6 @@ const JurnalForm: React.FC = () => {
       });
 
     } catch (err: any) {
-      // TAMPILKAN CUSTOM ALERT ERROR
       setAlertState({
         isOpen: true,
         type: 'error',
@@ -294,7 +327,6 @@ const JurnalForm: React.FC = () => {
 
   const handleCloseAlert = () => {
       setAlertState(prev => ({ ...prev, isOpen: false }));
-      // Jika sukses, redirect ke dashboard
       if (alertState.type === 'success') {
           navigate('/dashboard');
       }
@@ -309,6 +341,19 @@ const JurnalForm: React.FC = () => {
       return existingJournals.some(j => j.kelas === sch.kelas && j.subject === sch.subject);
   };
 
+  // Helper Get Display Material
+  const getDisplayMaterial = (sch: Schedule, filled: boolean) => {
+      if (filled) {
+          // Jika sudah diisi hari ini, ambil materi dari jurnal hari ini
+          const journal = existingJournals.find(j => j.kelas === sch.kelas && j.subject === sch.subject);
+          return journal?.material || '-';
+      } else {
+          // Jika belum diisi, ambil materi terakhir (History)
+          const key = `${sch.kelas}-${sch.subject}`;
+          return lastMaterials[key] || 'Belum ada data materi sebelumnya.';
+      }
+  };
+
   const renderStep1 = () => (
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
        <div className="flex justify-between items-start mb-6">
@@ -317,7 +362,6 @@ const JurnalForm: React.FC = () => {
                <p className="text-gray-500 text-xs">Pilih kelas & tandai murid yang tidak hadir/dispensasi.</p>
            </div>
            
-           {/* Toggle Mode */}
            <button 
              onClick={() => {
                  const newMode = inputMode === 'auto' ? 'manual' : 'auto';
@@ -335,42 +379,58 @@ const JurnalForm: React.FC = () => {
        <div className="mb-6 space-y-4">
          {inputMode === 'auto' && todaySchedules.length > 0 ? (
              <div className="space-y-2">
-                 <label className="text-sm font-bold text-gray-600">Pilih Jadwal Hari Ini</label>
+                 <label className="text-sm font-bold text-gray-600">Pilih Jadwal Hari Ini ({getWIBDate().toLocaleDateString('id-ID', {weekday:'long', timeZone:'Asia/Jakarta'})})</label>
                  <div className="grid gap-3">
                      {todaySchedules.map(sch => {
                          const filled = isScheduleFilled(sch);
                          const isSelected = formData.kelas === sch.kelas && formData.subject === sch.subject;
+                         const materialText = getDisplayMaterial(sch, filled);
                          
                          return (
                             <div 
                                 key={sch.id}
                                 onClick={() => handleScheduleSelect(sch.id)}
-                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex items-center justify-between group ${
+                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col gap-2 group relative overflow-hidden ${
                                     isSelected 
                                     ? (filled ? 'border-green-500 bg-green-50 shadow-md' : 'border-blue-500 bg-blue-50 shadow-md') 
                                     : (filled ? 'border-green-100 bg-green-50/30' : 'border-gray-100 hover:border-blue-200 bg-white')
                                 }`}
                             >
-                                <div className="flex items-center gap-3">
-                                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white transition-colors ${
-                                        filled ? 'bg-green-500' : (isSelected ? 'bg-blue-500' : 'bg-gray-300')
-                                    }`}>
-                                        {sch.kelas}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white transition-colors ${
+                                            filled ? 'bg-green-500' : (isSelected ? 'bg-blue-500' : 'bg-gray-300')
+                                        }`}>
+                                            {sch.kelas}
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{sch.subject}</p>
+                                            <p className="text-xs text-gray-500 flex items-center gap-1"><Clock size={12}/> Jam ke-{sch.hour}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{sch.subject}</p>
-                                        <p className="text-xs text-gray-500 flex items-center gap-1"><Clock size={12}/> Jam ke-{sch.hour}</p>
-                                    </div>
+                                    
+                                    {filled ? (
+                                        <div className="flex items-center gap-1 text-green-600 text-xs font-bold bg-white px-2 py-1 rounded-full border border-green-200">
+                                            <Check size={14} strokeWidth={3} />
+                                            {isSelected ? 'Sedang Diedit' : 'Sudah Diisi'}
+                                        </div>
+                                    ) : isSelected && (
+                                        <CheckCircleIcon />
+                                    )}
                                 </div>
                                 
-                                {filled ? (
-                                    <div className="flex items-center gap-1 text-green-600 text-xs font-bold bg-white px-2 py-1 rounded-full border border-green-200">
-                                        <Check size={14} strokeWidth={3} />
-                                        {isSelected ? 'Sedang Diedit' : 'Sudah Diisi'}
-                                    </div>
-                                ) : isSelected && (
-                                    <CheckCircleIcon />
-                                )}
+                                {/* MATERI TERAKHIR / CURRENT MATERIAL */}
+                                <div className="mt-1 pt-2 border-t border-dashed border-gray-300/50 flex items-start gap-2">
+                                     <History size={14} className="text-gray-400 mt-0.5 flex-shrink-0"/>
+                                     <div className="text-xs">
+                                         <span className="font-bold text-gray-500 block mb-0.5">
+                                            {filled ? "Materi Hari Ini:" : "Materi Terakhir:"}
+                                         </span>
+                                         <p className="text-gray-600 italic line-clamp-2">
+                                            "{materialText}"
+                                         </p>
+                                     </div>
+                                </div>
                             </div>
                          );
                      })}
@@ -465,6 +525,8 @@ const JurnalForm: React.FC = () => {
     </div>
   );
 
+  // ... (Step 2 and Step 3 remain mostly same, just ensuring no logic break)
+  // I will just return the full component to be safe as previously requested.
   const renderStep2 = () => (
     <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
       <div className="flex justify-between items-center mb-4">
@@ -488,7 +550,6 @@ const JurnalForm: React.FC = () => {
             type="text"
             className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 outline-none font-medium bg-gray-50"
             value={formData.subject}
-            // Jika mode auto, mapel dikunci agar sesuai jadwal
             readOnly={inputMode === 'auto'}
             onChange={e => setFormData({...formData, subject: e.target.value})}
             placeholder="Contoh: Matematika"
@@ -502,8 +563,6 @@ const JurnalForm: React.FC = () => {
            <div className="flex gap-2 flex-wrap">
              {[1,2,3,4,5,6,7,8,9,10].map(h => {
                const isSelected = formData.hours.includes(String(h));
-               // Jika Mode Auto: Disable semua checkbox agar user tidak bisa ubah. 
-               // Jam yang dijadwalkan sudah terset dari Step 1.
                const isDisabled = inputMode === 'auto';
 
                return (
@@ -652,7 +711,6 @@ const JurnalForm: React.FC = () => {
   return (
     <Layout>
       <div className="max-w-xl mx-auto pb-10 relative">
-        {/* Modern Progress Header */}
         <div className="flex justify-between items-center mb-8 px-2">
             <div>
                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -685,7 +743,6 @@ const JurnalForm: React.FC = () => {
             </>
         )}
 
-        {/* CUSTOM AESTHETIC ALERT MODAL */}
         {alertState.isOpen && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
                 <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center transform scale-100 transition-all border border-white/20">
