@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,6 +10,9 @@ const ProfilePage: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
   
+  // Master Data
+  const [subjectsList, setSubjectsList] = useState<string[]>([]);
+
   // Form Data Profile
   const [formData, setFormData] = useState({
     mengajar_mapel: '',
@@ -33,8 +37,18 @@ const ProfilePage: React.FC = () => {
         wali_kelas: profile.wali_kelas || ''
       });
       setAvatarUrl(profile.avatar_url || null);
+      fetchSubjects();
     }
   }, [profile]);
+
+  const fetchSubjects = async () => {
+    try {
+        const { data } = await supabase.from('app_settings').select('value').eq('key', 'subjects_list').single();
+        if (data && data.value) {
+            setSubjectsList(JSON.parse(data.value));
+        }
+    } catch (e) { console.error(e); }
+  };
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -255,14 +269,20 @@ const ProfilePage: React.FC = () => {
 
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran Diampu</label>
-                  <input 
-                    type="text" 
+                  <select 
                     value={formData.mengajar_mapel}
                     onChange={e => setFormData({...formData, mengajar_mapel: e.target.value})}
-                    placeholder="Contoh: Matematika, IPA"
-                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  />
-                  <p className="text-xs text-gray-400 mt-1">* Pisahkan dengan koma jika lebih dari satu.</p>
+                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                  >
+                    <option value="">-- Pilih Mata Pelajaran --</option>
+                    {subjectsList.map((subj, idx) => (
+                        <option key={idx} value={subj}>{subj}</option>
+                    ))}
+                    {!subjectsList.includes(formData.mengajar_mapel) && formData.mengajar_mapel && (
+                        <option value={formData.mengajar_mapel}>{formData.mengajar_mapel}</option>
+                    )}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-1">* Data diambil dari pengaturan admin.</p>
                 </div>
 
                 <div>

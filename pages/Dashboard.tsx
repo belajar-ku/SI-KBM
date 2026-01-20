@@ -206,8 +206,8 @@ const Dashboard: React.FC = () => {
         {/* 3. STATISTIK & PROGRES (iOS Widgets) */}
         {!isAdmin && (
             <div className="grid grid-cols-1 gap-5">
-                {/* Large Activity Widget */}
-                <div className="bg-gradient-to-br from-[#5e60ce] to-[#6930c3] rounded-[2rem] p-7 text-white shadow-xl shadow-indigo-500/20 relative overflow-hidden min-h-[160px] flex flex-col justify-between group">
+                {/* Large Activity Widget - School Colors */}
+                <div className="bg-gradient-to-br from-blue-900 to-blue-600 rounded-[2rem] p-7 text-white shadow-xl shadow-blue-500/20 relative overflow-hidden min-h-[160px] flex flex-col justify-between group">
                     <div className="relative z-10 flex justify-between items-start">
                         <div>
                              <div className="flex items-center gap-2 mb-1 opacity-80">
@@ -229,7 +229,7 @@ const Dashboard: React.FC = () => {
 
                     {/* Background Decor */}
                     <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-3xl group-hover:scale-110 transition-transform duration-700"></div>
-                    <div className="absolute -left-10 bottom-0 w-32 h-32 bg-blue-500/20 rounded-full blur-3xl"></div>
+                    <div className="absolute -left-10 bottom-0 w-32 h-32 bg-cyan-500/20 rounded-full blur-3xl"></div>
                 </div>
 
                 {/* Class Breakdown List */}

@@ -16,6 +16,7 @@ import MySchedule from './pages/MySchedule';
 import SettingsPage from './pages/SettingsPage';
 import RekapAbsensi from './pages/RekapAbsensi';
 import LaporanJurnal from './pages/LaporanJurnal';
+import Kedisiplinan from './pages/Kedisiplinan';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -96,6 +97,12 @@ const App: React.FC = () => {
              </ProtectedRoute>
           } />
 
+           <Route path="/kedisiplinan" element={
+             <ProtectedRoute>
+                <Kedisiplinan />
+             </ProtectedRoute>
+          } />
+
           <Route path="/import-data" element={
              <AdminRoute>
                 <ImportData />
@@ -127,7 +134,6 @@ const App: React.FC = () => {
           } />
 
           {/* Placeholders for other routes */}
-          <Route path="/kedisiplinan" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/qr" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
         </Routes>
