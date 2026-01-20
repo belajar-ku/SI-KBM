@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Profile } from '../types';
-import { Printer, Filter, Loader2, FileText, Search } from 'lucide-react';
+import { Printer, Loader2, FileText, Search } from 'lucide-react';
 import { formatDateSignature } from '../utils/dateUtils';
 
 interface AttendanceSummary {
@@ -222,61 +222,63 @@ const RekapAbsensi: React.FC = () => {
       </div>
 
       {selectedClass && reportData.length > 0 && (
-        <div className="mt-8 bg-white p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in" ref={componentRef}>
+        <div className="mt-8 bg-white p-4 md:p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in rounded-2xl" ref={componentRef}>
             <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
                 <div className="flex items-center gap-4">
-                     <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-20 w-auto" />
+                     <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-12 md:h-20 w-auto" />
                      <div>
-                         <h1 className="text-xl font-bold uppercase tracking-wide text-black">UPT SMP NEGERI 1 PASURUAN</h1>
-                         <h2 className="text-lg font-bold text-black">Rekap Absensi Mata Pelajaran : {selectedSubject}</h2>
-                         <p className="text-sm text-gray-600">Semester {settings.semester} | Tahun Ajaran {settings.academic_year}</p>
+                         <h1 className="text-md md:text-xl font-bold uppercase tracking-wide text-black leading-tight">UPT SMP NEGERI 1 PASURUAN</h1>
+                         <h2 className="text-sm md:text-lg font-bold text-black leading-tight">Rekap Absensi Mata Pelajaran : {selectedSubject}</h2>
+                         <p className="text-xs md:text-sm text-gray-600">Semester {settings.semester} | Tahun Ajaran {settings.academic_year}</p>
                      </div>
                 </div>
-                <div className="border-4 border-black p-2 min-w-[60px] text-center">
-                    <span className="text-2xl font-bold text-black block">{selectedClass}</span>
+                <div className="border-4 border-black p-2 min-w-[50px] md:min-w-[60px] text-center">
+                    <span className="text-lg md:text-2xl font-bold text-black block">{selectedClass}</span>
                 </div>
             </div>
 
-            <table className="w-full border-collapse border border-gray-400 text-sm text-black">
-                <thead>
-                    <tr className="bg-gray-200 text-center">
-                        <th className="border border-gray-400 p-2 w-10" rowSpan={2}>Nomor<br/><span className="text-[10px]">Urut</span></th>
-                        <th className="border border-gray-400 p-2 w-24" rowSpan={2}>NISN</th>
-                        <th className="border border-gray-400 p-2" rowSpan={2}>Nama Murid</th>
-                        <th className="border border-gray-400 p-1" colSpan={4}>Ketidakhadiran</th>
-                        <th className="border border-gray-400 p-2 w-32" rowSpan={2}>Prosentase Kehadiran</th>
-                    </tr>
-                    <tr className="bg-gray-100 text-center text-xs font-bold">
-                        <th className="border border-gray-400 p-1 w-8">S</th>
-                        <th className="border border-gray-400 p-1 w-8">I</th>
-                        <th className="border border-gray-400 p-1 w-8">A</th>
-                        <th className="border border-gray-400 p-1 w-8">D</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {reportData.map((item, index) => (
-                        <tr key={item.student.id} className="text-center">
-                            <td className="border border-gray-400 p-1.5">{index + 1}</td>
-                            <td className="border border-gray-400 p-1.5 font-mono">{item.student.nisn}</td>
-                            <td className="border border-gray-400 p-1.5 text-left pl-3">{item.student.name}</td>
-                            <td className="border border-gray-400 p-1.5">{item.s}</td>
-                            <td className="border border-gray-400 p-1.5">{item.i}</td>
-                            <td className="border border-gray-400 p-1.5">{item.a}</td>
-                            <td className="border border-gray-400 p-1.5">{item.d}</td>
-                            <td className="border border-gray-400 p-1.5 font-bold">{item.percentage}</td>
+            <div className="overflow-x-auto">
+                <table className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
+                    <thead>
+                        <tr className="bg-gray-200 text-center">
+                            <th className="border border-gray-400 p-2 w-10" rowSpan={2}>No</th>
+                            <th className="border border-gray-400 p-2 w-24" rowSpan={2}>NISN</th>
+                            <th className="border border-gray-400 p-2" rowSpan={2}>Nama Murid</th>
+                            <th className="border border-gray-400 p-1" colSpan={4}>Ketidakhadiran</th>
+                            <th className="border border-gray-400 p-2 w-32" rowSpan={2}>% Kehadiran</th>
                         </tr>
-                    ))}
-                </tbody>
-            </table>
+                        <tr className="bg-gray-100 text-center text-xs font-bold">
+                            <th className="border border-gray-400 p-1 w-8">S</th>
+                            <th className="border border-gray-400 p-1 w-8">I</th>
+                            <th className="border border-gray-400 p-1 w-8">A</th>
+                            <th className="border border-gray-400 p-1 w-8">D</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {reportData.map((item, index) => (
+                            <tr key={item.student.id} className="text-center">
+                                <td className="border border-gray-400 p-1.5">{index + 1}</td>
+                                <td className="border border-gray-400 p-1.5 font-mono text-xs">{item.student.nisn}</td>
+                                <td className="border border-gray-400 p-1.5 text-left pl-3">{item.student.name}</td>
+                                <td className="border border-gray-400 p-1.5">{item.s}</td>
+                                <td className="border border-gray-400 p-1.5">{item.i}</td>
+                                <td className="border border-gray-400 p-1.5">{item.a}</td>
+                                <td className="border border-gray-400 p-1.5">{item.d}</td>
+                                <td className="border border-gray-400 p-1.5 font-bold">{item.percentage}</td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
 
-            <div className="mt-10 flex justify-between text-black break-inside-avoid">
-                <div className="text-center">
+            <div className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0">
+                <div className="text-center md:text-left md:ml-4">
                     <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>
                     <p className="font-bold underline">{settings.headmaster}</p>
                     <p className="text-sm">NIP {settings.headmaster_nip || '........................'}</p> 
                 </div>
 
-                <div className="text-center mr-10">
+                <div className="text-center md:text-left md:mr-10">
                     <p className="mb-16">Kota Pasuruan, {currentDateStr}<br/>Guru Mata Pelajaran,</p>
                     <p className="font-bold underline">{profile?.full_name}</p>
                     <p className="text-sm">NIP {profile?.nip}</p>

@@ -5,6 +5,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import PublicDashboard from './pages/PublicDashboard';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import AppsMenu from './pages/AppsMenu';
 import JurnalForm from './pages/JurnalForm';
 import ImportData from './pages/ImportData';
 import InputJadwal from './pages/InputJadwal';
@@ -14,7 +15,7 @@ import ProfilePage from './pages/ProfilePage';
 import MySchedule from './pages/MySchedule';
 import SettingsPage from './pages/SettingsPage';
 import RekapAbsensi from './pages/RekapAbsensi';
-import LaporanJurnal from './pages/LaporanJurnal'; // Import halaman baru
+import LaporanJurnal from './pages/LaporanJurnal';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -56,6 +57,12 @@ const App: React.FC = () => {
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <Dashboard />
+            </ProtectedRoute>
+          } />
+          
+          <Route path="/apps" element={
+            <ProtectedRoute>
+              <AppsMenu />
             </ProtectedRoute>
           } />
           
