@@ -111,6 +111,24 @@ values
 on conflict (key) do nothing;
 
 -- ==========================================
+-- UPDATE STRUKTUR TABEL (MIGRATION FIX)
+-- Bagian ini memaksa penambahan kolom jika belum ada
+-- ==========================================
+
+DO $$
+BEGIN
+    -- Tambahkan kolom assessment_type ke journals jika belum ada
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'journals' AND column_name = 'assessment_type') THEN
+        ALTER TABLE public.journals ADD COLUMN assessment_type text;
+    END IF;
+
+    -- Tambahkan kolom assessment_missing_students ke journals jika belum ada
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'journals' AND column_name = 'assessment_missing_students') THEN
+        ALTER TABLE public.journals ADD COLUMN assessment_missing_students text;
+    END IF;
+END $$;
+
+-- ==========================================
 -- ROW LEVEL SECURITY (RLS) & POLICIES
 -- ==========================================
 
