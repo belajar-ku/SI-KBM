@@ -2,15 +2,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, User, Grid } from 'lucide-react';
+import { LogOut, LayoutDashboard, Grid, User, ChevronRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> = ({ children, showNav = true }) => {
-  const { signOut } = useAuth();
+  const { signOut, profile } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
-  // State untuk mengontrol visibilitas Modal Logout
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [semester, setSemester] = useState('...');
 
@@ -36,111 +35,162 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
     navigate('/');
   };
 
+  const NavItem = ({ path, label, icon: Icon }: any) => {
+      const isActive = location.pathname === path;
+      return (
+          <button 
+            onClick={() => navigate(path)}
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+                isActive 
+                ? 'bg-blue-600 text-white shadow-md' 
+                : 'text-gray-600 hover:bg-gray-100 hover:text-blue-600'
+            }`}
+          >
+              <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
+              <span className={`font-medium text-sm ${isActive ? 'text-white' : 'text-gray-700'}`}>{label}</span>
+          </button>
+      );
+  };
+
   return (
-    <div className="min-h-screen flex flex-col bg-slate-50 font-poppins relative">
-      {showNav && (
-        <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200 px-4 py-3 shadow-sm">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
-            <div className="flex items-center gap-3">
-               <div className="relative">
-                    <img 
-                      src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
-                      alt="Logo Sekolah" 
-                      className="h-10 w-10 object-contain" 
-                    />
-               </div>
-               <div className="leading-tight">
-                 <h2 className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-0.5">
-                   UPT SMP NEGERI 1 PASURUAN
-                 </h2>
-                 <p className="text-sm font-bold text-gray-800">
-                   SI KBM | Semester {semester}
-                 </p>
-               </div>
-            </div>
-            
-            <button 
-              onClick={handleLogoutClick}
-              className="p-2 rounded-full text-gray-500 hover:bg-red-50 hover:text-red-600 transition-all duration-300"
-              title="Logout"
-            >
-              <LogOut size={20} />
-            </button>
-          </div>
-        </header>
-      )}
+    <div className="min-h-screen flex bg-[#F0F4F8] font-sans text-slate-800">
       
-      <main className="flex-grow p-4 md:p-6 animate-fade-in">
-        <div className="max-w-5xl mx-auto w-full">
-          {children}
-        </div>
+      {/* --- DESKTOP SIDEBAR (Solid White) --- */}
+      {showNav && (
+        <aside className="hidden md:flex flex-col w-72 h-screen sticky top-0 bg-white border-r border-gray-200 z-20">
+            {/* Logo Area */}
+            <div className="p-6 flex items-center gap-3 border-b border-gray-100">
+                 <img 
+                    src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
+                    alt="Logo" 
+                    className="h-10 w-10" 
+                  />
+                 <div>
+                    <h2 className="text-sm font-extrabold text-slate-800 leading-none">UPT SMPN 1</h2>
+                    <p className="text-xs text-gray-500 mt-1 font-medium">SI KBM Online</p>
+                 </div>
+            </div>
+
+            {/* Navigation Menu */}
+            <div className="flex-1 space-y-1 p-4 overflow-y-auto">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Menu Utama</div>
+                <NavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
+                <NavItem path="/apps" label="KBM" icon={Grid} />
+                <NavItem path="/profile" label="Profil Saya" icon={User} />
+            </div>
+
+            {/* User Profile Mini */}
+            <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 overflow-hidden">
+                        <div className="w-10 h-10 rounded-full bg-white flex-shrink-0 overflow-hidden border border-gray-200 shadow-sm">
+                            {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover"/> : <User size={20} className="m-2.5 text-gray-400"/>}
+                        </div>
+                        <div className="min-w-0">
+                             <p className="text-sm font-bold text-slate-800 truncate max-w-[120px]">{profile?.full_name?.split(' ')[0]}</p>
+                             <p className="text-xs text-green-600 font-bold flex items-center gap-1">
+                                <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
+                             </p>
+                        </div>
+                    </div>
+                    <button 
+                        onClick={handleLogoutClick}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Keluar"
+                    >
+                        <LogOut size={18} />
+                    </button>
+                </div>
+            </div>
+        </aside>
+      )}
+
+      {/* --- MAIN CONTENT --- */}
+      <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative">
+          {/* Mobile Header (Solid White) */}
+          <div className="md:hidden sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-30 shadow-sm">
+             <div className="flex items-center gap-3">
+                 <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" className="h-9 w-9"/>
+                 <div>
+                     <h1 className="text-lg font-extrabold text-slate-800 leading-none">SI KBM</h1>
+                     <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">Semester {semester}</p>
+                 </div>
+             </div>
+             <button onClick={handleLogoutClick} className="w-9 h-9 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 active:bg-gray-100 border border-gray-200">
+                 <LogOut size={18}/>
+             </button>
+          </div>
+
+          <div className="p-4 md:p-8 max-w-6xl w-full mx-auto pb-28 md:pb-10">
+            {children}
+          </div>
       </main>
 
-      {/* Mobile Bottom Nav */}
+      {/* --- MOBILE BOTTOM NAV (Floating Figma Style) --- */}
       {showNav && (
-        <nav className="md:hidden fixed bottom-0 w-full bg-white/90 backdrop-blur-xl border-t border-gray-200 flex justify-between items-end px-10 py-2 z-50 pb-safe shadow-[0_-10px_40px_-15px_rgba(0,0,0,0.1)] h-20">
-            {/* Tab 1: Beranda */}
-            <button 
-              onClick={() => navigate('/dashboard')}
-              className={`flex flex-col items-center gap-1.5 transition-all duration-300 pb-2 ${location.pathname === '/dashboard' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <LayoutDashboard size={26} strokeWidth={location.pathname === '/dashboard' ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">Beranda</span>
-            </button>
+        <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none">
+            <nav className="bg-white/90 backdrop-blur-md border border-white/50 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
+                <button 
+                  onClick={() => navigate('/dashboard')}
+                  className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
+                      location.pathname === '/dashboard' 
+                      ? 'bg-slate-800 text-white shadow-md' 
+                      : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  <LayoutDashboard size={20} strokeWidth={2.5} />
+                  {location.pathname === '/dashboard' && <span className="text-xs font-bold animate-fade-in">Beranda</span>}
+                </button>
 
-            {/* Tab 2: Menu (Tengah - Floating Style) */}
-            <button 
-               onClick={() => navigate('/apps')}
-               className="group relative -top-6"
-            >
-               <div className={`w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-all duration-300 ${location.pathname === '/apps' ? 'bg-blue-600 text-white scale-110 shadow-blue-500/40' : 'bg-white text-blue-600 border border-blue-50'}`}>
-                 <Grid size={26} strokeWidth={2.5} />
-               </div>
-               <span className={`absolute -bottom-5 left-1/2 transform -translate-x-1/2 text-[10px] font-bold transition-colors ${location.pathname === '/apps' ? 'text-blue-600' : 'text-gray-400'}`}>
-                   Menu
-               </span>
-            </button>
+                <button 
+                   onClick={() => navigate('/apps')}
+                   className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
+                       location.pathname === '/apps' 
+                       ? 'bg-slate-800 text-white shadow-md' 
+                       : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                   }`}
+                >
+                   <Grid size={20} strokeWidth={2.5} />
+                   {location.pathname === '/apps' && <span className="text-xs font-bold animate-fade-in">KBM</span>}
+                </button>
 
-            {/* Tab 3: Profil */}
-            <button 
-               onClick={() => navigate('/profile')}
-               className={`flex flex-col items-center gap-1.5 transition-all duration-300 pb-2 ${location.pathname === '/profile' ? 'text-blue-600' : 'text-gray-400 hover:text-gray-600'}`}
-            >
-              <User size={26} strokeWidth={location.pathname === '/profile' ? 2.5 : 2} />
-              <span className="text-[10px] font-bold">Profil</span>
-            </button>
-        </nav>
+                <button 
+                   onClick={() => navigate('/profile')}
+                   className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
+                       location.pathname === '/profile' 
+                       ? 'bg-slate-800 text-white shadow-md' 
+                       : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                   }`}
+                >
+                  <User size={20} strokeWidth={2.5} />
+                  {location.pathname === '/profile' && <span className="text-xs font-bold animate-fade-in">Profil</span>}
+                </button>
+            </nav>
+        </div>
       )}
-      
-      <div className="h-24 md:h-0"></div> {/* Spacer for bottom nav */}
 
-      {/* MODERN LOGOUT MODAL */}
+      {/* LOGOUT MODAL */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-           <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 border border-white/20">
-              <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mb-4 text-red-600 shadow-sm">
-                      <LogOut size={32} />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">Konfirmasi Keluar</h3>
-                  <p className="text-gray-500 text-sm mb-6">
-                    Apakah Anda yakin keluar dari Aplikasi ini?
-                  </p>
-                  
-                  <div className="flex w-full gap-3">
-                      <button 
-                        onClick={() => setShowLogoutModal(false)}
-                        className="flex-1 py-3.5 px-4 rounded-xl border border-gray-300 text-gray-700 font-bold hover:bg-gray-50 transition-colors"
-                      >
-                        Batal
-                      </button>
-                      <button 
-                        onClick={confirmLogout}
-                        className="flex-1 py-3.5 px-4 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 shadow-lg shadow-red-500/30 transition-colors"
-                      >
-                        Ya, Keluar
-                      </button>
-                  </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in">
+           <div className="bg-white rounded-2xl shadow-xl w-full max-w-xs p-6 transform scale-100 transition-all">
+              <h3 className="text-lg font-bold text-gray-800 mb-2">Konfirmasi Keluar</h3>
+              <p className="text-gray-600 text-sm mb-6">
+                Apakah Anda yakin ingin mengakhiri sesi ini?
+              </p>
+              
+              <div className="flex justify-end gap-3">
+                  <button 
+                    onClick={() => setShowLogoutModal(false)}
+                    className="px-4 py-2 rounded-lg text-gray-600 font-bold text-sm hover:bg-gray-100 transition-colors"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    onClick={confirmLogout}
+                    className="px-4 py-2 rounded-lg bg-red-600 text-white font-bold text-sm shadow-sm hover:bg-red-700 transition-colors"
+                  >
+                    Ya, Keluar
+                  </button>
               </div>
            </div>
         </div>

@@ -6,7 +6,7 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Schedule, Journal } from '../types';
 import { getWIBISOString, getWIBDate } from '../utils/dateUtils';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban, ChevronRight } from 'lucide-react';
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
@@ -30,7 +30,7 @@ const JurnalForm: React.FC = () => {
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [showStudentChecklistModal, setShowStudentChecklistModal] = useState(false);
   const [assessmentType, setAssessmentType] = useState<'harian' | 'tugas' | 'none'>('none');
-  const [missingStudents, setMissingStudents] = useState<string[]>([]); // List ID Siswa yang tidak ikut
+  const [missingStudents, setMissingStudents] = useState<string[]>([]); 
 
   const [alertState, setAlertState] = useState<{
     isOpen: boolean;
@@ -193,9 +193,8 @@ const JurnalForm: React.FC = () => {
 
   // --- LOGIC PENILAIAN ---
   const handlePreSubmit = () => {
-      // Trigger Assessment Modal first
       setShowAssessmentModal(true);
-      setMissingStudents([]); // Reset missing
+      setMissingStudents([]); 
   };
 
   const handleAssessmentSelect = (type: 'harian' | 'tugas' | 'none') => {
@@ -203,10 +202,8 @@ const JurnalForm: React.FC = () => {
       setShowAssessmentModal(false);
       
       if (type === 'none') {
-          // Direct Submit
           handleSubmitFinal([], 'none');
       } else {
-          // Show Checklist
           setShowStudentChecklistModal(true);
       }
   };
@@ -230,7 +227,6 @@ const JurnalForm: React.FC = () => {
       let finalJournalId = editJournalId;
       const validationStatus = formData.isConfirmed ? 'hadir_kbm' : 'inval'; 
       
-      // Get Names of Missing Students
       const missingNames = students.filter(s => missingIds.includes(s.id)).map(s => s.name);
 
       const payload = {
@@ -297,33 +293,12 @@ const JurnalForm: React.FC = () => {
       }
   };
 
-  const CheckCircleIcon = ({className = "text-blue-500"}: {className?: string}) => (
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-  );
-
-  const isScheduleFilled = (sch: Schedule) => existingJournals.some(j => j.kelas === sch.kelas && j.subject === sch.subject);
-  
-  const getDisplayMaterial = (sch: Schedule, filled: boolean) => {
-      if (filled) {
-          const journal = existingJournals.find(j => j.kelas === sch.kelas && j.subject === sch.subject);
-          return journal?.material || '-';
-      } else {
-          const key = `${sch.kelas}-${sch.subject}`;
-          return lastMaterials[key] || 'Belum ada data materi sebelumnya.';
-      }
-  };
-
-  // Helper untuk mendapatkan siswa yang HADIR saja (tidak ada di formData.attendance)
-  const getPresentStudents = () => {
-      return students.filter(s => !formData.attendance[s.id]);
-  };
-
   const renderStep1 = () => (
-      <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
        <div className="flex justify-between items-start mb-6">
            <div>
-               <h3 className="font-bold text-xl text-gray-800">Presensi Murid</h3>
-               <p className="text-gray-500 text-xs">Pilih kelas & tandai murid yang tidak hadir/dispensasi.</p>
+               <h3 className="font-extrabold text-lg text-slate-800">Presensi Murid</h3>
+               <p className="text-slate-500 text-sm mt-1">Pilih kelas & tandai murid yang tidak hadir.</p>
            </div>
            
            <button 
@@ -333,17 +308,17 @@ const JurnalForm: React.FC = () => {
                  setEditJournalId(null);
                  setFormData({ kelas: '', subject: '', hours: [], material: '', attendance: {}, cleanliness: '', validation: '', notes: '', isConfirmed: false});
              }}
-             className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition-colors"
+             className="flex items-center gap-2 text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full border border-blue-100 hover:bg-blue-100 transition-colors"
            >
-             {inputMode === 'auto' ? <ToggleLeft size={20}/> : <ToggleRight size={20}/>}
-             {inputMode === 'auto' ? 'Sesuai Jadwal' : 'Mode Manual'}
+             {inputMode === 'auto' ? <ToggleLeft size={18}/> : <ToggleRight size={18}/>}
+             {inputMode === 'auto' ? 'Mode Jadwal' : 'Mode Manual'}
            </button>
        </div>
        
        <div className="mb-6 space-y-4">
          {inputMode === 'auto' && todaySchedules.length > 0 ? (
-             <div className="space-y-2">
-                 <label className="text-sm font-bold text-gray-600">Pilih Jadwal Hari Ini ({getWIBDate().toLocaleDateString('id-ID', {weekday:'long', timeZone:'Asia/Jakarta'})})</label>
+             <div className="space-y-3">
+                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pilih Jadwal Hari Ini</label>
                  <div className="grid gap-3">
                      {todaySchedules.map(sch => {
                          const filled = isScheduleFilled(sch);
@@ -354,41 +329,42 @@ const JurnalForm: React.FC = () => {
                             <div 
                                 key={sch.id}
                                 onClick={() => handleScheduleSelect(sch.id)}
-                                className={`p-4 rounded-xl border-2 cursor-pointer transition-all flex flex-col gap-2 group relative overflow-hidden ${
+                                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col gap-2 relative ${
                                     isSelected 
-                                    ? (filled ? 'border-green-500 bg-green-50 shadow-md' : 'border-blue-500 bg-blue-50 shadow-md') 
-                                    : (filled ? 'border-green-100 bg-green-50/30' : 'border-gray-100 hover:border-blue-200 bg-white')
+                                    ? (filled ? 'border-green-500 bg-green-50' : 'border-blue-600 bg-blue-50') 
+                                    : (filled ? 'border-green-100 bg-green-50/20' : 'border-slate-100 hover:border-blue-200 bg-white')
                                 }`}
                             >
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold text-white transition-colors ${
-                                            filled ? 'bg-green-500' : (isSelected ? 'bg-blue-500' : 'bg-gray-300')
+                                    <div className="flex items-center gap-4">
+                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-sm ${
+                                            filled ? 'bg-green-500' : (isSelected ? 'bg-blue-600' : 'bg-slate-400')
                                         }`}>
                                             {sch.kelas}
                                         </div>
                                         <div>
-                                            <p className="font-bold text-gray-800 group-hover:text-blue-600 transition-colors">{sch.subject}</p>
-                                            <p className="text-xs text-gray-500 flex items-center gap-1"><Clock size={12}/> Jam ke-{sch.hour}</p>
+                                            <p className="font-bold text-slate-800 text-sm">{sch.subject}</p>
+                                            <p className="text-xs text-slate-500 flex items-center gap-1 font-medium mt-0.5"><Clock size={12}/> Jam ke-{sch.hour}</p>
                                         </div>
                                     </div>
                                     
                                     {filled ? (
-                                        <div className="flex items-center gap-1 text-green-600 text-xs font-bold bg-white px-2 py-1 rounded-full border border-green-200">
-                                            <Check size={14} strokeWidth={3} />
-                                            {isSelected ? 'Sedang Diedit' : 'Sudah Diisi'}
+                                        <div className="flex items-center gap-1 text-green-700 text-[10px] font-bold bg-white px-2 py-1 rounded-lg border border-green-200">
+                                            <Check size={12} strokeWidth={3} /> {isSelected ? 'DIEDIT' : 'SELESAI'}
                                         </div>
                                     ) : isSelected && (
-                                        <CheckCircleIcon />
+                                        <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white">
+                                            <Check size={14} strokeWidth={3} />
+                                        </div>
                                     )}
                                 </div>
-                                <div className="mt-1 pt-2 border-t border-dashed border-gray-300/50 flex items-start gap-2">
-                                     <History size={14} className="text-gray-400 mt-0.5 flex-shrink-0"/>
+                                <div className="mt-1 pt-2 border-t border-slate-200/50 flex items-start gap-2">
+                                     <History size={14} className="text-slate-400 mt-0.5 flex-shrink-0"/>
                                      <div className="text-xs">
-                                         <span className="font-bold text-gray-500 block mb-0.5">
+                                         <span className="font-bold text-slate-500 block mb-0.5">
                                             {filled ? "Materi Hari Ini:" : "Materi Terakhir:"}
                                          </span>
-                                         <p className="text-gray-600 italic line-clamp-2">"{materialText}"</p>
+                                         <p className="text-slate-600 line-clamp-1">"{materialText}"</p>
                                      </div>
                                 </div>
                             </div>
@@ -398,38 +374,52 @@ const JurnalForm: React.FC = () => {
              </div>
          ) : (
              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Pilih Kelas (Manual)</label>
-                <select className="w-full border border-gray-300 rounded-xl p-3 bg-white" value={formData.kelas} onChange={e => setFormData({...formData, kelas: e.target.value, attendance: {}})}>
-                <option value="">-- Pilih Kelas --</option>
-                {allClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Pilih Kelas (Manual)</label>
+                <select 
+                    className="w-full border border-slate-200 rounded-xl p-3.5 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-medium text-slate-700" 
+                    value={formData.kelas} 
+                    onChange={e => setFormData({...formData, kelas: e.target.value, attendance: {}})}
+                >
+                    <option value="">-- Pilih Kelas --</option>
+                    {allClasses.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
              </div>
          )}
        </div>
 
-       {loading && <div className="text-center py-4 text-gray-500"><Loader2 className="animate-spin inline mr-2"/> Mengambil data...</div>}
+       {loading && <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>}
 
        {formData.kelas && !loading && (
-         <div className="animate-fade-in">
-           <div className="flex justify-between items-center mb-2">
-               <span className="text-sm font-bold text-gray-700">Daftar Murid ({students.length})</span>
-               <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-1 rounded">Default: Hadir</span>
+         <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white">
+           <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+               <span className="text-sm font-bold text-slate-700">Daftar Murid ({students.length})</span>
+               <span className="text-[10px] text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 font-bold">Default: Hadir</span>
            </div>
-           <div className="bg-gray-50 rounded-xl border border-gray-100 overflow-hidden max-h-[300px] overflow-y-auto">
+           <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
              <table className="w-full text-sm">
-               <thead className="bg-gray-100 sticky top-0 z-10 shadow-sm">
-                 <tr>
-                   <th className="p-3 text-left text-gray-600 font-bold">Nama Murid</th>
-                   <th className="p-3 w-10 text-center">S</th><th className="p-3 w-10 text-center">I</th><th className="p-3 w-10 text-center">A</th><th className="p-3 w-10 text-center">D</th>
+               <thead className="bg-white sticky top-0 z-10 shadow-sm">
+                 <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                   <th className="p-3 text-left pl-4">Nama</th>
+                   <th className="p-3 w-10 text-center">S</th>
+                   <th className="p-3 w-10 text-center">I</th>
+                   <th className="p-3 w-10 text-center">A</th>
+                   <th className="p-3 w-10 text-center">D</th>
                  </tr>
                </thead>
-               <tbody className="divide-y divide-gray-100">
+               <tbody className="divide-y divide-slate-100">
                  {students.map(student => (
-                   <tr key={student.id} className="bg-white">
-                     <td className="p-3 font-medium text-gray-700">{student.name}</td>
+                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                     <td className="p-3 pl-4 font-bold text-slate-700">{student.name}</td>
                      {['S', 'I', 'A', 'D'].map((status) => (
                        <td key={status} className="p-2 text-center">
-                         <input type="checkbox" className="w-5 h-5 rounded cursor-pointer" 
+                         <input 
+                            type="checkbox" 
+                            className={`w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
+                                status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
+                                status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
+                                status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
+                                'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
+                            }`}
                            checked={formData.attendance[student.id] === status}
                            onChange={() => {
                               const newAtt = {...formData.attendance};
@@ -445,31 +435,32 @@ const JurnalForm: React.FC = () => {
                </tbody>
              </table>
            </div>
+           
          </div>
        )}
 
-       <div className="flex justify-end mt-6 pt-4 border-t border-gray-100">
-         <button disabled={!formData.kelas} onClick={handleNext} className="text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:shadow-blue-500/30">Lanjut <ArrowRight size={18} /></button>
+       <div className="flex justify-end mt-8 pt-6 border-t border-slate-100">
+         <button disabled={!formData.kelas} onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none transition-all">Lanjut <ArrowRight size={18} /></button>
        </div>
     </div>
   );
 
   const renderStep2 = () => (
-    <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
-      <div className="flex justify-between items-center mb-4">
-          <div><h3 className="font-bold text-xl text-gray-800 mb-1">Detail Pembelajaran</h3></div>
-          {inputMode === 'auto' && <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded-lg text-[10px] font-bold border border-blue-100">Mode Jadwal</div>}
+    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+      <div className="flex justify-between items-center mb-6">
+          <h3 className="font-extrabold text-lg text-slate-800">Detail Pembelajaran</h3>
+          {inputMode === 'auto' && <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-100">AUTO</span>}
       </div>
-      <div className="space-y-5">
+      <div className="space-y-6">
         <div>
-          <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">Mata Pelajaran</label>
-          <input type="text" className="w-full border border-gray-300 rounded-xl p-3 bg-gray-50" value={formData.subject} readOnly={inputMode === 'auto'} onChange={e => setFormData({...formData, subject: e.target.value})} placeholder="Contoh: Matematika"/>
+          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Mata Pelajaran</label>
+          <input type="text" className="w-full border border-slate-200 rounded-xl p-3.5 bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-bold text-slate-700" value={formData.subject} readOnly={inputMode === 'auto'} onChange={e => setFormData({...formData, subject: e.target.value})} placeholder="Contoh: Matematika"/>
         </div>
         <div>
-           <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2">Jam Ke-</label>
+           <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Jam Pelajaran Ke-</label>
            <div className="flex gap-2 flex-wrap">
              {[1,2,3,4,5,6,7,8,9,10].map(h => (
-               <label key={h} className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold border cursor-pointer ${formData.hours.includes(String(h)) ? 'bg-blue-600 text-white' : 'bg-white text-gray-500'}`}>
+               <label key={h} className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-sm border-2 cursor-pointer transition-all ${formData.hours.includes(String(h)) ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300 hover:text-blue-600'}`}>
                  <input type="checkbox" className="hidden" value={h} disabled={inputMode === 'auto'} checked={formData.hours.includes(String(h))} 
                    onChange={() => {
                      const val = String(h);
@@ -484,88 +475,104 @@ const JurnalForm: React.FC = () => {
            </div>
         </div>
         <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">Materi / Bahasan</label>
-          <textarea className="w-full border border-gray-300 rounded-xl p-3 min-h-[100px]" rows={3} value={formData.material} onChange={handleMaterialChange} placeholder="Ringkasan materi..."></textarea>
+          <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Materi / Topik Bahasan</label>
+          <textarea className="w-full border border-slate-200 rounded-xl p-4 min-h-[140px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 font-medium leading-relaxed" value={formData.material} onChange={handleMaterialChange} placeholder="Tuliskan ringkasan materi yang diajarkan hari ini..."></textarea>
         </div>
       </div>
-      <div className="flex justify-between mt-8 pt-4 border-t border-gray-100">
-         <button onClick={handleBack} className="text-gray-500 hover:text-gray-700 font-bold px-4 py-2 flex items-center gap-2"><ArrowLeft size={18} /> Kembali</button>
-         <button disabled={!formData.subject || !formData.material} onClick={handleNext} className="text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600">Lanjut <ArrowRight size={18} /></button>
+      <div className="flex justify-between mt-8 pt-6 border-t border-slate-100">
+         <button onClick={handleBack} className="text-slate-500 hover:bg-slate-50 px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors"><ArrowLeft size={18} /> Kembali</button>
+         <button disabled={!formData.subject || !formData.material} onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none transition-all">Lanjut <ArrowRight size={18} /></button>
        </div>
     </div>
   );
 
   const renderStep3 = () => (
-    <div className="bg-white/90 backdrop-blur-xl rounded-3xl p-6 shadow-xl border border-white/50 animate-fade-in">
-       <h3 className="font-bold text-xl text-gray-800 mb-1">Validasi Akhir</h3>
-       <p className="text-gray-500 text-xs mb-6">Konfirmasi keadaan kelas dan status KBM.</p>
+    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+       <h3 className="font-extrabold text-lg text-slate-800 mb-1">Validasi Akhir</h3>
+       <p className="text-slate-500 text-sm mb-6">Konfirmasi status kelas sebelum mengirim laporan.</p>
        
        <div className="space-y-6">
-          {/* ... (Existing Validation UI) ... */}
-          <div className="bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-             <ul className="text-sm space-y-1 text-gray-600">
-                 <li>📚 <b>{formData.subject}</b> (Kelas {formData.kelas})</li>
-                 <li>⏰ Jam ke: {formData.hours.join(', ')}</li>
-                 <li>📝 Absen: {Object.keys(formData.attendance).length} Murid tidak hadir</li>
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+             <ul className="text-sm space-y-2 text-slate-700">
+                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Mapel</span> <span className="font-bold">: {formData.subject}</span></li>
+                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Kelas</span> <span className="font-bold">: {formData.kelas}</span></li>
+                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Jam Ke</span> <span className="font-bold">: {formData.hours.join(', ')}</span></li>
+                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Absen</span> <span className="font-extrabold text-red-500 bg-red-50 px-2 rounded">: {Object.keys(formData.attendance).length} Siswa</span></li>
              </ul>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Kebersihan Kelas</label>
-            <div className="grid grid-cols-2 gap-3">
-               <label className={`cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center gap-2 ${formData.cleanliness === 'mengarahkan_piket' ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-gray-100'}`}>
+            <label className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">Kondisi Kebersihan Kelas</label>
+            <div className="grid grid-cols-2 gap-4">
+               <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center gap-3 transition-all ${formData.cleanliness === 'mengarahkan_piket' ? 'border-orange-400 bg-orange-50 text-orange-700 shadow-md' : 'border-slate-100 hover:border-orange-200 bg-white text-slate-500'}`}>
                  <input type="radio" name="cleanliness" value="mengarahkan_piket" className="hidden" checked={formData.cleanliness === 'mengarahkan_piket'} onChange={e => setFormData({...formData, cleanliness: e.target.value})} />
-                 <Sparkles size={24} /> <span className="text-xs font-bold text-center">Mengarahkan Piket</span>
+                 <Sparkles size={28} /> <span className="text-xs font-bold text-center">Perlu Dibersihkan</span>
                </label>
-               <label className={`cursor-pointer border-2 rounded-xl p-3 flex flex-col items-center gap-2 ${formData.cleanliness === 'sudah_bersih' ? 'border-green-400 bg-green-50 text-green-700' : 'border-gray-100'}`}>
+               <label className={`cursor-pointer border-2 rounded-2xl p-4 flex flex-col items-center gap-3 transition-all ${formData.cleanliness === 'sudah_bersih' ? 'border-green-500 bg-green-50 text-green-700 shadow-md' : 'border-slate-100 hover:border-green-200 bg-white text-slate-500'}`}>
                  <input type="radio" name="cleanliness" value="sudah_bersih" className="hidden" checked={formData.cleanliness === 'sudah_bersih'} onChange={e => setFormData({...formData, cleanliness: e.target.value})} />
-                 <CheckCircleIcon /> <span className="text-xs font-bold text-center">Sudah Bersih</span>
+                 <CheckCircle2 size={28} /> <span className="text-xs font-bold text-center">Sudah Bersih</span>
                </label>
             </div>
           </div>
 
           <div>
-            <label className={`flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-all ${formData.isConfirmed ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}>
-                 <input type="checkbox" className="w-5 h-5 text-blue-600" checked={formData.isConfirmed} onChange={e => setFormData({...formData, isConfirmed: e.target.checked})} />
-                 <span className="font-bold text-gray-700 text-sm">Saya "Benar-benar Melaksanakan KBM."</span>
+            <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${formData.isConfirmed ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-slate-200 hover:border-blue-300'}`}>
+                 <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-colors ${formData.isConfirmed ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
+                    {formData.isConfirmed && <Check size={16} strokeWidth={4} />}
+                 </div>
+                 <input type="checkbox" className="hidden" checked={formData.isConfirmed} onChange={e => setFormData({...formData, isConfirmed: e.target.checked})} />
+                 <span className="font-bold text-slate-700 text-sm">Saya menyatakan KBM telah dilaksanakan dengan baik.</span>
             </label>
           </div>
 
           <div>
-             <label className="flex items-center gap-2 text-sm font-bold text-gray-700 mb-2"><MessageSquare size={16}/> Catatan Selama KBM</label>
-             <textarea className="w-full border border-gray-300 rounded-xl p-3 text-sm" rows={2} value={formData.notes} onChange={e => setFormData(prev => ({...prev, notes: e.target.value}))} placeholder="Opsional..."></textarea>
+             <label className="flex items-center gap-2 text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide"><MessageSquare size={14}/> Catatan Tambahan (Opsional)</label>
+             <textarea className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500" rows={2} value={formData.notes} onChange={e => setFormData(prev => ({...prev, notes: e.target.value}))} placeholder="Catatan kejadian khusus..."></textarea>
           </div>
        </div>
 
-       <div className="flex justify-between mt-8 pt-4 border-t border-gray-100">
-         <button onClick={handleBack} className="text-gray-500 hover:text-gray-700 font-bold px-4 py-2 flex items-center gap-2"><ArrowLeft size={18} /> Kembali</button>
+       <div className="flex justify-between mt-8 pt-6 border-t border-slate-100">
+         <button onClick={handleBack} className="text-slate-500 hover:bg-slate-50 px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors"><ArrowLeft size={18} /> Kembali</button>
          <button 
             disabled={!formData.cleanliness || !formData.isConfirmed || loading} 
             onClick={handlePreSubmit} 
-            className="text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-600"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 disabled:shadow-none transition-all"
          >
-           {loading ? 'Menyimpan...' : (editJournalId ? <><Edit3 size={18} /> Update Jurnal</> : <><Send size={18} /> Kirim Jurnal</>)}
+           {loading ? 'Menyimpan...' : (editJournalId ? <><Edit3 size={18} /> Update Jurnal</> : <><Send size={18} /> Kirim Data</>)}
          </button>
        </div>
     </div>
   );
 
+  // Helper functions used in render
+  const isScheduleFilled = (sch: Schedule) => existingJournals.some(j => j.kelas === sch.kelas && j.subject === sch.subject);
+  const getDisplayMaterial = (sch: Schedule, filled: boolean) => {
+      if (filled) {
+          const journal = existingJournals.find(j => j.kelas === sch.kelas && j.subject === sch.subject);
+          return journal?.material || '-';
+      } else {
+          const key = `${sch.kelas}-${sch.subject}`;
+          return lastMaterials[key] || 'Belum ada data materi sebelumnya.';
+      }
+  };
+  const getPresentStudents = () => students.filter(s => !formData.attendance[s.id]);
+
   return (
     <Layout>
-      <div className="max-w-xl mx-auto pb-10 relative">
+      <div className="max-w-xl mx-auto pb-24">
         <div className="flex justify-between items-center mb-8 px-2">
             <div>
-               <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                   {editJournalId ? 'Edit Jurnal' : 'Isi Jurnal'}
+               <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                   {editJournalId ? 'Edit Jurnal' : 'Isi Jurnal KBM'}
                </h2>
-               <p className="text-gray-500 text-xs">{step}/3</p>
+               <p className="text-slate-500 font-medium text-sm mt-1">Langkah {step} dari 3</p>
             </div>
-            <div className="flex gap-1">
-               {[1,2,3].map(i => <div key={i} className={`h-2 rounded-full w-8 ${step >= i ? 'bg-blue-500' : 'bg-gray-200'}`}></div>)}
+            <div className="flex gap-2">
+               {[1,2,3].map(i => <div key={i} className={`h-2 rounded-full transition-all duration-500 ${step >= i ? 'bg-blue-600 w-8' : 'bg-slate-200 w-3'}`}></div>)}
             </div>
         </div>
         
-        {initLoading ? <div className="text-center py-20"><Loader2 className="animate-spin inline"/></div> : 
+        {initLoading ? <div className="text-center py-20 text-slate-400"><Loader2 className="animate-spin inline mr-2"/> Memuat data...</div> : 
             <>
                 {step === 1 && renderStep1()}
                 {step === 2 && renderStep2()}
@@ -573,64 +580,56 @@ const JurnalForm: React.FC = () => {
             </>
         }
 
-        {/* MODAL 1: PILIH JENIS PENILAIAN (MODERN UI) */}
+        {/* MODAL 1: PILIH JENIS PENILAIAN */}
         {showAssessmentModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 transition-all border border-white/20">
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-6 relative">
-                        <div className="relative z-10">
-                            <h3 className="text-white font-bold text-xl mb-1 flex items-center gap-2">
-                                <ClipboardCheck size={24} className="text-blue-200"/>
-                                Konfirmasi Penilaian
-                            </h3>
-                            <p className="text-blue-100 text-xs opacity-90">Pilih jenis kegiatan penilaian hari ini.</p>
-                        </div>
-                        <button onClick={() => setShowAssessmentModal(false)} className="absolute top-4 right-4 text-white/70 hover:text-white bg-white/10 p-1.5 rounded-full hover:bg-white/20 transition-all cursor-pointer z-20">
-                            <X size={20}/>
-                        </button>
-                        
-                        {/* Decorative Circles */}
-                        <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -translate-y-8 translate-x-8 blur-xl"></div>
-                        <div className="absolute bottom-0 left-0 w-20 h-20 bg-blue-500/30 rounded-full translate-y-8 -translate-x-8 blur-lg"></div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 transition-all">
+                    <div className="bg-blue-600 p-6 flex justify-between items-center text-white">
+                        <h3 className="font-bold text-lg flex items-center gap-2">
+                            <ClipboardCheck size={24}/> Konfirmasi Penilaian
+                        </h3>
+                        <button onClick={() => setShowAssessmentModal(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
 
-                    <div className="p-6 space-y-3 bg-gray-50/50">
+                    <div className="p-6 space-y-4 bg-slate-50">
+                        <p className="text-slate-600 font-medium mb-2">Apakah ada penilaian pada jam ini?</p>
+                        
                         <button 
                             onClick={() => handleAssessmentSelect('harian')} 
-                            className="w-full flex items-center gap-4 p-4 bg-white border border-purple-100 rounded-2xl shadow-sm hover:shadow-md hover:border-purple-300 group transition-all"
+                            className="w-full flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-2xl hover:border-purple-500 hover:shadow-lg hover:shadow-purple-100 transition-all group"
                         >
-                            <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors">
-                                <ClipboardList size={22} />
+                            <div className="w-12 h-12 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center group-hover:bg-purple-600 group-hover:text-white transition-colors shadow-sm">
+                                <ClipboardList size={20} />
                             </div>
                             <div className="text-left">
-                                <h4 className="font-bold text-gray-800 group-hover:text-purple-700 transition-colors">Penilaian Harian</h4>
-                                <p className="text-[10px] text-gray-500">Ulangan, Kuis, atau Tes Tulis.</p>
+                                <h4 className="font-bold text-slate-800">Penilaian Harian (PH)</h4>
+                                <p className="text-xs text-slate-500 mt-0.5">Ulangan / Tes Tulis.</p>
                             </div>
                         </button>
 
                         <button 
                             onClick={() => handleAssessmentSelect('tugas')} 
-                            className="w-full flex items-center gap-4 p-4 bg-white border border-orange-100 rounded-2xl shadow-sm hover:shadow-md hover:border-orange-300 group transition-all"
+                            className="w-full flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-2xl hover:border-orange-500 hover:shadow-lg hover:shadow-orange-100 transition-all group"
                         >
-                            <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-colors">
-                                <BookOpenCheck size={22} />
+                            <div className="w-12 h-12 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors shadow-sm">
+                                <BookOpenCheck size={20} />
                             </div>
                             <div className="text-left">
-                                <h4 className="font-bold text-gray-800 group-hover:text-orange-700 transition-colors">Penilaian Tugas</h4>
-                                <p className="text-[10px] text-gray-500">PR, Proyek, atau Portofolio.</p>
+                                <h4 className="font-bold text-slate-800">Penilaian Tugas</h4>
+                                <p className="text-xs text-slate-500 mt-0.5">PR / Proyek / Portofolio.</p>
                             </div>
                         </button>
 
                         <button 
                             onClick={() => handleAssessmentSelect('none')} 
-                            className="w-full flex items-center gap-4 p-4 bg-white border border-gray-200 rounded-2xl shadow-sm hover:shadow-md hover:border-gray-400 group transition-all"
+                            className="w-full flex items-center gap-4 p-4 bg-white border border-slate-200 rounded-2xl hover:border-slate-400 hover:shadow-lg transition-all group"
                         >
-                            <div className="w-12 h-12 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center group-hover:bg-gray-600 group-hover:text-white transition-colors">
-                                <Ban size={22} />
+                            <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center group-hover:bg-slate-600 group-hover:text-white transition-colors shadow-sm">
+                                <Ban size={20} />
                             </div>
                             <div className="text-left">
-                                <h4 className="font-bold text-gray-800">Tidak Ada Penilaian</h4>
-                                <p className="text-[10px] text-gray-500">KBM Biasa / Materi.</p>
+                                <h4 className="font-bold text-slate-800">Tidak Ada Penilaian</h4>
+                                <p className="text-xs text-slate-500 mt-0.5">Hanya materi biasa.</p>
                             </div>
                         </button>
                     </div>
@@ -638,66 +637,43 @@ const JurnalForm: React.FC = () => {
             </div>
         )}
 
-        {/* MODAL 2: CHECKLIST MURID (MODERN UI) */}
+        {/* MODAL 2: CHECKLIST MURID */}
         {showStudentChecklistModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in">
-                <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[85vh] border border-white/20">
-                    {/* Header */}
-                    <div className="bg-gradient-to-r from-purple-600 to-indigo-600 p-5 flex-shrink-0 relative">
-                        <div className="flex justify-between items-start text-white relative z-10">
-                            <div>
-                                <h3 className="font-bold text-lg mb-1">Daftar Murid</h3>
-                                <p className="text-purple-100 text-xs opacity-90 leading-tight">
-                                    Centang yang <b>tidak mengikuti</b><br/>
-                                    {assessmentType === 'harian' ? 'Penilaian Harian' : 'Penilaian Tugas'}.
-                                </p>
-                            </div>
-                            <div className="bg-white/20 px-2 py-1 rounded text-[10px] font-bold backdrop-blur-md border border-white/10">
-                                {getPresentStudents().length} Hadir
-                            </div>
-                        </div>
-                        {/* Decor */}
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-10 translate-x-10 blur-2xl"></div>
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[85vh]">
+                    <div className="bg-purple-600 p-6 text-white">
+                        <h3 className="font-bold text-xl mb-1">Daftar Murid</h3>
+                        <p className="text-purple-100 text-xs">Centang yang <b>TIDAK</b> mengikuti penilaian.</p>
                     </div>
 
-                    {/* List */}
-                    <div className="p-2 overflow-y-auto flex-1 bg-gray-50 custom-scrollbar">
+                    <div className="p-2 overflow-y-auto flex-1 bg-slate-50 custom-scrollbar">
                         {getPresentStudents().length === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-48 text-gray-400">
-                                <XCircle size={48} className="mb-2 opacity-50"/>
-                                <p className="text-sm font-medium">Tidak ada murid yang hadir.</p>
+                            <div className="flex flex-col items-center justify-center h-48 text-slate-400">
+                                <p className="text-sm font-medium">Tidak ada murid hadir.</p>
                             </div>
                         ) : (
-                            <div className="space-y-2 p-2">
+                            <div className="space-y-2 p-3">
                                 {getPresentStudents().map(s => {
                                     const isMissing = missingStudents.includes(s.id);
                                     return (
                                         <div 
                                             key={s.id} 
                                             onClick={() => handleMissingStudentToggle(s.id)} 
-                                            className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer border transition-all duration-200 group ${
+                                            className={`flex items-center justify-between p-3.5 rounded-xl cursor-pointer border transition-all ${
                                                 isMissing 
-                                                ? 'bg-red-50 border-red-200 shadow-inner' 
-                                                : 'bg-white border-gray-100 hover:border-blue-300 hover:shadow-sm'
+                                                ? 'bg-red-50 border-red-300 shadow-sm' 
+                                                : 'bg-white border-slate-200 hover:border-blue-400'
                                             }`}
                                         >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${
-                                                    isMissing ? 'bg-red-200 text-red-700' : 'bg-gray-100 text-gray-500 group-hover:bg-blue-100 group-hover:text-blue-600'
-                                                }`}>
-                                                    {s.name.charAt(0)}
-                                                </div>
-                                                <span className={`text-sm font-bold transition-colors ${isMissing ? 'text-red-700' : 'text-gray-700'}`}>
-                                                    {s.name}
-                                                </span>
-                                            </div>
-                                            
-                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
+                                            <span className={`text-sm font-bold ${isMissing ? 'text-red-700' : 'text-slate-700'}`}>
+                                                {s.name}
+                                            </span>
+                                            <div className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
                                                 isMissing 
-                                                ? 'bg-red-500 border-red-500 text-white scale-110' 
-                                                : 'border-gray-300 bg-white group-hover:border-blue-400'
+                                                ? 'bg-red-500 border-red-500 text-white' 
+                                                : 'border-slate-300 bg-white'
                                             }`}>
-                                                {isMissing && <Check size={14} strokeWidth={3}/>}
+                                                {isMissing && <Check size={16} strokeWidth={4}/>}
                                             </div>
                                         </div>
                                     );
@@ -706,37 +682,37 @@ const JurnalForm: React.FC = () => {
                         )}
                     </div>
 
-                    {/* Footer Actions */}
-                    <div className="p-4 border-t border-gray-100 bg-white flex-shrink-0 flex gap-3">
+                    <div className="p-4 border-t border-slate-200 bg-white flex gap-3">
                         <button 
                             onClick={() => {
                                 setShowStudentChecklistModal(false);
-                                setShowAssessmentModal(true); // Kembali ke pilihan
+                                setShowAssessmentModal(true);
                             }} 
-                            className="flex-1 py-3 rounded-xl font-bold text-gray-600 bg-gray-100 hover:bg-gray-200 transition-colors text-sm"
+                            className="flex-1 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 text-sm transition-colors"
                         >
                             Kembali
                         </button>
                         <button 
                             onClick={handleFinishAssessment} 
-                            className="flex-[2] bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-500/30 text-sm"
+                            className="flex-[2] bg-purple-600 hover:bg-purple-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-sm shadow-lg shadow-purple-200 transition-colors"
                         >
-                            <ClipboardCheck size={18}/> Simpan Hasil
+                            <ClipboardCheck size={18}/> Simpan
                         </button>
                     </div>
                 </div>
             </div>
         )}
 
+        {/* STATUS ALERT (Standard Toast) */}
         {alertState.isOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center">
-                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 ${alertState.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
-                        {alertState.type === 'success' ? <CheckCircle2 size={48} /> : <XCircle size={48} />}
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center transform scale-100">
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm ${alertState.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {alertState.type === 'success' ? <CheckCircle2 size={40} /> : <XCircle size={40} />}
                     </div>
-                    <h3 className="text-2xl font-bold mb-2">{alertState.title}</h3>
-                    <p className="text-gray-500 text-sm mb-8">{alertState.message}</p>
-                    <button onClick={handleCloseAlert} className="w-full py-3.5 rounded-xl font-bold text-white bg-blue-600">Lanjutkan</button>
+                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">{alertState.title}</h3>
+                    <p className="text-slate-500 font-medium text-sm mb-8 leading-relaxed">{alertState.message}</p>
+                    <button onClick={handleCloseAlert} className="w-full py-4 rounded-2xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95">OK, Lanjutkan</button>
                 </div>
             </div>
         )}

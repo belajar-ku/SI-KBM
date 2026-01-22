@@ -1,9 +1,9 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types';
-import { Search, UserCog, Database, GraduationCap, Shield, Edit, Save, X, Loader2, BookOpen, Check } from 'lucide-react';
+import { Search, UserCog, GraduationCap, Shield, Edit, Save, X, Loader2, BookOpen, ChevronDown, Check } from 'lucide-react';
 
 const UsersData: React.FC = () => {
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -21,8 +21,21 @@ const UsersData: React.FC = () => {
   });
   const [saving, setSaving] = useState(false);
 
+  // State untuk Dropdown Multi-Select
+  const [isMapelDropdownOpen, setIsMapelDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     fetchData();
+
+    // Close dropdown click outside
+    const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            setIsMapelDropdownOpen(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const fetchData = async () => {
@@ -54,6 +67,7 @@ const UsersData: React.FC = () => {
       mengajar_mapel: user.mengajar_mapel || '',
       wali_kelas: user.wali_kelas || ''
     });
+    setIsMapelDropdownOpen(false);
   };
 
   const handleSave = async () => {
@@ -96,6 +110,20 @@ const UsersData: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const toggleMapelSelection = (subject: string) => {
+      let currentSelection = editFormData.mengajar_mapel ? editFormData.mengajar_mapel.split(',').map(s => s.trim()) : [];
+      
+      if (currentSelection.includes(subject)) {
+          currentSelection = currentSelection.filter(s => s !== subject);
+      } else {
+          currentSelection.push(subject);
+      }
+      
+      // Remove empty strings and join
+      const newString = currentSelection.filter(Boolean).join(', ');
+      setEditFormData({ ...editFormData, mengajar_mapel: newString });
   };
 
   const filteredProfiles = profiles.filter(t => 
@@ -182,7 +210,13 @@ const UsersData: React.FC = () => {
                        </td>
                        <td className="px-6 py-3 text-gray-600 max-w-xs truncate" title={p.mengajar_mapel}>
                          {p.mengajar_mapel ? (
-                             <span className="flex items-center gap-1"><BookOpen size={14} className="text-blue-400"/> {p.mengajar_mapel}</span>
+                             <div className="flex flex-wrap gap-1">
+                                {p.mengajar_mapel.split(',').map((m, i) => (
+                                    <span key={i} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-100">
+                                        {m.trim()}
+                                    </span>
+                                ))}
+                             </div>
                          ) : <span className="text-gray-300 italic">Belum diisi</span>}
                        </td>
                        <td className="px-6 py-3">
@@ -231,36 +265,49 @@ const UsersData: React.FC = () => {
                         </button>
                     </div>
                     
-                    <div className="p-6 space-y-4">
+                    <div className="p-6 space-y-5">
                         <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
                             <p className="text-xs text-blue-600 font-bold uppercase">Mengedit User:</p>
                             <p className="font-bold text-gray-800">{editingUser.full_name}</p>
                             <p className="text-xs text-gray-500 font-mono">{editingUser.nip}</p>
                         </div>
 
-                        <div>
-                            <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran</label>
-                            {subjectsList.length > 0 ? (
-                                <select 
-                                    className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 bg-white"
-                                    value={editFormData.mengajar_mapel}
-                                    onChange={e => setEditFormData({...editFormData, mengajar_mapel: e.target.value})}
-                                >
-                                    <option value="">-- Pilih Mata Pelajaran --</option>
-                                    {subjectsList.map((subj, idx) => (
-                                        <option key={idx} value={subj}>{subj}</option>
-                                    ))}
-                                </select>
-                            ) : (
-                                <input 
-                                    type="text"
-                                    className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500"
-                                    placeholder="Input Manual (Belum ada master mapel)"
-                                    value={editFormData.mengajar_mapel}
-                                    onChange={e => setEditFormData({...editFormData, mengajar_mapel: e.target.value})}
-                                />
+                        {/* MULTI SELECT DROPDOWN */}
+                        <div className="relative" ref={dropdownRef}>
+                            <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran (Multi-Select)</label>
+                            
+                            <button 
+                                onClick={() => setIsMapelDropdownOpen(!isMapelDropdownOpen)}
+                                className="w-full text-left border border-gray-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-blue-500 flex justify-between items-center"
+                            >
+                                <span className={`truncate ${!editFormData.mengajar_mapel ? 'text-gray-400' : 'text-gray-800'}`}>
+                                    {editFormData.mengajar_mapel || "-- Pilih Mata Pelajaran --"}
+                                </span>
+                                <ChevronDown size={16} className="text-gray-400" />
+                            </button>
+                            
+                            {isMapelDropdownOpen && (
+                                <div className="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                                    {subjectsList.length === 0 ? (
+                                        <div className="p-3 text-center text-gray-400 text-xs">Belum ada data Master Mapel.</div>
+                                    ) : (
+                                        subjectsList.map((subj, idx) => {
+                                            const isSelected = editFormData.mengajar_mapel.includes(subj);
+                                            return (
+                                                <div 
+                                                    key={idx}
+                                                    onClick={() => toggleMapelSelection(subj)}
+                                                    className={`flex items-center justify-between p-3 rounded-lg cursor-pointer text-sm mb-1 transition-colors ${isSelected ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                >
+                                                    <span>{subj}</span>
+                                                    {isSelected && <Check size={16} className="text-blue-600"/>}
+                                                </div>
+                                            );
+                                        })
+                                    )}
+                                </div>
                             )}
-                            <p className="text-[10px] text-gray-400 mt-1">Data Mapel diambil dari Menu Setting.</p>
+                            <p className="text-[10px] text-gray-400 mt-1">Klik untuk memilih lebih dari satu mapel.</p>
                         </div>
 
                         <div>
