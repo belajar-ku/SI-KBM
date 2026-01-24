@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
-import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square, User, BookOpen } from 'lucide-react';
+import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square, User, BookOpen, AlertCircle, Sparkles, Gavel } from 'lucide-react';
 import { AppSetting, NonEffectiveDay, Profile } from '../types';
 
 const SettingsPage: React.FC = () => {
@@ -14,8 +14,18 @@ const SettingsPage: React.FC = () => {
   });
   const [nonEffectiveDays, setNonEffectiveDays] = useState<NonEffectiveDay[]>([]);
   const [teachers, setTeachers] = useState<Profile[]>([]); // List Guru for Dropdown
-  const [subjectsList, setSubjectsList] = useState<string[]>([]); // Master Mapel
+  
+  // Master Lists
+  const [subjectsList, setSubjectsList] = useState<string[]>([]);
+  const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
+  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); // New: Tindak Lanjut
+  const [activityTypes, setActivityTypes] = useState<string[]>([]);
+
+  // Input States
   const [newSubject, setNewSubject] = useState('');
+  const [newDiscipline, setNewDiscipline] = useState('');
+  const [newFollowUp, setNewFollowUp] = useState(''); // New Input
+  const [newActivity, setNewActivity] = useState('');
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -57,21 +67,22 @@ const SettingsPage: React.FC = () => {
         const settingsMap: Record<string, string> = {};
         let days: NonEffectiveDay[] = [];
         let subs: string[] = [];
+        let disc: string[] = [];
+        let follow: string[] = [];
+        let act: string[] = [];
 
         if (data) {
             data.forEach(item => {
                 if (item.key === 'non_effective_days') {
-                    try {
-                        days = item.value ? JSON.parse(item.value) : [];
-                    } catch (e) {
-                        days = [];
-                    }
+                    try { days = item.value ? JSON.parse(item.value) : []; } catch (e) { days = []; }
                 } else if (item.key === 'subjects_list') {
-                     try {
-                        subs = item.value ? JSON.parse(item.value) : [];
-                    } catch (e) {
-                        subs = [];
-                    }
+                     try { subs = item.value ? JSON.parse(item.value) : []; } catch (e) { subs = []; }
+                } else if (item.key === 'discipline_types') {
+                     try { disc = item.value ? JSON.parse(item.value) : []; } catch (e) { disc = []; }
+                } else if (item.key === 'follow_up_types') {
+                     try { follow = item.value ? JSON.parse(item.value) : []; } catch (e) { follow = []; }
+                } else if (item.key === 'activity_types') {
+                     try { act = item.value ? JSON.parse(item.value) : []; } catch (e) { act = []; }
                 } else {
                     settingsMap[item.key] = item.value || '';
                 }
@@ -82,6 +93,9 @@ const SettingsPage: React.FC = () => {
         setSettings(prev => ({ ...prev, ...settingsMap }));
         setNonEffectiveDays(days);
         setSubjectsList(subs);
+        setDisciplineTypes(disc);
+        setFollowUpTypes(follow);
+        setActivityTypes(act);
     } catch (err: any) {
         console.error("Error fetching settings:", err.message);
     }
@@ -102,18 +116,17 @@ const SettingsPage: React.FC = () => {
       }
   };
 
-  // SUBJECT MANAGEMENT
-  const handleAddSubject = () => {
-      if(newSubject.trim() && !subjectsList.includes(newSubject.trim())) {
-          const updated = [...subjectsList, newSubject.trim()].sort();
-          setSubjectsList(updated);
-          setNewSubject('');
+  // HELPER LIST MANAGEMENT
+  const addToList = (item: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>, setInput: React.Dispatch<React.SetStateAction<string>>) => {
+      if(item.trim() && !list.includes(item.trim())) {
+          setList([...list, item.trim()].sort());
+          setInput('');
       }
   };
 
-  const handleRemoveSubject = (sub: string) => {
-      if(confirm(`Hapus mapel ${sub}?`)) {
-          setSubjectsList(prev => prev.filter(s => s !== sub));
+  const removeFromList = (item: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>) => {
+      if(confirm(`Hapus item "${item}"?`)) {
+          setList(prev => prev.filter(s => s !== item));
       }
   };
 
@@ -125,13 +138,16 @@ const SettingsPage: React.FC = () => {
               key, value
           }));
 
-          // Add Subjects List
+          // Add Lists
           updates.push({ key: 'subjects_list', value: JSON.stringify(subjectsList) });
+          updates.push({ key: 'discipline_types', value: JSON.stringify(disciplineTypes) });
+          updates.push({ key: 'follow_up_types', value: JSON.stringify(followUpTypes) });
+          updates.push({ key: 'activity_types', value: JSON.stringify(activityTypes) });
 
           const { error } = await supabase.from('app_settings').upsert(updates);
           if (error) throw error;
           
-          alert("Pengaturan umum & daftar mapel berhasil disimpan!");
+          alert("Pengaturan umum & data master berhasil disimpan!");
       } catch (err: any) {
           alert("Gagal menyimpan: " + (err.message || err));
       } finally {
@@ -278,39 +294,111 @@ const SettingsPage: React.FC = () => {
                                 value={newSubject}
                                 onChange={e => setNewSubject(e.target.value)}
                                 placeholder="Tambah Mapel Baru..."
-                                onKeyDown={e => e.key === 'Enter' && handleAddSubject()}
+                                onKeyDown={e => e.key === 'Enter' && addToList(newSubject, subjectsList, setSubjectsList, setNewSubject)}
                              />
                              <button 
-                                onClick={handleAddSubject}
+                                onClick={() => addToList(newSubject, subjectsList, setSubjectsList, setNewSubject)}
                                 className="bg-purple-600 text-white px-3 rounded-lg hover:bg-purple-700"
                              >
                                  <Plus size={18} />
                              </button>
                         </div>
-                        <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto p-1">
+                        <div className="flex flex-wrap gap-2 max-h-[150px] overflow-y-auto p-1 custom-scrollbar">
                             {subjectsList.length === 0 ? <p className="text-gray-400 text-xs italic">Belum ada mapel diinput.</p> :
                              subjectsList.map((sub, idx) => (
                                 <div key={idx} className="bg-purple-50 text-purple-700 px-2 py-1 rounded-md text-xs font-bold border border-purple-100 flex items-center gap-1 group">
                                     {sub}
-                                    <button onClick={() => handleRemoveSubject(sub)} className="text-purple-400 hover:text-red-500"><Trash2 size={12}/></button>
+                                    <button onClick={() => removeFromList(sub, subjectsList, setSubjectsList)} className="text-purple-400 hover:text-red-500"><Trash2 size={12}/></button>
                                 </div>
                              ))
                             }
                         </div>
                     </div>
                 </div>
-
-                <button 
-                    onClick={handleSaveGeneral}
-                    disabled={saving}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
-                >
-                    {saving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Simpan Semua Pengaturan
-                </button>
             </div>
 
-            {/* KOLOM KANAN: HARI NON EFEKTIF */}
+            {/* KOLOM KANAN: HARI NON EFEKTIF & CATATAN JURNAL */}
             <div className="space-y-6">
+                 
+                 {/* MASTER JENIS CATATAN */}
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <Sparkles size={18} className="text-orange-500"/> Master Jurnal Catatan
+                    </h3>
+                    <div className="space-y-5">
+                        
+                        {/* Kedisiplinan */}
+                        <div>
+                            <label className="block text-xs font-bold text-gray-500 mb-2">Jenis Kedisiplinan (Pelanggaran)</label>
+                            <div className="flex gap-2 mb-2">
+                                <input 
+                                    className="flex-1 border rounded-lg p-2 text-xs" 
+                                    value={newDiscipline}
+                                    onChange={e => setNewDiscipline(e.target.value)}
+                                    placeholder="Contoh: Terlambat, Tidur..."
+                                    onKeyDown={e => e.key === 'Enter' && addToList(newDiscipline, disciplineTypes, setDisciplineTypes, setNewDiscipline)}
+                                />
+                                <button onClick={() => addToList(newDiscipline, disciplineTypes, setDisciplineTypes, setNewDiscipline)} className="bg-orange-500 text-white px-2 rounded-lg"><Plus size={16}/></button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5 mb-4">
+                                {disciplineTypes.map((item, idx) => (
+                                    <span key={idx} className="bg-orange-50 text-orange-700 px-2 py-0.5 rounded text-[10px] font-bold border border-orange-100 flex items-center gap-1">
+                                        {item}
+                                        <button onClick={() => removeFromList(item, disciplineTypes, setDisciplineTypes)} className="hover:text-red-500"><Trash2 size={10}/></button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+                        
+                        {/* Tindak Lanjut */}
+                        <div className="border-t border-dashed border-gray-200 pt-3">
+                            <label className="block text-xs font-bold text-gray-500 mb-2 flex items-center gap-1"><Gavel size={12}/> Jenis Tindak Lanjut (Kedisiplinan)</label>
+                            <div className="flex gap-2 mb-2">
+                                <input 
+                                    className="flex-1 border rounded-lg p-2 text-xs" 
+                                    value={newFollowUp}
+                                    onChange={e => setNewFollowUp(e.target.value)}
+                                    placeholder="Contoh: Teguran Lisan..."
+                                    onKeyDown={e => e.key === 'Enter' && addToList(newFollowUp, followUpTypes, setFollowUpTypes, setNewFollowUp)}
+                                />
+                                <button onClick={() => addToList(newFollowUp, followUpTypes, setFollowUpTypes, setNewFollowUp)} className="bg-red-500 text-white px-2 rounded-lg"><Plus size={16}/></button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {followUpTypes.map((item, idx) => (
+                                    <span key={idx} className="bg-red-50 text-red-700 px-2 py-0.5 rounded text-[10px] font-bold border border-red-100 flex items-center gap-1">
+                                        {item}
+                                        <button onClick={() => removeFromList(item, followUpTypes, setFollowUpTypes)} className="hover:text-red-500"><Trash2 size={10}/></button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Keaktifan */}
+                        <div className="border-t border-dashed border-gray-200 pt-3">
+                            <label className="block text-xs font-bold text-gray-500 mb-2">Jenis Keaktifan (Prestasi/Aktif)</label>
+                            <div className="flex gap-2 mb-2">
+                                <input 
+                                    className="flex-1 border rounded-lg p-2 text-xs" 
+                                    value={newActivity}
+                                    onChange={e => setNewActivity(e.target.value)}
+                                    placeholder="Contoh: Bertanya, Presentasi..."
+                                    onKeyDown={e => e.key === 'Enter' && addToList(newActivity, activityTypes, setActivityTypes, setNewActivity)}
+                                />
+                                <button onClick={() => addToList(newActivity, activityTypes, setActivityTypes, setNewActivity)} className="bg-green-500 text-white px-2 rounded-lg"><Plus size={16}/></button>
+                            </div>
+                            <div className="flex flex-wrap gap-1.5">
+                                {activityTypes.map((item, idx) => (
+                                    <span key={idx} className="bg-green-50 text-green-700 px-2 py-0.5 rounded text-[10px] font-bold border border-green-100 flex items-center gap-1">
+                                        {item}
+                                        <button onClick={() => removeFromList(item, activityTypes, setActivityTypes)} className="hover:text-red-500"><Trash2 size={10}/></button>
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                    </div>
+                 </div>
+
                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
                     <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
                         <Calendar size={18} className="text-red-500"/> Hari Non-Efektif
@@ -374,7 +462,7 @@ const SettingsPage: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
                         {nonEffectiveDays.length === 0 ? (
                             <p className="text-center text-gray-400 text-sm py-4">Tidak ada hari libur diinput.</p>
                         ) : (
@@ -402,6 +490,14 @@ const SettingsPage: React.FC = () => {
                         )}
                     </div>
                 </div>
+
+                <button 
+                    onClick={handleSaveGeneral}
+                    disabled={saving}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
+                >
+                    {saving ? <Loader2 className="animate-spin" /> : <Save size={18} />} Simpan Semua Pengaturan
+                </button>
             </div>
         </div>
       </div>

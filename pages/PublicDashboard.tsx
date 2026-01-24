@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { PublicStats } from '../types';
-import { LogIn, Loader2, BookOpen, AlertCircle, X, School, ChevronDown, ChevronRight, Users } from 'lucide-react';
+import { LogIn, Loader2, BookOpen, AlertCircle, X, School, ChevronDown, ChevronRight, Bookmark } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo, formatTimeIndo } from '../utils/dateUtils';
 
 const PublicDashboard: React.FC = () => {
@@ -18,7 +18,7 @@ const PublicDashboard: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{
     title: string;
-    type: 'class' | 'absence' | 'absence_detail';
+    type: 'class' | 'absence';
     data: any;
   } | null>(null);
   const [expandedClass, setExpandedClass] = useState<string | null>(null);
@@ -104,6 +104,7 @@ const PublicDashboard: React.FC = () => {
 
         let sCount = 0, iCount = 0, aCount = 0;
         const absencePerClass: Record<string, number> = {};
+        // Initialize all classes with 0 absence
         Object.keys(classCounts).forEach(cls => absencePerClass[cls] = 0);
 
         Object.keys(studentStatusMap).forEach((studentId) => {
@@ -142,7 +143,8 @@ const PublicDashboard: React.FC = () => {
   const handleAbsenceClick = () => {
       if (!stats) return;
       setExpandedClass(null);
-      setModalContent({ title: 'Rincian Ketidakhadiran', type: 'absence', data: stats.absenceDetails });
+      // We pass the whole stats object to data for flexibility
+      setModalContent({ title: 'Rincian Ketidakhadiran Hari Ini', type: 'absence', data: stats });
       setModalOpen(true);
   };
 
@@ -155,15 +157,18 @@ const PublicDashboard: React.FC = () => {
               uniqueStudentMap[log.student_id] = { name: log.student_name, status: log.status };
           } else {
               const current = uniqueStudentMap[log.student_id].status;
-              if (log.status === 'S' || (log.status === 'I' && current !== 'S') || (log.status === 'A' && current === 'D')) {
-                  uniqueStudentMap[log.student_id] = { name: log.student_name, status: log.status };
+              // Priority: S > I > A > D (Keep the most relevant absence)
+              // Actually logic: If current is Present/Dispen, overwrite with S/I/A. 
+              // Simplification: just capture S/I/A
+              if (['S','I','A'].includes(log.status)) {
+                 uniqueStudentMap[log.student_id] = { name: log.student_name, status: log.status };
               }
           }
       });
       return Object.values(uniqueStudentMap).filter(s => ['S','I','A'].includes(s.status));
   };
 
-  // Reusable Components matching Screenshot
+  // Reusable Components
   const ClassCard = ({ label, count, colorClass, iconColorClass, onClick }: any) => (
       <button 
         onClick={onClick}
@@ -178,11 +183,11 @@ const PublicDashboard: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 font-sans">
+    <div className="min-h-screen flex flex-col items-center p-4 font-sans bg-[#F0F4F8]">
       <main className="w-full max-w-md space-y-4">
         
-        {/* HEADER CARD - Persis Screenshot */}
-        <div className="app-card p-5 flex items-center justify-between">
+        {/* HEADER CARD */}
+        <div className="app-card p-5 flex items-center justify-between bg-white">
              <div className="flex items-center gap-3">
                  <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-14 w-auto object-contain" />
                  <div>
@@ -197,7 +202,7 @@ const PublicDashboard: React.FC = () => {
         </div>
 
         {loading ? (
-            <div className="app-card p-10 flex flex-col items-center justify-center text-gray-400">
+            <div className="app-card p-10 flex flex-col items-center justify-center text-gray-400 bg-white">
                 <Loader2 className="animate-spin mb-3 text-blue-500" size={32} />
                 <p className="text-xs font-bold">Memuat Data...</p>
             </div> 
@@ -231,7 +236,7 @@ const PublicDashboard: React.FC = () => {
             {/* ROW 2: KBM & ABSENCE (Grid 2) */}
             <div className="grid grid-cols-2 gap-3">
                 {/* KBM Card */}
-                <div className="app-card p-6 flex flex-col items-center justify-center text-center h-44">
+                <div className="app-card p-6 flex flex-col items-center justify-center text-center h-44 bg-white">
                      <div className="mb-3 text-purple-500">
                         <BookOpen size={40} strokeWidth={1.5} />
                      </div>
@@ -245,9 +250,9 @@ const PublicDashboard: React.FC = () => {
                 {/* Absence Card */}
                 <button 
                     onClick={handleAbsenceClick}
-                    className="app-card p-6 flex flex-col items-center justify-center text-center h-44 transition-transform active:scale-95"
+                    className="app-card p-6 flex flex-col items-center justify-center text-center h-44 transition-transform active:scale-95 bg-white group"
                 >
-                     <div className="mb-3 text-orange-500">
+                     <div className="mb-3 text-orange-500 group-hover:scale-110 transition-transform">
                         <AlertCircle size={40} strokeWidth={1.5} />
                      </div>
                      <span className="text-4xl font-extrabold text-orange-500 mb-1">{stats.absenceCount}</span>
@@ -256,7 +261,7 @@ const PublicDashboard: React.FC = () => {
             </div>
 
             {/* PROGRESS BAR CARD */}
-            <div className="app-card p-6">
+            <div className="app-card p-6 bg-white">
                 <h3 className="font-bold text-gray-600 text-xs uppercase mb-3 text-center">Progress KBM Hari Ini</h3>
                 <div className="w-full bg-gray-100 rounded-full h-4 mb-2 overflow-hidden shadow-inner">
                     <div 
@@ -284,87 +289,114 @@ const PublicDashboard: React.FC = () => {
         ) : <p className="text-center text-gray-400 text-sm mt-10">Gagal memuat data.</p>}
       </main>
 
-      {/* MODAL - Standard Clean Style */}
+      {/* MODAL */}
       {modalOpen && modalContent && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setModalOpen(false)}>
-              <div className="app-card w-full max-w-sm flex flex-col max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="app-card w-full max-w-sm flex flex-col max-h-[85vh] overflow-hidden bg-white rounded-3xl" onClick={e => e.stopPropagation()}>
                   
                   {/* Modal Header */}
-                  <div className="flex justify-between items-center p-5 border-b border-gray-100">
-                      <h3 className="font-bold text-slate-800 text-lg">{modalContent.title}</h3>
-                      <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1">
-                          <X size={24} />
+                  <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100">
+                      <h3 className="font-extrabold text-slate-800 text-lg leading-tight">{modalContent.title}</h3>
+                      <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 p-1 bg-gray-50 rounded-full">
+                          <X size={20} />
                       </button>
                   </div>
 
                   {/* Modal Body */}
-                  <div className="overflow-y-auto p-5 space-y-4 custom-scrollbar bg-gray-50/50">
+                  <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white">
+                      
+                      {/* TYPE CLASS (Simple Grid) */}
                       {modalContent.type === 'class' ? (
                           <div className="grid grid-cols-3 gap-3">
                               {modalContent.data.map(([cls, count]: any) => (
-                                  <div key={cls} className="bg-white p-3 rounded-xl text-center border border-gray-100 shadow-sm">
-                                      <div className="font-bold text-slate-700 text-xl">{cls}</div>
-                                      <div className="text-[10px] text-gray-400 font-bold uppercase">{count} Siswa</div>
+                                  <div key={cls} className="bg-white p-3 rounded-2xl text-center border border-gray-100 shadow-sm hover:border-blue-200 transition-colors">
+                                      <div className="font-extrabold text-slate-700 text-xl">{cls}</div>
+                                      <div className="text-[10px] text-gray-400 font-bold uppercase mt-1">{count} Murid</div>
                                   </div>
                               ))}
                           </div>
                       ) : (
-                          <>
-                            <div className="grid grid-cols-3 gap-3 mb-4">
-                                <div className="flex flex-col items-center p-3 bg-white rounded-xl border border-yellow-100 shadow-sm">
-                                    <span className="text-yellow-600 font-bold text-[10px] uppercase mb-1">Sakit</span>
-                                    <span className="text-2xl font-bold text-yellow-500">{modalContent.data.S}</span>
+                          
+                        /* TYPE ABSENCE (Redesigned matching Screenshot) */
+                        <>
+                            {/* Summary Cards */}
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="flex flex-col items-center justify-center p-3 bg-yellow-50 rounded-2xl border border-yellow-100">
+                                    <span className="text-yellow-700 font-bold text-[10px] uppercase mb-1">Sakit</span>
+                                    <span className="text-3xl font-extrabold text-yellow-600">{modalContent.data.absenceDetails.S}</span>
                                 </div>
-                                <div className="flex flex-col items-center p-3 bg-white rounded-xl border border-blue-100 shadow-sm">
-                                    <span className="text-blue-600 font-bold text-[10px] uppercase mb-1">Izin</span>
-                                    <span className="text-2xl font-bold text-blue-500">{modalContent.data.I}</span>
+                                <div className="flex flex-col items-center justify-center p-3 bg-blue-50 rounded-2xl border border-blue-100">
+                                    <span className="text-blue-700 font-bold text-[10px] uppercase mb-1">Izin</span>
+                                    <span className="text-3xl font-extrabold text-blue-600">{modalContent.data.absenceDetails.I}</span>
                                 </div>
-                                <div className="flex flex-col items-center p-3 bg-white rounded-xl border border-red-100 shadow-sm">
-                                    <span className="text-red-600 font-bold text-[10px] uppercase mb-1">Alpa</span>
-                                    <span className="text-2xl font-bold text-red-500">{modalContent.data.A}</span>
+                                <div className="flex flex-col items-center justify-center p-3 bg-red-50 rounded-2xl border border-red-100">
+                                    <span className="text-red-700 font-bold text-[10px] uppercase mb-1">Alpa</span>
+                                    <span className="text-3xl font-extrabold text-red-600">{modalContent.data.absenceDetails.A}</span>
                                 </div>
                             </div>
 
-                            {stats && stats.absencePerClass && (
-                                <div className="space-y-2">
-                                    <h4 className="text-xs font-bold text-gray-400 uppercase mb-2 ml-1">Detail Per Kelas</h4>
-                                    {Object.keys(stats.classDetails).sort().map(cls => {
-                                        const absent = stats.absencePerClass[cls] || 0;
-                                        if (absent === 0) return null;
-                                        
+                            <hr className="border-gray-100" />
+
+                            {/* Class List (Accordion) */}
+                            <div>
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Bookmark size={16} className="text-orange-500 fill-orange-500"/>
+                                    <h4 className="font-bold text-slate-700 text-sm">Rincian Per Kelas</h4>
+                                </div>
+                                
+                                <div className="space-y-3">
+                                    {Object.keys(modalContent.data.classDetails).sort().map(cls => {
+                                        const totalStudents = modalContent.data.classDetails[cls] || 0;
+                                        const absentCount = modalContent.data.absencePerClass[cls] || 0;
+                                        const presentCount = totalStudents - absentCount;
                                         const isExpanded = expandedClass === cls;
+
                                         return (
-                                            <div key={cls} className="bg-white border border-gray-100 rounded-xl overflow-hidden shadow-sm">
+                                            <div key={cls} className="border border-gray-100 rounded-2xl overflow-hidden transition-all hover:shadow-sm">
                                                 <button 
                                                     onClick={() => setExpandedClass(isExpanded ? null : cls)} 
-                                                    className="w-full flex justify-between items-center p-3 hover:bg-gray-50 transition-colors"
+                                                    className="w-full flex items-center p-3 bg-white"
                                                 >
-                                                    <span className="font-bold text-slate-700 text-sm bg-gray-100 px-2.5 py-1 rounded-md">{cls}</span>
-                                                    <div className="flex items-center gap-2 text-xs font-bold">
-                                                        <span className="text-red-500 bg-red-50 px-2 py-0.5 rounded">{absent} Siswa</span>
-                                                        {isExpanded ? <ChevronDown size={16} className="text-gray-400"/> : <ChevronRight size={16} className="text-gray-400"/>}
+                                                    <div className="w-10 h-10 flex items-center justify-center bg-white border border-gray-200 rounded-xl font-bold text-slate-700 text-sm shadow-sm">
+                                                        {cls}
+                                                    </div>
+                                                    <div className="flex-1 px-4 text-left">
+                                                        <div className="flex items-center gap-2 text-xs font-bold">
+                                                            <span className="text-green-600">{presentCount} Hadir</span>
+                                                            <span className="text-gray-300">|</span>
+                                                            <span className={absentCount > 0 ? "text-red-500" : "text-gray-400"}>
+                                                                {absentCount} Tidak Hadir
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-gray-300">
+                                                        {isExpanded ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
                                                     </div>
                                                 </button>
 
-                                                {isExpanded && (
-                                                    <div className="bg-gray-50 p-3 border-t border-gray-100 space-y-2">
+                                                {isExpanded && absentCount > 0 && (
+                                                    <div className="bg-gray-50 p-3 border-t border-gray-100 space-y-2 animate-fade-in">
                                                         {getAbsentStudentsForClass(cls).map((s: any, idx: number) => (
-                                                            <div key={idx} className="flex justify-between items-center bg-white p-2.5 rounded-lg border border-gray-100 text-xs shadow-sm">
+                                                            <div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 text-xs shadow-sm">
                                                                 <span className="font-bold text-slate-700">{s.name}</span>
-                                                                <span className={`w-6 h-6 flex items-center justify-center rounded font-bold text-white ${s.status === 'S' ? 'bg-yellow-400' : s.status === 'I' ? 'bg-blue-400' : 'bg-red-500'}`}>
-                                                                    {s.status}
+                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 text-yellow-700' : s.status === 'I' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
+                                                                    {s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}
                                                                 </span>
                                                             </div>
                                                         ))}
                                                     </div>
                                                 )}
+                                                {isExpanded && absentCount === 0 && (
+                                                    <div className="bg-green-50 p-3 text-center text-xs text-green-700 font-bold border-t border-green-100">
+                                                        Semua murid hadir.
+                                                    </div>
+                                                )}
                                             </div>
                                         );
                                     })}
-                                    {stats.absenceCount === 0 && <p className="text-center text-xs text-gray-400 italic py-2">Nihil (Semua hadir)</p>}
                                 </div>
-                            )}
-                          </>
+                            </div>
+                        </>
                       )}
                   </div>
               </div>

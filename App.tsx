@@ -17,6 +17,7 @@ import SettingsPage from './pages/SettingsPage';
 import RekapAbsensi from './pages/RekapAbsensi';
 import LaporanJurnal from './pages/LaporanJurnal';
 import Kedisiplinan from './pages/Kedisiplinan';
+import AbsensiRapor from './pages/AbsensiRapor'; // New Import
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -88,6 +89,12 @@ const App: React.FC = () => {
           <Route path="/rekap-absensi" element={
              <ProtectedRoute>
                 <RekapAbsensi />
+             </ProtectedRoute>
+          } />
+
+          <Route path="/absensi-rapor" element={
+             <ProtectedRoute>
+                <AbsensiRapor />
              </ProtectedRoute>
           } />
 

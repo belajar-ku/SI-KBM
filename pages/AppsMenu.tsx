@@ -5,7 +5,7 @@ import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   NotebookPen, FileText, ClipboardList, Siren, QrCode, CalendarClock, 
-  Database, UserCog, CalendarRange, GraduationCap, Settings
+  Database, UserCog, CalendarRange, GraduationCap, Settings, BookX
 } from 'lucide-react';
 
 const AppsMenu: React.FC = () => {
@@ -30,14 +30,8 @@ const AppsMenu: React.FC = () => {
   return (
     <Layout>
         <div className="space-y-8 animate-fade-in max-w-6xl mx-auto pb-20">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 className="text-3xl font-extrabold text-slate-800 tracking-tight">Aplikasi</h2>
-                    <p className="text-slate-500 font-medium mt-1">Pilih modul layanan akademik sekolah.</p>
-                </div>
-            </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 pt-4">
                 {isAdmin ? (
                 <>
                     <AppCard 
@@ -94,10 +88,17 @@ const AppsMenu: React.FC = () => {
                     />
                     <AppCard 
                         label="Kehadiran" 
-                        subLabel="Rekap Absensi"
+                        subLabel="Rekap Absensi Mapel"
                         icon={ClipboardList} 
                         path="/rekap-absensi" 
                         colorClass="bg-emerald-500" 
+                    />
+                     <AppCard 
+                        label="Ketidakhadiran" 
+                        subLabel="Untuk Rapor"
+                        icon={BookX} 
+                        path="/absensi-rapor" 
+                        colorClass="bg-red-500" 
                     />
                     <AppCard 
                         label="Laporan" 
@@ -107,8 +108,8 @@ const AppsMenu: React.FC = () => {
                         colorClass="bg-amber-500" 
                     />
                     <AppCard 
-                        label="Kedisiplinan" 
-                        subLabel="Poin Pelanggaran"
+                        label="Pelanggaran" 
+                        subLabel="Temuan di Luar KBM"
                         icon={Siren} 
                         path="/kedisiplinan" 
                         colorClass="bg-orange-600" 

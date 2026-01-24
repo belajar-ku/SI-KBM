@@ -71,7 +71,7 @@ create table if not exists public.journals (
   created_at timestamptz default now()
 );
 
--- 5. TABEL ATTENDANCE LOGS
+-- 5. TABEL ATTENDANCE LOGS (INPUT DARI GURU MAPEL)
 create table if not exists public.attendance_logs (
   id uuid default gen_random_uuid() primary key,
   journal_id uuid references public.journals(id) on delete cascade,
@@ -83,7 +83,33 @@ create table if not exists public.attendance_logs (
   created_at timestamptz default now()
 );
 
--- 6. TABEL GURU (DATA MASTER REFERENSI)
+-- 6. TABEL JOURNAL NOTES (UNTUK CATATAN MURID)
+create table if not exists public.journal_notes (
+  id uuid default gen_random_uuid() primary key,
+  journal_id uuid references public.journals(id) on delete cascade, 
+  student_id uuid references public.students(id),
+  student_name text,
+  type text check (type in ('kedisiplinan', 'keaktifan')),
+  category text, -- e.g. "Terlambat", "Bertanya"
+  note text,
+  follow_up text, -- NEW: Jenis Tindak Lanjut
+  created_at timestamptz default now()
+);
+alter table public.journal_notes alter column journal_id drop not null;
+
+-- 7. TABEL HOMEROOM ATTENDANCE (ABSENSI HARIAN WALI KELAS - MUTLAK)
+create table if not exists public.homeroom_attendance (
+  id uuid default gen_random_uuid() primary key,
+  date date not null,
+  kelas text not null,
+  student_id uuid references public.students(id),
+  status text check (status in ('S', 'I', 'A', 'D')),
+  created_by uuid references public.profiles(id),
+  created_at timestamptz default now(),
+  unique(date, student_id) -- Satu siswa hanya punya satu status per hari dari wali kelas
+);
+
+-- 8. TABEL GURU (DATA MASTER REFERENSI)
 create table if not exists public.tabel_guru (
   id uuid default gen_random_uuid() primary key,
   nip text unique not null,
@@ -93,7 +119,7 @@ create table if not exists public.tabel_guru (
   created_at timestamptz default now()
 );
 
--- 7. TABEL SETTINGS
+-- 9. TABEL SETTINGS
 create table if not exists public.app_settings (
   key text primary key,
   value text,
@@ -107,37 +133,25 @@ values
   ('semester', 'Genap', 'Semester Aktif'),
   ('headmaster', 'Nama Kepala Sekolah', 'Kepala Sekolah'),
   ('non_effective_days', '[]', 'Hari Libur'),
-  ('subjects_list', '["Matematika","Bahasa Indonesia","IPA","IPS","PKn","Bahasa Inggris","PJOK","Seni Budaya","Prakarya","PAI","PAK"]', 'Master Mapel')
+  ('subjects_list', '["Matematika","Bahasa Indonesia","IPA","IPS","PKn","Bahasa Inggris","PJOK","Seni Budaya","Prakarya","PAI","PAK"]', 'Master Mapel'),
+  ('discipline_types', '["Terlambat Masuk","Tidur di Kelas","Tidak Membawa Buku","Mengganggu Teman","Bermain HP","Seragam Tidak Lengkap"]', 'Master Jenis Kedisiplinan'),
+  ('follow_up_types', '["Teguran Lisan","Teguran Tertulis","Pindah Tempat Duduk","Konfiskasi HP","Lapor Wali Kelas","Lapor BK"]', 'Master Jenis Tindak Lanjut'),
+  ('activity_types', '["Bertanya","Menjawab Pertanyaan","Mengerjakan di Depan","Presentasi","Membantu Teman"]', 'Master Jenis Keaktifan')
 on conflict (key) do nothing;
 
--- ==========================================
--- UPDATE STRUKTUR TABEL (MIGRATION FIX)
--- Bagian ini memaksa penambahan kolom jika belum ada
--- ==========================================
-
-DO $$
-BEGIN
-    -- Tambahkan kolom assessment_type ke journals jika belum ada
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'journals' AND column_name = 'assessment_type') THEN
-        ALTER TABLE public.journals ADD COLUMN assessment_type text;
-    END IF;
-
-    -- Tambahkan kolom assessment_missing_students ke journals jika belum ada
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'journals' AND column_name = 'assessment_missing_students') THEN
-        ALTER TABLE public.journals ADD COLUMN assessment_missing_students text;
-    END IF;
-END $$;
 
 -- ==========================================
 -- ROW LEVEL SECURITY (RLS) & POLICIES
 -- ==========================================
 
--- Enable RLS
+-- Enable RLS (Aman dijalankan berulang)
 alter table public.profiles enable row level security;
 alter table public.students enable row level security;
 alter table public.schedules enable row level security;
 alter table public.journals enable row level security;
 alter table public.attendance_logs enable row level security;
+alter table public.journal_notes enable row level security;
+alter table public.homeroom_attendance enable row level security;
 alter table public.tabel_guru enable row level security;
 alter table public.app_settings enable row level security;
 
@@ -148,22 +162,13 @@ create policy "Public read profiles" on public.profiles for select to authentica
 drop policy if exists "Users update own profile" on public.profiles;
 create policy "Users update own profile" on public.profiles for update to authenticated using (auth.uid() = id);
 
-drop policy if exists "Admin update all profiles" on public.profiles;
-create policy "Admin update all profiles" on public.profiles for update to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
-
 -- STUDENTS
 drop policy if exists "Read students" on public.students;
 create policy "Read students" on public.students for select to authenticated, anon using (true);
 
-drop policy if exists "Admin manage students" on public.students;
-create policy "Admin manage students" on public.students for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
-
 -- SCHEDULES
 drop policy if exists "Read schedules" on public.schedules;
 create policy "Read schedules" on public.schedules for select to authenticated, anon using (true);
-
-drop policy if exists "Admin manage schedules" on public.schedules;
-create policy "Admin manage schedules" on public.schedules for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
 
 -- JOURNALS
 drop policy if exists "Read journals" on public.journals;
@@ -185,21 +190,28 @@ create policy "Teachers create attendance" on public.attendance_logs for insert 
 drop policy if exists "Teachers delete attendance" on public.attendance_logs;
 create policy "Teachers delete attendance" on public.attendance_logs for delete to authenticated using (true);
 
--- TABEL GURU
+-- JOURNAL NOTES
+drop policy if exists "Read journal notes" on public.journal_notes;
+create policy "Read journal notes" on public.journal_notes for select to authenticated, anon using (true);
+
+drop policy if exists "Teachers manage journal notes" on public.journal_notes;
+create policy "Teachers manage journal notes" on public.journal_notes for all to authenticated using (true);
+
+-- HOMEROOM ATTENDANCE
+drop policy if exists "Read homeroom_attendance" on public.homeroom_attendance;
+create policy "Read homeroom_attendance" on public.homeroom_attendance for select to authenticated, anon using (true);
+
+drop policy if exists "Wali Kelas manage homeroom_attendance" on public.homeroom_attendance;
+create policy "Wali Kelas manage homeroom_attendance" on public.homeroom_attendance for all to authenticated using (true);
+
+-- TABEL GURU & SETTINGS
 drop policy if exists "Read tabel_guru" on public.tabel_guru;
 create policy "Read tabel_guru" on public.tabel_guru for select to authenticated, anon using (true);
 
-drop policy if exists "Admin manage tabel_guru" on public.tabel_guru;
-create policy "Admin manage tabel_guru" on public.tabel_guru for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
-
--- APP SETTINGS
 drop policy if exists "Read settings" on public.app_settings;
 create policy "Read settings" on public.app_settings for select to authenticated, anon using (true);
 
-drop policy if exists "Admin manage settings" on public.app_settings;
-create policy "Admin manage settings" on public.app_settings for all to authenticated using (exists (select 1 from profiles where id = auth.uid() and role = 'admin'));
-
--- STORAGE POLICIES
+-- STORAGE BUCKETS
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
 drop policy if exists "Avatar Public Read" on storage.objects;
@@ -207,9 +219,3 @@ create policy "Avatar Public Read" on storage.objects for select using ( bucket_
 
 drop policy if exists "Avatar Upload" on storage.objects;
 create policy "Avatar Upload" on storage.objects for insert with check ( bucket_id = 'avatars' and auth.role() = 'authenticated' );
-
--- INDEXING (Performance)
-create index if not exists idx_students_kelas on public.students(kelas);
-create index if not exists idx_schedules_teacher on public.schedules(teacher_id);
-create index if not exists idx_journals_teacher on public.journals(teacher_id);
-create index if not exists idx_attendance_journal on public.attendance_logs(journal_id);

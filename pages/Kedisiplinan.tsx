@@ -3,221 +3,335 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShieldAlert, Loader2, Calendar, Search } from 'lucide-react';
-import { getWIBISOString, formatDateIndo } from '../utils/dateUtils';
+import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, CheckCircle2, XCircle } from 'lucide-react';
+import { Student } from '../types';
 
-interface StudentDiscipline {
-    id: string;
-    nisn: string;
-    name: string;
-    finalStatus: string; // S, I, A, or '' (Hadir)
-    details: string[];   // e.g. ["Sakit di Matematika", "Alpa di IPA"]
+interface NoteItem {
+    category: string;
+    studentIds: string[];
+    followUp?: string;
 }
 
 const Kedisiplinan: React.FC = () => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   
-  // Filters
-  const [selectedDate, setSelectedDate] = useState(getWIBISOString());
-  const [selectedClass, setSelectedClass] = useState('');
+  // Data
   const [classes, setClasses] = useState<string[]>([]);
-  
-  const [disciplineData, setDisciplineData] = useState<StudentDiscipline[]>([]);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
+  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]);
+
+  // Selection
+  const [selectedClass, setSelectedClass] = useState('');
+  const [disciplineRows, setDisciplineRows] = useState<NoteItem[]>([]);
+
+  // Alert State
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    type: 'success' | 'error';
+    title: string;
+    message: string;
+  }>({ isOpen: false, type: 'success', title: '', message: '' });
 
   useEffect(() => {
-    fetchClasses();
+    fetchInitData();
   }, []);
 
   useEffect(() => {
-    if (selectedClass && selectedDate) {
-      fetchDisciplineData();
+    if (selectedClass) {
+        fetchStudents();
     } else {
-        setDisciplineData([]);
+        setStudents([]);
+        setDisciplineRows([]);
     }
-  }, [selectedClass, selectedDate]);
+  }, [selectedClass]);
 
-  const fetchClasses = async () => {
+  const fetchInitData = async () => {
     try {
-        const { data } = await supabase.from('students').select('kelas');
-        if (data) {
-            const unique = Array.from(new Set(data.map((s:any) => s.kelas))).sort();
+        const [classesRes, settingsRes] = await Promise.all([
+            supabase.from('students').select('kelas'),
+            supabase.from('app_settings').select('*')
+        ]);
+
+        if (classesRes.data) {
+            const unique = Array.from(new Set(classesRes.data.map((s:any) => s.kelas))).sort();
             setClasses(unique);
+        }
+
+        if (settingsRes.data) {
+            settingsRes.data.forEach(item => {
+                if (item.key === 'discipline_types') setDisciplineTypes(item.value ? JSON.parse(item.value) : []);
+                if (item.key === 'follow_up_types') setFollowUpTypes(item.value ? JSON.parse(item.value) : []);
+            });
         }
     } catch (e) { console.error(e); }
   };
 
-  const fetchDisciplineData = async () => {
+  const fetchStudents = async () => {
+      setLoading(true);
+      const { data } = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+      if (data) setStudents(data);
+      setLoading(false);
+      // Initialize with one empty row if none
+      if (disciplineRows.length === 0) addRow();
+  };
+
+  const addRow = () => {
+      setDisciplineRows(prev => [...prev, { category: '', studentIds: [], followUp: '' }]);
+  };
+
+  const removeRow = (index: number) => {
+      setDisciplineRows(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateRow = (index: number, field: keyof NoteItem, value: any) => {
+      setDisciplineRows(prev => {
+          const list = [...prev];
+          list[index] = { ...list[index], [field]: value };
+          return list;
+      });
+  };
+
+  const handleSave = async () => {
+      if (disciplineRows.length === 0 || !selectedClass) return;
       setLoading(true);
       try {
-        // 1. Get All Students in Class
-        const { data: students } = await supabase
-            .from('students')
-            .select('id, nisn, name')
-            .eq('kelas', selectedClass)
-            .order('name');
-        
-        if (!students) throw new Error("Tidak ada data siswa.");
+          const notesInserts: any[] = [];
+          
+          disciplineRows.forEach(row => {
+              if (row.category && row.studentIds.length > 0) {
+                  row.studentIds.forEach(sid => {
+                      const sName = students.find(s => s.id === sid)?.name || 'Unknown';
+                      notesInserts.push({
+                          journal_id: null, // Standalone entry
+                          student_id: sid,
+                          student_name: sName,
+                          type: 'kedisiplinan',
+                          category: row.category,
+                          follow_up: row.followUp,
+                          note: `Diinput via menu Kedisiplinan oleh ${profile?.full_name}`
+                      });
+                  });
+              }
+          });
 
-        const startOfDay = `${selectedDate}T00:00:00+07:00`;
-        const endOfDay = `${selectedDate}T23:59:59+07:00`;
+          if (notesInserts.length > 0) {
+              const { error } = await supabase.from('journal_notes').insert(notesInserts);
+              if (error) throw error;
+              setAlertState({
+                  isOpen: true,
+                  type: 'success',
+                  title: 'Berhasil Disimpan',
+                  message: `${notesInserts.length} data pelanggaran telah dicatat.`
+              });
+              setDisciplineRows([]); // Reset
+              setSelectedClass('');
+          } else {
+              setAlertState({
+                  isOpen: true,
+                  type: 'error',
+                  title: 'Data Kosong',
+                  message: 'Harap lengkapi data pelanggaran dan pilih murid.'
+              });
+          }
 
-        // 2. Get All Journals for this Class on this Date (All Teachers)
-        const { data: journals } = await supabase
-            .from('journals')
-            .select('id, subject, teacher_id')
-            .eq('kelas', selectedClass)
-            .gte('created_at', startOfDay)
-            .lte('created_at', endOfDay);
-        
-        const journalIds = journals?.map(j => j.id) || [];
-        
-        let attendanceLogs: any[] = [];
-        if (journalIds.length > 0) {
-            const { data: logs } = await supabase
-                .from('attendance_logs')
-                .select('student_id, status, subject')
-                .in('journal_id', journalIds);
-            attendanceLogs = logs || [];
-        }
-
-        // 3. Consolidate Data with Priority Logic (S > I > A)
-        const consolidated: StudentDiscipline[] = students.map(student => {
-            // Find logs for this specific student
-            const studentLogs = attendanceLogs.filter(l => l.student_id === student.id);
-            
-            const statuses = studentLogs.map(l => l.status);
-            const details: string[] = studentLogs
-                .filter(l => ['S','I','A'].includes(l.status))
-                .map(l => `${l.status === 'S' ? 'Sakit' : l.status === 'I' ? 'Izin' : 'Alpa'} (${l.subject || 'Mapel'})`);
-
-            let finalStatus = '';
-            
-            // Priority Logic
-            if (statuses.includes('S')) finalStatus = 'S';
-            else if (statuses.includes('I')) finalStatus = 'I';
-            else if (statuses.includes('A')) finalStatus = 'A';
-            
-            return {
-                id: student.id,
-                nisn: student.nisn,
-                name: student.name,
-                finalStatus,
-                details
-            };
-        });
-
-        setDisciplineData(consolidated);
-
-      } catch (err) {
-          console.error(err);
+      } catch (err: any) {
+          setAlertState({ isOpen: true, type: 'error', title: 'Gagal Menyimpan', message: err.message });
       } finally {
           setLoading(false);
       }
   };
 
+  // --- REUSED MULTI-SELECT DROPDOWN ---
+  const MultiSelectDropdown = ({ options, selectedIds, onChange, placeholder }: any) => {
+      const [isOpen, setIsOpen] = useState(false);
+      const wrapperRef = useRef<HTMLDivElement>(null);
+
+      useEffect(() => {
+          const handleClickOutside = (event: MouseEvent) => {
+              if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                  setIsOpen(false);
+              }
+          };
+          document.addEventListener('mousedown', handleClickOutside);
+          return () => document.removeEventListener('mousedown', handleClickOutside);
+      }, []);
+
+      const toggleSelection = (id: string) => {
+          const newSelection = selectedIds.includes(id) 
+            ? selectedIds.filter((sid: string) => sid !== id)
+            : [...selectedIds, id];
+          onChange(newSelection);
+      };
+
+      const selectedNames = options.filter((o: any) => selectedIds.includes(o.id)).map((o: any) => o.name);
+
+      return (
+          <div className="relative" ref={wrapperRef}>
+              <button 
+                  type="button"
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="w-full border border-slate-200 rounded-xl p-3 bg-white text-left flex justify-between items-center focus:ring-2 focus:ring-orange-500"
+              >
+                  <span className={`truncate text-sm ${selectedIds.length === 0 ? 'text-gray-400' : 'text-slate-700 font-bold'}`}>
+                      {selectedIds.length === 0 ? placeholder : `${selectedIds.length} Murid Dipilih`}
+                  </span>
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isOpen && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                      {options.map((opt: any) => {
+                          const isSelected = selectedIds.includes(opt.id);
+                          return (
+                              <div 
+                                  key={opt.id}
+                                  onClick={() => toggleSelection(opt.id)}
+                                  className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-orange-50' : 'hover:bg-gray-50'}`}
+                              >
+                                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                                      isSelected 
+                                      ? 'bg-orange-600 border-orange-600' 
+                                      : 'bg-white border-slate-300'
+                                  }`}>
+                                      {isSelected && <Check size={14} className="text-white" strokeWidth={3} />}
+                                  </div>
+                                  <span className={`text-sm ${isSelected ? 'text-orange-700 font-bold' : 'text-slate-700'}`}>
+                                      {opt.name}
+                                  </span>
+                              </div>
+                          );
+                      })}
+                      {options.length === 0 && <div className="p-3 text-center text-xs text-gray-400">Tidak ada murid tersedia.</div>}
+                  </div>
+              )}
+              {selectedIds.length > 0 && (
+                 <div className="mt-2 flex flex-wrap gap-1">
+                     {selectedNames.map((name: string, idx: number) => {
+                         const studentId = options.find((o:any) => o.name === name)?.id;
+                         return (
+                             <span key={idx} className="text-[10px] bg-orange-50 text-orange-700 px-2 py-1 rounded-md border border-orange-100 flex items-center gap-1 font-medium">
+                                 {name}
+                                 {studentId && (
+                                     <button onClick={() => toggleSelection(studentId)} className="hover:bg-orange-100 rounded-full p-0.5">
+                                         <X size={10} />
+                                     </button>
+                                 )}
+                             </span>
+                         )
+                     })}
+                 </div>
+              )}
+          </div>
+      );
+  };
+
   return (
     <Layout>
-      <div className="space-y-6">
-        <div className="flex items-center gap-3">
+      <div className="max-w-2xl mx-auto space-y-6 pb-20">
+        <div className="flex items-center gap-3 mb-6">
             <div className="bg-orange-100 p-3 rounded-xl text-orange-600">
-                <ShieldAlert size={24} />
+                <ShieldAlert size={28} />
             </div>
             <div>
-                <h2 className="text-2xl font-bold text-gray-800">Rekap Kedisiplinan</h2>
-                <p className="text-gray-500 text-sm">Monitoring ketidakhadiran siswa harian per kelas.</p>
+                <h2 className="text-2xl font-bold text-gray-800">Input Pelanggaran</h2>
+                <p className="text-gray-500 text-sm">Catat pelanggaran tata tertib siswa di luar jam KBM.</p>
             </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-            <div className="grid md:grid-cols-2 gap-4 items-end">
-                <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Tanggal</label>
-                    <div className="relative">
-                        <Calendar className="absolute left-3 top-3.5 text-gray-400" size={16}/>
-                        <input 
-                            type="date"
-                            className="w-full border rounded-xl p-3 pl-10 bg-gray-50 font-bold text-gray-700"
-                            value={selectedDate}
-                            onChange={e => setSelectedDate(e.target.value)}
-                        />
-                    </div>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Kelas</label>
-                    <select 
-                        className="w-full border rounded-xl p-3 bg-gray-50 font-bold text-gray-700 focus:ring-2 focus:ring-orange-500"
-                        value={selectedClass}
-                        onChange={e => setSelectedClass(e.target.value)}
-                    >
-                        <option value="">-- Pilih Kelas --</option>
-                        {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                    </select>
-                </div>
-            </div>
+        {/* 1. Select Class */}
+        <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wide mb-2 ml-1">Pilih Kelas</label>
+            <select 
+                className="w-full border border-slate-200 rounded-xl p-3.5 focus:ring-2 focus:ring-orange-500 bg-white font-bold text-slate-700"
+                value={selectedClass}
+                onChange={e => setSelectedClass(e.target.value)}
+            >
+                <option value="">-- Pilih Kelas --</option>
+                {classes.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
         </div>
 
+        {/* 2. Input Form (Only if class selected) */}
         {selectedClass && (
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden animate-fade-in">
-                <div className="p-4 bg-gray-50 border-b border-gray-100 flex justify-between items-center">
-                    <h3 className="font-bold text-gray-700">Data Absensi Kelas {selectedClass}</h3>
-                    <span className="text-xs text-gray-500">{formatDateIndo(selectedDate)}</span>
-                </div>
+            <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+                <h3 className="font-extrabold text-lg text-slate-800 mb-4">Catatan Pelanggaran Tata Tertib</h3>
                 
-                {loading ? (
-                    <div className="p-10 flex justify-center"><Loader2 className="animate-spin text-orange-500"/></div>
-                ) : (
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-gray-100 text-gray-600 font-bold uppercase text-xs">
-                                <tr>
-                                    <th className="px-6 py-4 w-10">No</th>
-                                    <th className="px-6 py-4 w-32">NISN</th>
-                                    <th className="px-6 py-4">Nama Murid</th>
-                                    <th className="px-6 py-4 text-center w-24">Status Akhir</th>
-                                    <th className="px-6 py-4">Rincian Ketidakhadiran</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-gray-100">
-                                {disciplineData.length === 0 ? (
-                                    <tr><td colSpan={5} className="p-8 text-center text-gray-400 italic">Tidak ada siswa di kelas ini.</td></tr>
-                                ) : (
-                                    disciplineData.map((s, idx) => (
-                                        <tr key={s.id} className="hover:bg-orange-50/30">
-                                            <td className="px-6 py-3 text-center text-gray-500">{idx + 1}</td>
-                                            <td className="px-6 py-3 font-mono text-gray-500">{s.nisn}</td>
-                                            <td className="px-6 py-3 font-bold text-gray-700">{s.name}</td>
-                                            <td className="px-6 py-3 text-center">
-                                                {s.finalStatus ? (
-                                                    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold border ${
-                                                        s.finalStatus === 'S' ? 'bg-yellow-100 text-yellow-700 border-yellow-200' :
-                                                        s.finalStatus === 'I' ? 'bg-blue-100 text-blue-700 border-blue-200' :
-                                                        'bg-red-100 text-red-700 border-red-200'
-                                                    }`}>
-                                                        {s.finalStatus === 'S' ? 'Sakit' : s.finalStatus === 'I' ? 'Izin' : 'Alpa'}
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-300 font-medium">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-3 text-xs text-gray-600">
-                                                {s.details.length > 0 ? (
-                                                    <div className="flex flex-wrap gap-1">
-                                                        {s.details.map((d, i) => (
-                                                            <span key={i} className="bg-gray-100 px-2 py-0.5 rounded border border-gray-200">{d}</span>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <span className="text-gray-300 italic">Hadir Penuh</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                <div className="space-y-4">
+                    {disciplineRows.map((row, idx) => (
+                        <div key={idx} className="flex flex-col gap-3 p-4 border border-slate-200 rounded-2xl bg-slate-50 relative">
+                            {/* Row Controls: Category & Follow Up */}
+                            <div className="flex flex-col md:flex-row gap-3">
+                                <div className="w-full md:w-1/2">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
+                                    <select 
+                                        className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-orange-500"
+                                        value={row.category}
+                                        onChange={e => updateRow(idx, 'category', e.target.value)}
+                                    >
+                                        <option value="">-- Pilih Jenis --</option>
+                                        {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                                <div className="w-full md:w-1/2">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
+                                    <select 
+                                        className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-orange-500"
+                                        value={row.followUp || ''}
+                                        onChange={e => updateRow(idx, 'followUp', e.target.value)}
+                                    >
+                                        <option value="">-- Pilih Tindakan --</option>
+                                        {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            {/* Student Select */}
+                            <div className="w-full">
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
+                                <MultiSelectDropdown 
+                                    options={students} 
+                                    selectedIds={row.studentIds}
+                                    onChange={(ids: string[]) => updateRow(idx, 'studentIds', ids)}
+                                    placeholder="Pilih Murid"
+                                />
+                            </div>
+
+                            <button onClick={() => removeRow(idx)} className="absolute top-2 right-2 md:top-auto md:bottom-3 md:right-3 p-2 text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+                                <Trash2 size={18}/>
+                            </button>
+                        </div>
+                    ))}
+                    
+                    <button onClick={addRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:underline px-2">
+                        <Plus size={14}/> Tambah Catatan Pelanggaran
+                    </button>
+                </div>
+
+                <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
+                    <button 
+                        onClick={handleSave}
+                        disabled={loading}
+                        className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-orange-200 disabled:opacity-50 transition-all"
+                    >
+                        {loading ? <Loader2 className="animate-spin" /> : <Save size={18} />} Simpan Pelanggaran
+                    </button>
+                </div>
+            </div>
+        )}
+
+        {/* STATUS ALERT */}
+        {alertState.isOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center transform scale-100">
+                    <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm ${alertState.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
+                        {alertState.type === 'success' ? <CheckCircle2 size={40} /> : <XCircle size={40} />}
                     </div>
-                )}
+                    <h3 className="text-xl font-extrabold text-slate-800 mb-2">{alertState.title}</h3>
+                    <p className="text-slate-500 font-medium text-sm mb-8 leading-relaxed">{alertState.message}</p>
+                    <button onClick={() => setAlertState(prev => ({...prev, isOpen: false}))} className="w-full py-4 rounded-2xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all active:scale-95">OK, Lanjutkan</button>
+                </div>
             </div>
         )}
       </div>

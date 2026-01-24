@@ -1,12 +1,18 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Schedule, Journal } from '../types';
 import { getWIBISOString, getWIBDate } from '../utils/dateUtils';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban, ChevronRight } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban, ChevronRight, Plus, Trash2, ChevronDown, CheckSquare, Square } from 'lucide-react';
+
+interface NoteItem {
+    category: string;
+    studentIds: string[];
+    followUp?: string; // NEW: Tindak Lanjut
+}
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
@@ -26,11 +32,22 @@ const JurnalForm: React.FC = () => {
   const [lastMaterials, setLastMaterials] = useState<Record<string, string>>({}); 
   const [inputMode, setInputMode] = useState<'auto' | 'manual'>('auto');
 
+  // --- SETTINGS MASTER DATA ---
+  const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
+  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); // New State
+  const [activityTypes, setActivityTypes] = useState<string[]>([]);
+
   // --- ASSESSMENT STATE ---
   const [showAssessmentModal, setShowAssessmentModal] = useState(false);
   const [showStudentChecklistModal, setShowStudentChecklistModal] = useState(false);
   const [assessmentType, setAssessmentType] = useState<'harian' | 'tugas' | 'none'>('none');
   const [missingStudents, setMissingStudents] = useState<string[]>([]); 
+
+  // --- NOTES STATE (STEP 3) ---
+  const [notesData, setNotesData] = useState<{
+      discipline: NoteItem[];
+      activity: NoteItem[];
+  }>({ discipline: [], activity: [] });
 
   const [alertState, setAlertState] = useState<{
     isOpen: boolean;
@@ -64,12 +81,21 @@ const JurnalForm: React.FC = () => {
         const dbDay = jsDay === 0 ? 7 : jsDay;
         const todayStr = getWIBISOString();
 
-        const { data: schedules } = await supabase
-            .from('schedules')
-            .select('*')
-            .eq('teacher_id', profile.id)
-            .eq('day_of_week', dbDay)
-            .order('hour');
+        const [schedulesRes, settingsRes] = await Promise.all([
+             supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).order('hour'),
+             supabase.from('app_settings').select('*')
+        ]);
+
+        const schedules = schedulesRes.data;
+        
+        // Parse Settings
+        if (settingsRes.data) {
+            settingsRes.data.forEach(item => {
+                if (item.key === 'discipline_types') setDisciplineTypes(item.value ? JSON.parse(item.value) : []);
+                if (item.key === 'follow_up_types') setFollowUpTypes(item.value ? JSON.parse(item.value) : []);
+                if (item.key === 'activity_types') setActivityTypes(item.value ? JSON.parse(item.value) : []);
+            });
+        }
         
         const startOfDay = `${todayStr}T00:00:00+07:00`;
         const endOfDay = `${todayStr}T23:59:59+07:00`;
@@ -145,10 +171,37 @@ const JurnalForm: React.FC = () => {
 
         if (existing) {
             setEditJournalId(existing.id);
+            // Fetch Attendance
             const { data: logs } = await supabase.from('attendance_logs').select('student_id, status').eq('journal_id', existing.id);
-            
             const attendanceMap: Record<string, 'S'|'I'|'A'|'D'> = {};
             if (logs) logs.forEach(l => { attendanceMap[l.student_id] = l.status as any; });
+
+            // Fetch Notes
+            const { data: notes } = await supabase.from('journal_notes').select('type, category, student_id, follow_up').eq('journal_id', existing.id);
+            const loadedNotes = { discipline: [] as NoteItem[], activity: [] as NoteItem[] };
+            
+            if (notes) {
+                const discMap: Record<string, string[]> = {};
+                const actMap: Record<string, string[]> = {};
+
+                notes.forEach(n => {
+                    const key = `${n.category}|${n.follow_up || ''}`;
+                    if (n.type === 'kedisiplinan') {
+                        if (!discMap[key]) discMap[key] = [];
+                        discMap[key].push(n.student_id);
+                    } else {
+                        if (!actMap[n.category]) actMap[n.category] = [];
+                        actMap[n.category].push(n.student_id);
+                    }
+                });
+
+                loadedNotes.discipline = Object.entries(discMap).map(([key, studentIds]) => {
+                    const [category, followUp] = key.split('|');
+                    return { category, followUp, studentIds };
+                });
+                loadedNotes.activity = Object.entries(actMap).map(([category, studentIds]) => ({ category, studentIds }));
+            }
+            setNotesData(loadedNotes);
 
             setFormData({
                 kelas: existing.kelas,
@@ -163,6 +216,7 @@ const JurnalForm: React.FC = () => {
             });
         } else {
             setEditJournalId(null);
+            setNotesData({ discipline: [], activity: [] });
             let hoursParsed: string[] = [];
             if (selectedSchedule.hour.includes(',')) hoursParsed = selectedSchedule.hour.split(',').map(s => s.trim());
             else hoursParsed = [selectedSchedule.hour];
@@ -191,7 +245,30 @@ const JurnalForm: React.FC = () => {
       setFormData({...formData, material: titleCased});
   };
 
-  // --- LOGIC PENILAIAN ---
+  // --- LOGIC NOTES (STEP 3) ---
+  const addNoteRow = (type: 'discipline' | 'activity') => {
+      setNotesData(prev => ({
+          ...prev,
+          [type]: [...prev[type], { category: '', studentIds: [], followUp: '' }]
+      }));
+  };
+
+  const removeNoteRow = (type: 'discipline' | 'activity', index: number) => {
+      setNotesData(prev => ({
+          ...prev,
+          [type]: prev[type].filter((_, i) => i !== index)
+      }));
+  };
+
+  const updateNoteRow = (type: 'discipline' | 'activity', index: number, field: keyof NoteItem, value: any) => {
+      setNotesData(prev => {
+          const list = [...prev[type]];
+          list[index] = { ...list[index], [field]: value };
+          return { ...prev, [type]: list };
+      });
+  };
+
+  // --- LOGIC PENILAIAN & SUBMIT ---
   const handlePreSubmit = () => {
       setShowAssessmentModal(true);
       setMissingStudents([]); 
@@ -239,10 +316,13 @@ const JurnalForm: React.FC = () => {
         assessment_missing_students: JSON.stringify(missingNames)
       };
 
+      // 1. Save Journal
       if (editJournalId) {
           const { error } = await supabase.from('journals').update(payload).eq('id', editJournalId);
           if (error) throw error;
+          // Cleanup logs & notes for full re-insert
           await supabase.from('attendance_logs').delete().eq('journal_id', editJournalId);
+          await supabase.from('journal_notes').delete().eq('journal_id', editJournalId);
       } else {
           const { data: journal, error: journalError } = await supabase.from('journals')
             .insert({
@@ -255,6 +335,7 @@ const JurnalForm: React.FC = () => {
           finalJournalId = journal.id;
       }
 
+      // 2. Insert Attendance Logs
       if (finalJournalId) {
           const attendanceInserts = Object.entries(formData.attendance).map(([studentId, status]) => {
               const studentName = students.find(s => s.id === studentId)?.name || 'Unknown';
@@ -270,6 +351,47 @@ const JurnalForm: React.FC = () => {
           if (attendanceInserts.length > 0) {
             const { error: attError } = await supabase.from('attendance_logs').insert(attendanceInserts);
             if (attError) throw attError;
+          }
+
+          // 3. Insert Journal Notes (Discipline & Activity)
+          const notesInserts: any[] = [];
+          
+          notesData.discipline.forEach(row => {
+              if (row.category && row.studentIds.length > 0) {
+                  row.studentIds.forEach(sid => {
+                      const sName = students.find(s => s.id === sid)?.name || 'Unknown';
+                      notesInserts.push({
+                          journal_id: finalJournalId,
+                          student_id: sid,
+                          student_name: sName,
+                          type: 'kedisiplinan',
+                          category: row.category,
+                          follow_up: row.followUp,
+                          note: ''
+                      });
+                  });
+              }
+          });
+
+          notesData.activity.forEach(row => {
+              if (row.category && row.studentIds.length > 0) {
+                  row.studentIds.forEach(sid => {
+                      const sName = students.find(s => s.id === sid)?.name || 'Unknown';
+                      notesInserts.push({
+                          journal_id: finalJournalId,
+                          student_id: sid,
+                          student_name: sName,
+                          type: 'keaktifan',
+                          category: row.category,
+                          note: ''
+                      });
+                  });
+              }
+          });
+
+          if (notesInserts.length > 0) {
+              const { error: noteError } = await supabase.from('journal_notes').insert(notesInserts);
+              if (noteError) throw noteError;
           }
       }
 
@@ -293,8 +415,96 @@ const JurnalForm: React.FC = () => {
       }
   };
 
+  // --- CUSTOM MULTI-SELECT COMPONENT (Checklist Style) ---
+  const MultiSelectDropdown = ({ options, selectedIds, onChange, placeholder }: any) => {
+      const [isOpen, setIsOpen] = useState(false);
+      const wrapperRef = useRef<HTMLDivElement>(null);
+
+      useEffect(() => {
+          const handleClickOutside = (event: MouseEvent) => {
+              if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
+                  setIsOpen(false);
+              }
+          };
+          document.addEventListener('mousedown', handleClickOutside);
+          return () => document.removeEventListener('mousedown', handleClickOutside);
+      }, []);
+
+      const toggleSelection = (id: string) => {
+          const newSelection = selectedIds.includes(id) 
+            ? selectedIds.filter((sid: string) => sid !== id)
+            : [...selectedIds, id];
+          onChange(newSelection);
+          // Note: We do NOT close the dropdown here to allow multiple checklists
+      };
+
+      const selectedNames = options.filter((o: any) => selectedIds.includes(o.id)).map((o: any) => o.name);
+
+      return (
+          <div className="relative" ref={wrapperRef}>
+              <button 
+                  type="button"
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="w-full border border-slate-200 rounded-xl p-3 bg-white text-left flex justify-between items-center focus:ring-2 focus:ring-blue-500"
+              >
+                  <span className={`truncate text-sm ${selectedIds.length === 0 ? 'text-gray-400' : 'text-slate-700 font-bold'}`}>
+                      {selectedIds.length === 0 ? placeholder : `${selectedIds.length} Murid Dipilih`}
+                  </span>
+                  <ChevronDown size={16} className={`text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+              </button>
+              
+              {isOpen && (
+                  <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                      {options.map((opt: any) => {
+                          const isSelected = selectedIds.includes(opt.id);
+                          return (
+                              <div 
+                                  key={opt.id}
+                                  onClick={() => toggleSelection(opt.id)}
+                                  className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
+                              >
+                                  {/* Custom Checkbox UI */}
+                                  <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
+                                      isSelected 
+                                      ? 'bg-blue-600 border-blue-600' 
+                                      : 'bg-white border-slate-300'
+                                  }`}>
+                                      {isSelected && <Check size={14} className="text-white" strokeWidth={3} />}
+                                  </div>
+                                  
+                                  <span className={`text-sm ${isSelected ? 'text-blue-700 font-bold' : 'text-slate-700'}`}>
+                                      {opt.name}
+                                  </span>
+                              </div>
+                          );
+                      })}
+                      {options.length === 0 && <div className="p-3 text-center text-xs text-gray-400">Tidak ada murid tersedia (Hadir).</div>}
+                  </div>
+              )}
+              {selectedIds.length > 0 && (
+                 <div className="mt-2 flex flex-wrap gap-1">
+                     {selectedNames.map((name: string, idx: number) => {
+                         const studentId = options.find((o:any) => o.name === name)?.id;
+                         return (
+                             <span key={idx} className="text-[10px] bg-blue-50 text-blue-700 px-2 py-1 rounded-md border border-blue-100 flex items-center gap-1 font-medium">
+                                 {name}
+                                 {studentId && (
+                                     <button onClick={() => toggleSelection(studentId)} className="hover:bg-blue-100 rounded-full p-0.5">
+                                         <X size={10} />
+                                     </button>
+                                 )}
+                             </span>
+                         )
+                     })}
+                 </div>
+              )}
+          </div>
+      );
+  };
+
   const renderStep1 = () => (
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+       {/* ... (SAME AS BEFORE) ... */}
        <div className="flex justify-between items-start mb-6">
            <div>
                <h3 className="font-extrabold text-lg text-slate-800">Presensi Murid</h3>
@@ -447,6 +657,7 @@ const JurnalForm: React.FC = () => {
 
   const renderStep2 = () => (
     <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+       {/* ... (SAME AS BEFORE) ... */}
       <div className="flex justify-between items-center mb-6">
           <h3 className="font-extrabold text-lg text-slate-800">Detail Pembelajaran</h3>
           {inputMode === 'auto' && <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-100">AUTO</span>}
@@ -486,7 +697,124 @@ const JurnalForm: React.FC = () => {
     </div>
   );
 
-  const renderStep3 = () => (
+  // --- NEW STEP 3: CATATAN MURID ---
+  const renderStep3 = () => {
+    // Filter only present students (those NOT in attendance as S/I/A/D)
+    const presentStudents = students.filter(s => !formData.attendance[s.id]);
+
+    return (
+      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+         <h3 className="font-extrabold text-lg text-slate-800 mb-4">Catatan Murid</h3>
+         
+         {/* SECTION 1: KEDISIPLINAN */}
+         <div className="mb-8">
+             <div className="flex justify-between items-center mb-3">
+                 <h4 className="font-bold text-gray-700 text-sm">Catatan Kedisiplinan</h4>
+             </div>
+             
+             <div className="space-y-3">
+                 {notesData.discipline.map((row, idx) => (
+                     <div key={idx} className="flex flex-col gap-3 p-3 border border-slate-200 rounded-xl bg-slate-50 relative">
+                         {/* Row Controls: Category & Follow Up */}
+                         <div className="flex flex-col md:flex-row gap-3">
+                            <div className="w-full md:w-1/2">
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
+                                <select 
+                                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm"
+                                    value={row.category}
+                                    onChange={e => updateNoteRow('discipline', idx, 'category', e.target.value)}
+                                >
+                                    <option value="">-- Pilih Jenis --</option>
+                                    {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                            <div className="w-full md:w-1/2">
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
+                                <select 
+                                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm"
+                                    value={row.followUp || ''}
+                                    onChange={e => updateNoteRow('discipline', idx, 'followUp', e.target.value)}
+                                >
+                                    <option value="">-- Pilih Tindakan --</option>
+                                    {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                </select>
+                            </div>
+                         </div>
+                         
+                         {/* Student Select */}
+                         <div className="w-full">
+                             <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
+                             <MultiSelectDropdown 
+                                 options={presentStudents} 
+                                 selectedIds={row.studentIds}
+                                 onChange={(ids: string[]) => updateNoteRow('discipline', idx, 'studentIds', ids)}
+                                 placeholder="Pilih Murid (Hadir)"
+                             />
+                         </div>
+
+                         <button onClick={() => removeNoteRow('discipline', idx)} className="absolute top-2 right-2 md:top-auto md:bottom-2 md:right-2 p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                             <Trash2 size={16}/>
+                         </button>
+                     </div>
+                 ))}
+                 <button onClick={() => addNoteRow('discipline')} className="text-blue-600 text-xs font-bold flex items-center gap-1 hover:underline">
+                     <Plus size={14}/> Tambah Catatan Kedisiplinan
+                 </button>
+             </div>
+         </div>
+
+         {/* SECTION 2: KEAKTIFAN */}
+         <div className="mb-6">
+             <div className="flex justify-between items-center mb-3">
+                 <h4 className="font-bold text-gray-700 text-sm">Catatan Keaktifan</h4>
+             </div>
+             
+             <div className="space-y-3">
+                 {notesData.activity.map((row, idx) => (
+                     <div key={idx} className="flex flex-col md:flex-row gap-3 p-3 border border-slate-200 rounded-xl bg-slate-50 relative">
+                         <div className="w-full md:w-1/3">
+                            <select 
+                                className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm"
+                                value={row.category}
+                                onChange={e => updateNoteRow('activity', idx, 'category', e.target.value)}
+                            >
+                                <option value="">-- Pilih Jenis --</option>
+                                {activityTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                            </select>
+                         </div>
+                         <div className="w-full md:w-2/3">
+                             <MultiSelectDropdown 
+                                 options={presentStudents} 
+                                 selectedIds={row.studentIds}
+                                 onChange={(ids: string[]) => updateNoteRow('activity', idx, 'studentIds', ids)}
+                                 placeholder="Pilih Murid (Hadir)"
+                             />
+                         </div>
+                         <button onClick={() => removeNoteRow('activity', idx)} className="absolute top-2 right-2 md:static md:flex items-center justify-center p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                             <Trash2 size={16}/>
+                         </button>
+                     </div>
+                 ))}
+                 <button onClick={() => addNoteRow('activity')} className="text-green-600 text-xs font-bold flex items-center gap-1 hover:underline">
+                     <Plus size={14}/> Tambah Catatan Keaktifan
+                 </button>
+             </div>
+         </div>
+
+         <div className="flex justify-between mt-8 pt-6 border-t border-slate-100">
+            <button onClick={handleBack} className="text-slate-500 hover:bg-slate-50 px-5 py-3 rounded-xl font-bold flex items-center gap-2 transition-colors"><ArrowLeft size={18} /> Kembali</button>
+            <button onClick={handleNext} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 transition-all">Lanjut <ArrowRight size={18} /></button>
+        </div>
+      </div>
+    );
+  };
+
+  // --- STEP 4 (Validation) ---
+  const renderStep4 = () => {
+    // Calculate total notes from rows that have studentIds
+    const noteCount = [...notesData.discipline, ...notesData.activity].reduce((acc, row) => acc + row.studentIds.length, 0);
+
+    return (
     <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
        <h3 className="font-extrabold text-lg text-slate-800 mb-1">Validasi Akhir</h3>
        <p className="text-slate-500 text-sm mb-6">Konfirmasi status kelas sebelum mengirim laporan.</p>
@@ -497,10 +825,12 @@ const JurnalForm: React.FC = () => {
                  <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Mapel</span> <span className="font-bold">: {formData.subject}</span></li>
                  <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Kelas</span> <span className="font-bold">: {formData.kelas}</span></li>
                  <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Jam Ke</span> <span className="font-bold">: {formData.hours.join(', ')}</span></li>
-                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Absen</span> <span className="font-extrabold text-red-500 bg-red-50 px-2 rounded">: {Object.keys(formData.attendance).length} Siswa</span></li>
+                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Absen</span> <span className="font-extrabold text-red-500 bg-red-50 px-2 rounded">: {Object.keys(formData.attendance).length} Murid</span></li>
+                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Catatan</span> <span className="font-bold">: {noteCount} Murid</span></li>
              </ul>
           </div>
 
+          {/* ... (SAME AS BEFORE) ... */}
           <div>
             <label className="block text-xs font-bold text-slate-500 mb-3 uppercase tracking-wide">Kondisi Kebersihan Kelas</label>
             <div className="grid grid-cols-2 gap-4">
@@ -517,11 +847,11 @@ const JurnalForm: React.FC = () => {
 
           <div>
             <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${formData.isConfirmed ? 'border-blue-500 bg-blue-50 shadow-md' : 'border-slate-200 hover:border-blue-300'}`}>
-                 <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-colors ${formData.isConfirmed ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
+                 <div className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-colors flex-shrink-0 ${formData.isConfirmed ? 'bg-blue-600 border-blue-600 text-white' : 'border-slate-300 bg-white'}`}>
                     {formData.isConfirmed && <Check size={16} strokeWidth={4} />}
                  </div>
                  <input type="checkbox" className="hidden" checked={formData.isConfirmed} onChange={e => setFormData({...formData, isConfirmed: e.target.checked})} />
-                 <span className="font-bold text-slate-700 text-sm">Saya menyatakan KBM telah dilaksanakan dengan baik.</span>
+                 <span className="font-bold text-slate-700 text-sm leading-tight">Saya menyatakan bahwa saya benar-benar melaksanakan KBM di dalam kelas dengan baik.</span>
             </label>
           </div>
 
@@ -543,6 +873,7 @@ const JurnalForm: React.FC = () => {
        </div>
     </div>
   );
+  };
 
   // Helper functions used in render
   const isScheduleFilled = (sch: Schedule) => existingJournals.some(j => j.kelas === sch.kelas && j.subject === sch.subject);
@@ -565,10 +896,10 @@ const JurnalForm: React.FC = () => {
                <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
                    {editJournalId ? 'Edit Jurnal' : 'Isi Jurnal KBM'}
                </h2>
-               <p className="text-slate-500 font-medium text-sm mt-1">Langkah {step} dari 3</p>
+               <p className="text-slate-500 font-medium text-sm mt-1">Langkah {step} dari 4</p>
             </div>
             <div className="flex gap-2">
-               {[1,2,3].map(i => <div key={i} className={`h-2 rounded-full transition-all duration-500 ${step >= i ? 'bg-blue-600 w-8' : 'bg-slate-200 w-3'}`}></div>)}
+               {[1,2,3,4].map(i => <div key={i} className={`h-2 rounded-full transition-all duration-500 ${step >= i ? 'bg-blue-600 w-8' : 'bg-slate-200 w-3'}`}></div>)}
             </div>
         </div>
         
@@ -577,6 +908,7 @@ const JurnalForm: React.FC = () => {
                 {step === 1 && renderStep1()}
                 {step === 2 && renderStep2()}
                 {step === 3 && renderStep3()}
+                {step === 4 && renderStep4()}
             </>
         }
 

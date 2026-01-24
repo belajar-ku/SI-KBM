@@ -12,17 +12,27 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [semester, setSemester] = useState('...');
+  const [academicYear, setAcademicYear] = useState('...');
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data } = await supabase.from('app_settings').select('value').eq('key', 'semester').single();
-        if (data) setSemester(data.value);
+        const { data } = await supabase.from('app_settings').select('*').in('key', ['semester', 'academic_year']);
+        if (data) {
+            const sem = data.find(item => item.key === 'semester')?.value;
+            const year = data.find(item => item.key === 'academic_year')?.value;
+            if (sem) setSemester(sem);
+            if (year) setAcademicYear(year);
+        }
       } catch (e) {
-        console.error("Failed to load semester", e);
+        console.error("Failed to load settings", e);
       }
     };
     fetchSettings();
+
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
+    return () => clearInterval(timer);
   }, []);
 
   const handleLogoutClick = () => {
@@ -51,6 +61,9 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
           </button>
       );
   };
+
+  const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(currentTime);
+  const formattedTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(currentTime).replace(/\./g, ':');
 
   return (
     <div className="min-h-screen flex bg-[#F0F4F8] font-sans text-slate-800">
@@ -107,18 +120,27 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative">
-          {/* Mobile Header (Solid White) */}
-          <div className="md:hidden sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex justify-between items-center z-30 shadow-sm">
-             <div className="flex items-center gap-3">
-                 <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" className="h-9 w-9"/>
-                 <div>
-                     <h1 className="text-lg font-extrabold text-slate-800 leading-none">SI KBM</h1>
-                     <p className="text-[10px] text-gray-500 font-bold uppercase mt-0.5">Semester {semester}</p>
+          {/* Mobile Header (Updated) */}
+          <div className="md:hidden sticky top-0 bg-white border-b border-gray-200 z-30 shadow-sm">
+             <div className="px-4 py-3 flex justify-between items-center">
+                 <div className="flex items-center gap-3">
+                     <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" className="h-10 w-10"/>
+                     <div>
+                         <h1 className="text-[10px] font-extrabold text-slate-900 leading-tight">SISTEM INFORMASI<br/>KEGIATAN BELAJAR MENGAJAR</h1>
+                         <p className="text-[9px] text-slate-500 font-bold uppercase mt-0.5 tracking-wide">
+                            SEMESTER {semester} | T.A {academicYear}
+                         </p>
+                     </div>
                  </div>
+                 <button onClick={handleLogoutClick} className="w-9 h-9 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 active:bg-gray-100 border border-gray-200 flex-shrink-0">
+                     <LogOut size={18}/>
+                 </button>
              </div>
-             <button onClick={handleLogoutClick} className="w-9 h-9 bg-gray-50 rounded-full flex items-center justify-center text-gray-500 active:bg-gray-100 border border-gray-200">
-                 <LogOut size={18}/>
-             </button>
+             {/* Running Date & Time Bar */}
+             <div className="bg-slate-50 px-4 py-1.5 border-t border-gray-100 flex justify-between items-center text-[10px] font-bold text-slate-600">
+                 <span>{formattedDate}</span>
+                 <span className="font-mono text-blue-600">{formattedTime} WIB</span>
+             </div>
           </div>
 
           <div className="p-4 md:p-8 max-w-6xl w-full mx-auto pb-28 md:pb-10">
