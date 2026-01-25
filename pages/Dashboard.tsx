@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
@@ -70,7 +69,8 @@ const Dashboard: React.FC = () => {
         if (journals) {
             meetings = journals.length;
             journals.forEach(j => {
-                const parts = j.hours.split(',').filter(h => h.trim().length > 0);
+                // FIX: Explicitly type 'h' as string to avoid TS7006 error
+                const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
                 jp += parts.length;
                 classMap[j.kelas] = (classMap[j.kelas] || 0) + 1;
             });

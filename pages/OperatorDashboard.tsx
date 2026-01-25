@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
@@ -114,8 +113,9 @@ const OperatorDashboard: React.FC = () => {
 
   const fetchInitData = async () => {
       setLoading(true);
-      const { data } = await supabase.from('profiles').select('id, full_name, nip');
-      if (data) setProfiles(data);
+      // FIX: Add 'role' to select query to match Profile interface and cast result
+      const { data } = await supabase.from('profiles').select('id, full_name, nip, role');
+      if (data) setProfiles(data as Profile[]);
       await fetchMonitorData();
       setLoading(false);
   };
