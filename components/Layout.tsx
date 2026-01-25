@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, Grid, User, ChevronRight } from 'lucide-react';
+import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> = ({ children, showNav = true }) => {
-  const { signOut, profile } = useAuth();
+// CHANGED: Default collapsed is now true for all pages
+export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; collapsed?: boolean }> = ({ children, showNav = true, collapsed = true }) => {
+  const { signOut, profile, isOperator, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
@@ -50,14 +51,15 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
       return (
           <button 
             onClick={() => navigate(path)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${
                 isActive 
                 ? 'bg-blue-600 text-white shadow-md' 
                 : 'text-gray-600 hover:bg-gray-100 hover:text-blue-600'
-            }`}
+            } ${collapsed ? 'justify-center' : ''}`}
+            title={label} 
           >
               <Icon size={22} strokeWidth={isActive ? 2.5 : 2} />
-              <span className={`font-medium text-sm ${isActive ? 'text-white' : 'text-gray-700'}`}>{label}</span>
+              {!collapsed && <span className={`font-medium text-sm ${isActive ? 'text-white' : 'text-gray-700'}`}>{label}</span>}
           </button>
       );
   };
@@ -68,43 +70,57 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
   return (
     <div className="min-h-screen flex bg-[#F0F4F8] font-sans text-slate-800">
       
-      {/* --- DESKTOP SIDEBAR (Solid White) --- */}
+      {/* --- DESKTOP SIDEBAR (Compact Mode Default) --- */}
       {showNav && (
-        <aside className="hidden md:flex flex-col w-72 h-screen sticky top-0 bg-white border-r border-gray-200 z-20">
+        <aside className={`hidden md:flex flex-col h-screen sticky top-0 bg-white border-r border-gray-200 z-20 transition-all duration-300 ${collapsed ? 'w-20' : 'w-72'}`}>
             {/* Logo Area */}
-            <div className="p-6 flex items-center gap-3 border-b border-gray-100">
+            <div className={`p-4 flex items-center gap-3 border-b border-gray-100 ${collapsed ? 'justify-center' : ''} h-20`}>
                  <img 
                     src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
                     alt="Logo" 
-                    className="h-10 w-10" 
+                    className="h-10 w-10 object-contain" 
                   />
-                 <div>
-                    <h2 className="text-sm font-extrabold text-slate-800 leading-none">UPT SMPN 1</h2>
-                    <p className="text-xs text-gray-500 mt-1 font-medium">SI KBM Online</p>
-                 </div>
+                 {!collapsed && (
+                     <div className="animate-fade-in">
+                        <h2 className="text-sm font-extrabold text-slate-800 leading-none">UPT SMPN 1</h2>
+                        <p className="text-xs text-gray-500 mt-1 font-medium">SI KBM Online</p>
+                     </div>
+                 )}
             </div>
 
             {/* Navigation Menu */}
-            <div className="flex-1 space-y-1 p-4 overflow-y-auto">
-                <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Menu Utama</div>
-                <NavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
-                <NavItem path="/apps" label="KBM" icon={Grid} />
-                <NavItem path="/profile" label="Profil Saya" icon={User} />
+            <div className="flex-1 space-y-1 p-3 overflow-y-auto">
+                {!collapsed && <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Menu Utama</div>}
+                
+                {isOperator ? (
+                    <>
+                        <NavItem path="/operator-dashboard" label="Dashboard KBM" icon={MonitorPlay} />
+                        <NavItem path="/profile" label="Profil Saya" icon={User} />
+                    </>
+                ) : (
+                    <>
+                        <NavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
+                        <NavItem path="/apps" label="KBM" icon={Grid} />
+                        <NavItem path="/profile" label="Profil Saya" icon={User} />
+                    </>
+                )}
             </div>
 
             {/* User Profile Mini */}
             <div className="p-4 border-t border-gray-200 bg-gray-50">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 overflow-hidden">
-                        <div className="w-10 h-10 rounded-full bg-white flex-shrink-0 overflow-hidden border border-gray-200 shadow-sm">
+                <div className={`flex items-center ${collapsed ? 'justify-center flex-col gap-4' : 'justify-between'}`}>
+                    <div className={`flex items-center gap-3 overflow-hidden ${collapsed ? 'justify-center' : ''}`}>
+                        <div className="w-10 h-10 rounded-full bg-white flex-shrink-0 overflow-hidden border border-gray-200 shadow-sm cursor-pointer" title={profile?.full_name}>
                             {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover"/> : <User size={20} className="m-2.5 text-gray-400"/>}
                         </div>
-                        <div className="min-w-0">
-                             <p className="text-sm font-bold text-slate-800 truncate max-w-[120px]">{profile?.full_name?.split(' ')[0]}</p>
-                             <p className="text-xs text-green-600 font-bold flex items-center gap-1">
-                                <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
-                             </p>
-                        </div>
+                        {!collapsed && (
+                            <div className="min-w-0">
+                                <p className="text-sm font-bold text-slate-800 truncate max-w-[120px]">{profile?.full_name?.split(' ')[0]}</p>
+                                <p className="text-xs text-green-600 font-bold flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-green-500"></span> Online
+                                </p>
+                            </div>
+                        )}
                     </div>
                     <button 
                         onClick={handleLogoutClick}
@@ -143,13 +159,13 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
              </div>
           </div>
 
-          <div className="p-4 md:p-8 max-w-6xl w-full mx-auto pb-28 md:pb-10">
+          <div className="p-4 md:p-8 max-w-[1920px] w-full mx-auto pb-28 md:pb-10">
             {children}
           </div>
       </main>
 
       {/* --- MOBILE BOTTOM NAV (Floating Figma Style) --- */}
-      {showNav && (
+      {showNav && !isOperator && (
         <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none">
             <nav className="bg-white/90 backdrop-blur-md border border-white/50 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
                 <button 
@@ -189,6 +205,37 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean }> 
                 </button>
             </nav>
         </div>
+      )}
+
+      {/* Mobile Nav for Operator */}
+      {showNav && isOperator && (
+           <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none">
+                <nav className="bg-white/90 backdrop-blur-md border border-white/50 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
+                    <button 
+                    onClick={() => navigate('/operator-dashboard')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
+                        location.pathname === '/operator-dashboard' 
+                        ? 'bg-slate-800 text-white shadow-md' 
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    }`}
+                    >
+                    <MonitorPlay size={20} strokeWidth={2.5} />
+                    {location.pathname === '/operator-dashboard' && <span className="text-xs font-bold animate-fade-in">Monitor</span>}
+                    </button>
+
+                    <button 
+                    onClick={() => navigate('/profile')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
+                        location.pathname === '/profile' 
+                        ? 'bg-slate-800 text-white shadow-md' 
+                        : 'text-gray-400 hover:text-gray-600 hover:bg-gray-50'
+                    }`}
+                    >
+                    <User size={20} strokeWidth={2.5} />
+                    {location.pathname === '/profile' && <span className="text-xs font-bold animate-fade-in">Profil</span>}
+                    </button>
+                </nav>
+           </div>
       )}
 
       {/* LOGOUT MODAL */}

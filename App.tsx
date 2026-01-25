@@ -17,11 +17,12 @@ import SettingsPage from './pages/SettingsPage';
 import RekapAbsensi from './pages/RekapAbsensi';
 import LaporanJurnal from './pages/LaporanJurnal';
 import Kedisiplinan from './pages/Kedisiplinan';
-import AbsensiRapor from './pages/AbsensiRapor'; // New Import
+import AbsensiRapor from './pages/AbsensiRapor'; 
+import OperatorDashboard from './pages/OperatorDashboard'; // New Import
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
-  const { session, isLoading } = useAuth();
+  const { session, isLoading, isOperator } = useAuth();
 
   if (isLoading) {
     return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
@@ -29,6 +30,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }
 
   if (!session) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Operator redirect to their dashboard if they try to access main dashboard
+  // Note: Since Operator Dashboard is now public-ish (Kiosk), logged in operators can still go there.
+  if (isOperator) {
+      return <Navigate to="/operator-dashboard" replace />;
   }
 
   return children;
@@ -62,6 +69,11 @@ const App: React.FC = () => {
             </ProtectedRoute>
           } />
           
+          {/* Operator Specific Route - Made Public/Direct Access for Kiosk Mode */}
+          <Route path="/operator-dashboard" element={
+             <OperatorDashboard />
+          } />
+          
           <Route path="/apps" element={
             <ProtectedRoute>
               <AppsMenu />
@@ -69,9 +81,9 @@ const App: React.FC = () => {
           } />
           
           <Route path="/profile" element={
-            <ProtectedRoute>
-              <ProfilePage />
-            </ProtectedRoute>
+             <React.Fragment>
+                <SharedProfileWrapper />
+             </React.Fragment>
           } />
           
           <Route path="/jurnal" element={
@@ -148,5 +160,13 @@ const App: React.FC = () => {
     </AuthProvider>
   );
 };
+
+// Helper for Profile Route (accessible by All Authenticated Users)
+const SharedProfileWrapper = () => {
+    const { session, isLoading } = useAuth();
+    if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
+    if (!session) return <Navigate to="/login" replace />;
+    return <ProfilePage />;
+}
 
 export default App;

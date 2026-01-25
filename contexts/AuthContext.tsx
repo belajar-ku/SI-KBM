@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { Session } from '@supabase/supabase-js';
@@ -8,6 +9,7 @@ interface AuthContextType {
   profile: Profile | null;
   isLoading: boolean;
   isAdmin: boolean;
+  isOperator: boolean;
   signIn: (userId: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -116,7 +118,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isLoading, 
       signIn,
       signOut,
-      isAdmin: profile?.role === 'admin' 
+      isAdmin: profile?.role === 'admin',
+      isOperator: profile?.role === 'operator'
     }}>
       {children}
     </AuthContext.Provider>

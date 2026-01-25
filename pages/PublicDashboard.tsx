@@ -282,7 +282,7 @@ const PublicDashboard: React.FC = () => {
                     onClick={() => navigate('/login')} 
                     className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-200 active:translate-y-0.5 transition-all"
                 >
-                    <LogIn size={24} /> Login Guru
+                    <LogIn size={24} /> Login Sebagai
                 </button>
             </div>
           </>

@@ -16,7 +16,9 @@ const MySchedule: React.FC = () => {
   // Settings for Header
   const [settings, setSettings] = useState({
       academic_year: '...',
-      semester: '...'
+      semester: '...',
+      headmaster: '',
+      headmaster_nip: ''
   });
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -69,22 +71,12 @@ const MySchedule: React.FC = () => {
     return grouped;
   };
 
-  // Logic to find schedule for a specific day and period (hour)
-  const getScheduleForCell = (day: number, period: number) => {
-      return schedules.find(s => {
-          if (s.day_of_week !== day) return false;
-          // Handle "1, 2" format
-          const hours = s.hour.split(',').map(h => parseInt(h.trim()));
-          return hours.includes(period);
-      });
-  };
-
   const handleDownloadImage = async () => {
       if (!printRef.current) return;
       setDownloading(true);
       try {
           // Wait a bit to ensure rendering
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 500));
           
           const canvas = await html2canvas(printRef.current, {
               scale: 2, // Higher quality
@@ -93,8 +85,8 @@ const MySchedule: React.FC = () => {
           });
 
           const link = document.createElement('a');
-          link.download = `Jadwal_Mengajar_${profile?.full_name?.replace(/\s+/g, '_')}.jpeg`;
-          link.href = canvas.toDataURL('image/jpeg', 0.9);
+          link.download = `Jadwal_${profile?.full_name?.replace(/\s+/g, '_')}.png`;
+          link.href = canvas.toDataURL('image/png', 1.0);
           link.click();
       } catch (e) {
           alert("Gagal mengunduh gambar.");
@@ -107,22 +99,22 @@ const MySchedule: React.FC = () => {
   const grouped = groupSchedulesByDay();
   const sortedDays = Object.keys(grouped).map(Number).sort((a, b) => a - b);
   
-  // Table Configuration based on Screenshot
-  const timeSlots = [
-      { p: 1, t: '7:00 - 7:40' },
-      { p: 2, t: '7:40 - 8:20' },
-      { p: 3, t: '8:20 - 9:00' },
-      { p: 4, t: '9:00 - 9:40' },
-      { p: 5, t: '10:05 - 10:45' },
-      { p: 6, t: '10:45 - 11:25' },
-      { p: 7, t: '11:50 - 12:30' },
-      { p: 8, t: '12:30 - 13:10' },
-  ];
+  // Data processing for Table View
   const days = [1, 2, 3, 4, 5, 6]; // Senin - Sabtu
+  const hours = [1, 2, 3, 4, 5, 6, 7, 8]; // CHANGED: Limit to 8 hours
+  
+  const scheduleMap: Record<string, string> = {}; // Key: "day-hour" -> Value: "Class"
+  schedules.forEach(s => {
+      const sHours = s.hour.split(',').map(h => h.trim());
+      sHours.forEach(h => {
+          const key = `${s.day_of_week}-${h}`;
+          scheduleMap[key] = s.kelas;
+      });
+  });
 
   return (
     <Layout>
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
                 <div className="bg-gradient-to-br from-pink-500 to-rose-500 p-3 rounded-2xl shadow-lg shadow-pink-500/20 text-white">
@@ -139,8 +131,8 @@ const MySchedule: React.FC = () => {
                 disabled={loading || downloading}
                 className="bg-white border border-gray-200 text-gray-700 hover:text-blue-600 hover:border-blue-200 px-4 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-sm transition-all"
             >
-                {downloading ? <Loader2 className="animate-spin" size={18}/> : <ImageIcon size={18} />}
-                Download Jadwal (.JPEG)
+                {downloading ? <Loader2 className="animate-spin" size={18}/> : <Download size={18} />}
+                Download Jadwal
             </button>
         </div>
 
@@ -193,59 +185,85 @@ const MySchedule: React.FC = () => {
         )}
       </div>
 
-      {/* --- HIDDEN TABLE FOR IMAGE GENERATION --- */}
+      {/* --- HIDDEN TABLE FOR DOWNLOAD (Asesoris Lengkap) --- */}
       <div className="fixed top-0 left-0 w-full h-0 overflow-hidden">
-          <div ref={printRef} className="bg-white w-[1200px] p-8 text-black font-sans">
-              
-              {/* Kop Header */}
-              <div className="text-center mb-6">
-                  <p className="text-sm font-medium uppercase text-gray-600">SMP NEGERI 1 PASURUAN</p>
-                  <p className="text-lg font-serif mb-1">JADWAL PELAJARAN ~ SEMESTER {settings.semester.toUpperCase()} TAHUN AJARAN {settings.academic_year}</p>
-                  <h1 className="text-4xl font-extrabold uppercase mt-2">{profile?.full_name}</h1>
-              </div>
-
-              {/* Table Grid */}
-              <div className="border-2 border-black">
-                  {/* Header Row */}
-                  <div className="flex border-b border-black">
-                      <div className="w-24 flex-shrink-0 border-r border-black p-2"></div> {/* Corner */}
-                      {timeSlots.map((slot, i) => (
-                          <div key={i} className={`flex-1 border-r border-black p-2 text-center ${i === 7 ? 'border-r-0' : ''}`}>
-                              <div className="text-2xl font-bold leading-none mb-1">{slot.p}</div>
-                              <div className="text-[10px] font-medium">{slot.t}</div>
-                          </div>
-                      ))}
-                  </div>
-
-                  {/* Body Rows */}
-                  {days.map((day, idx) => (
-                      <div key={day} className={`flex ${idx !== days.length - 1 ? 'border-b border-black' : ''} h-24`}>
-                          {/* Day Column */}
-                          <div className="w-24 flex-shrink-0 border-r border-black flex items-center justify-center bg-gray-50">
-                              <span className="text-xl font-serif text-gray-800">{dayName(day)}</span>
-                          </div>
-
-                          {/* Period Columns */}
-                          {timeSlots.map((slot, i) => {
-                              const schedule = getScheduleForCell(day, slot.p);
-                              return (
-                                  <div key={i} className={`flex-1 border-r border-black relative p-2 flex flex-col justify-center items-center ${i === 7 ? 'border-r-0' : ''}`}>
-                                      {schedule ? (
-                                          <>
-                                              <div className="absolute top-1 left-2 text-xs font-medium uppercase text-gray-600">{schedule.subject}</div>
-                                              <div className="text-4xl font-sans font-bold text-black tracking-tighter scale-y-110">{schedule.kelas}</div>
-                                          </>
-                                      ) : null}
-                                  </div>
-                              );
-                          })}
+          <div 
+            ref={printRef} 
+            className="w-[1200px] p-10 bg-white font-sans text-slate-900"
+          >
+              {/* Kop / Header */}
+              <div className="border-b-4 border-slate-800 pb-4 mb-6 flex items-center gap-6">
+                  <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" className="h-24 w-auto object-contain" alt="Logo" />
+                  <div className="flex-1">
+                      <h1 className="text-3xl font-extrabold uppercase tracking-widest text-slate-800">UPT SMP NEGERI 1 PASURUAN</h1>
+                      <h2 className="text-xl font-bold uppercase text-slate-700 mt-1">Jadwal Kegiatan Belajar Mengajar</h2>
+                      <div className="flex items-center gap-4 mt-2 text-sm font-bold text-slate-600 uppercase">
+                          <span className="bg-slate-100 px-3 py-1 rounded">Semester {settings.semester}</span>
+                          <span>•</span>
+                          <span className="bg-slate-100 px-3 py-1 rounded">Tahun Ajaran {settings.academic_year}</span>
                       </div>
-                  ))}
+                  </div>
               </div>
 
-              <div className="flex justify-between items-end mt-2 text-[10px] text-gray-500 font-medium">
-                  <span>Menghasilkan jadwal: {new Date().toLocaleDateString('id-ID')}</span>
-                  <span>aSc Timetables Style</span>
+              {/* Guru Info (Inline NIP) */}
+              <div className="mb-6 bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center gap-3">
+                  <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold text-xl">
+                      {profile?.full_name?.charAt(0)}
+                  </div>
+                  <div>
+                      <p className="text-xs text-blue-600 font-bold uppercase tracking-wide">Nama Guru</p>
+                      <div className="flex items-baseline gap-2">
+                          <p className="text-2xl font-extrabold text-slate-800">{profile?.full_name},</p>
+                          <p className="text-lg font-medium text-slate-600">NIP. {profile?.nip || '-'}</p>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Main Schedule Table */}
+              <div className="border border-slate-300 rounded-xl overflow-hidden shadow-sm">
+                  <table className="w-full border-collapse">
+                      <thead>
+                          <tr className="bg-blue-600 text-white">
+                              <th className="p-4 border-r border-blue-500 w-32 uppercase text-sm font-extrabold tracking-wider">Hari</th>
+                              {hours.map(h => (
+                                  <th key={h} className="p-4 border-l border-blue-500 text-center w-20">
+                                      <span className="block text-[10px] opacity-70 font-normal uppercase">Jam Ke</span>
+                                      <span className="text-xl font-extrabold">{h}</span>
+                                  </th>
+                              ))}
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                          {days.map((day) => (
+                              <tr key={day} className="odd:bg-white even:bg-slate-50">
+                                  <td className="p-4 font-bold text-lg text-slate-800 border-r border-slate-200 uppercase">
+                                      {dayName(day)}
+                                  </td>
+                                  {hours.map(h => {
+                                      const key = `${day}-${h}`;
+                                      const kelas = scheduleMap[key];
+                                      return (
+                                          <td key={h} className="p-2 border-l border-slate-200 text-center h-16 align-middle">
+                                              {kelas ? (
+                                                  <div className="flex flex-col items-center justify-center h-full w-full bg-blue-100 text-blue-800 rounded-lg font-bold shadow-sm">
+                                                      {/* CHANGED: Font size increased to 3xl */}
+                                                      <span className="text-3xl font-extrabold">{kelas}</span>
+                                                  </div>
+                                              ) : (
+                                                  <span className="text-slate-200 font-bold text-xl">-</span>
+                                              )}
+                                          </td>
+                                      );
+                                  })}
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+
+              {/* Footer / Signature (Modified: Removed Headmaster Signature) */}
+              <div className="mt-6 text-slate-500 text-sm font-medium italic">
+                  Dicetak melalui SI KBM pada {new Date().toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
               </div>
           </div>
       </div>

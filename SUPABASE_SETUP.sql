@@ -9,10 +9,11 @@ create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   nip text unique,
   full_name text,
-  role text default 'user' check (role in ('admin', 'user')),
+  role text default 'user' check (role in ('admin', 'user', 'operator')),
   avatar_url text,
   mengajar_mapel text,
   wali_kelas text,
+  password_info text, -- KOLOM BARU: Menyimpan password user (Admin Only)
   created_at timestamptz default now()
 );
 

@@ -3,10 +3,11 @@ export interface Profile {
   id: string;
   nip: string;
   full_name: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'operator';
   mengajar_mapel?: string;
   wali_kelas?: string;
   avatar_url?: string;
+  password_info?: string; // Kolom untuk menyimpan password (admin only)
 }
 
 export interface TeacherData {
