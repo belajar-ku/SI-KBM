@@ -77,7 +77,7 @@ const RekapAbsensi: React.FC = () => {
 
       if (schedules) {
         const uniqueClasses = Array.from(new Set(schedules.map(s => s.kelas))).sort();
-        setClasses(uniqueClasses);
+        setClasses(uniqueClasses as string[]);
 
         const map: Record<string, string> = {};
         schedules.forEach(s => {

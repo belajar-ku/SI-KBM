@@ -171,15 +171,23 @@ create policy "Read students" on public.students for select to authenticated, an
 drop policy if exists "Read schedules" on public.schedules;
 create policy "Read schedules" on public.schedules for select to authenticated, anon using (true);
 
--- JOURNALS
+-- JOURNALS (UPDATED FOR ADMIN IMPORT)
 drop policy if exists "Read journals" on public.journals;
 create policy "Read journals" on public.journals for select to authenticated, anon using (true);
 
 drop policy if exists "Teachers create journals" on public.journals;
-create policy "Teachers create journals" on public.journals for insert to authenticated with check (auth.uid() = teacher_id);
+-- Allow insert if user is the teacher owning the journal OR user is an admin
+create policy "Teachers and Admins create journals" on public.journals for insert to authenticated with check (
+  auth.uid() = teacher_id OR 
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
 
 drop policy if exists "Teachers update own journals" on public.journals;
-create policy "Teachers update own journals" on public.journals for update to authenticated using (auth.uid() = teacher_id);
+-- Allow update if user is the teacher owning the journal OR user is an admin
+create policy "Teachers and Admins update journals" on public.journals for update to authenticated using (
+  auth.uid() = teacher_id OR 
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
 
 -- ATTENDANCE LOGS
 drop policy if exists "Read attendance" on public.attendance_logs;

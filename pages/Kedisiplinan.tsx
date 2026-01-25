@@ -56,7 +56,7 @@ const Kedisiplinan: React.FC = () => {
 
         if (classesRes.data) {
             const unique = Array.from(new Set(classesRes.data.map((s:any) => s.kelas))).sort();
-            setClasses(unique);
+            setClasses(unique as string[]);
         }
 
         if (settingsRes.data) {

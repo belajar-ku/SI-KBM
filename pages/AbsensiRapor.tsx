@@ -66,7 +66,7 @@ const AbsensiRapor: React.FC = () => {
         const { data } = await supabase.from('students').select('kelas');
         if(data) {
             const unique = Array.from(new Set(data.map((s:any) => s.kelas))).sort();
-            setClasses(unique);
+            setClasses(unique as string[]);
 
              // 3. Set Default Selection
             if (profile.wali_kelas) {

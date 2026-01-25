@@ -136,11 +136,15 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative">
-          {/* Mobile Header (Updated) */}
-          <div className="md:hidden sticky top-0 bg-white border-b border-gray-200 z-30 shadow-sm">
+          {/* Mobile Header (Updated for Safe Area & Logo Aspect Ratio) */}
+          <div className="md:hidden sticky top-0 bg-white border-b border-gray-200 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+0.5rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
                  <div className="flex items-center gap-3">
-                     <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" className="h-10 w-10"/>
+                     <img 
+                       src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
+                       className="h-10 w-auto object-contain" 
+                       alt="Logo"
+                     />
                      <div>
                          <h1 className="text-[10px] font-extrabold text-slate-900 leading-tight">SISTEM INFORMASI<br/>KEGIATAN BELAJAR MENGAJAR</h1>
                          <p className="text-[9px] text-slate-500 font-bold uppercase mt-0.5 tracking-wide">
@@ -166,7 +170,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
 
       {/* --- MOBILE BOTTOM NAV (Floating Figma Style) --- */}
       {showNav && !isOperator && (
-        <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none">
+        <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
             <nav className="bg-white/90 backdrop-blur-md border border-white/50 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
                 <button 
                   onClick={() => navigate('/dashboard')}
@@ -209,7 +213,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
 
       {/* Mobile Nav for Operator */}
       {showNav && isOperator && (
-           <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none">
+           <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
                 <nav className="bg-white/90 backdrop-blur-md border border-white/50 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
                     <button 
                     onClick={() => navigate('/operator-dashboard')}

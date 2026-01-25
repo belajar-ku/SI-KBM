@@ -113,7 +113,7 @@ const OperatorDashboard: React.FC = () => {
 
   const fetchInitData = async () => {
       setLoading(true);
-      // FIX: Add 'role' to select query to match Profile interface and cast result
+      // Ensure 'role' is fetched to satisfy Profile type
       const { data } = await supabase.from('profiles').select('id, full_name, nip, role');
       if (data) setProfiles(data as Profile[]);
       await fetchMonitorData();
@@ -279,16 +279,13 @@ const OperatorDashboard: React.FC = () => {
       setExpandedClass(null);
   };
 
-  // Helper Logic to Rotate List: 
-  // 1. Unfilled Items rotate at top.
-  // 2. Filled Items stay static at bottom.
+  // Helper Logic to Rotate List
   const getRotatedList = (items: MonitorItem[]) => {
       const unfilled = items.filter(i => !i.isFilled);
       const filled = items.filter(i => i.isFilled);
 
       if (unfilled.length === 0) return filled;
 
-      // Rotate Unfilled
       const shift = rotationIndex % unfilled.length;
       const rotatedUnfilled = [
           ...unfilled.slice(shift),
@@ -298,49 +295,48 @@ const OperatorDashboard: React.FC = () => {
       return [...rotatedUnfilled, ...filled];
   };
 
+  // UPDATED TABLE SECTION: FLUID TYPOGRAPHY & FIXED COLUMNS
   const TableSection = ({ title, items, colorClass }: { title: string, items: MonitorItem[], colorClass: string }) => {
-      // 1. Filter by Search first
       let filteredItems = items.filter(item => 
           item.teacherName.toLowerCase().includes(searchTerm.toLowerCase()) ||
           item.mapel.toLowerCase().includes(searchTerm.toLowerCase()) ||
           item.kelas.toLowerCase().includes(searchTerm.toLowerCase())
       );
 
-      // 2. Apply Rotation Logic ONLY if not searching (searching should show static results)
       const displayItems = searchTerm ? filteredItems : getRotatedList(filteredItems);
 
       return (
-        <div className="flex flex-col h-auto bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className={`py-3 px-4 text-white text-center font-bold uppercase tracking-wider text-sm ${colorClass}`}>
+        <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div className={`py-2 px-3 text-white text-center font-bold uppercase tracking-wider ${colorClass} text-[clamp(10px,1.2vw,14px)]`}>
                 {title}
             </div>
-            <div className="bg-white">
-                <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 text-slate-500 font-bold text-xs border-b border-slate-100">
+            <div className="bg-white flex-1 overflow-hidden">
+                <table className="w-full text-left table-fixed">
+                    <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-100 text-[clamp(9px,0.9vw,12px)]">
                         <tr>
-                            <th className="px-3 py-2 w-16 text-center">Kelas</th>
-                            <th className="px-3 py-2 w-16 text-center">Jam</th>
-                            <th className="px-3 py-2">Guru / Mapel</th>
-                            <th className="px-3 py-2 w-12 text-center">Sts</th>
+                            <th className="px-2 py-2 w-[15%] text-center">Kelas</th>
+                            <th className="px-2 py-2 w-[15%] text-center">Jam</th>
+                            <th className="px-2 py-2 w-[58%]">Guru / Mapel</th>
+                            <th className="px-2 py-2 w-[12%] text-center">Sts</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                         {displayItems.length === 0 ? (
-                            <tr><td colSpan={4} className="p-6 text-center text-slate-400 italic text-xs">Tidak ada jadwal.</td></tr>
+                            <tr><td colSpan={4} className="p-6 text-center text-slate-400 italic text-[clamp(10px,1vw,13px)]">Tidak ada jadwal.</td></tr>
                         ) : (
                             displayItems.map((item) => (
                                 <tr key={item.scheduleId} className={`transition-all duration-500 ease-in-out ${item.isFilled ? 'bg-white hover:bg-slate-50' : 'bg-red-50/40 hover:bg-red-50'}`}>
-                                    <td className="px-3 py-2 text-center font-bold text-slate-700">{item.kelas}</td>
-                                    <td className="px-3 py-2 text-center font-mono text-slate-500 text-xs">{formatJam(item.jam)}</td>
-                                    <td className="px-3 py-2">
-                                        <div className="font-bold text-slate-800 truncate max-w-[120px] md:max-w-[150px]">{item.teacherName}</div>
-                                        <div className="text-xs text-slate-500 truncate max-w-[120px]">{item.mapel}</div>
+                                    <td className="px-1 py-1.5 text-center font-bold text-slate-700 text-[clamp(10px,1.1vw,14px)]">{item.kelas}</td>
+                                    <td className="px-1 py-1.5 text-center font-mono text-slate-500 text-[clamp(9px,1vw,12px)]">{formatJam(item.jam)}</td>
+                                    <td className="px-1 py-1.5 overflow-hidden">
+                                        <div className="font-bold text-slate-800 truncate text-[clamp(10px,1.1vw,14px)] leading-tight">{item.teacherName}</div>
+                                        <div className="text-slate-500 truncate text-[clamp(9px,0.9vw,12px)] leading-tight">{item.mapel}</div>
                                     </td>
-                                    <td className="px-3 py-2 text-center">
+                                    <td className="px-1 py-1.5 text-center">
                                         {item.isFilled ? (
-                                            <CheckCircle2 size={20} className="text-green-500 inline-block" />
+                                            <CheckCircle2 className="text-green-500 inline-block w-[clamp(14px,1.5vw,20px)] h-[clamp(14px,1.5vw,20px)]" />
                                         ) : (
-                                            <XCircle size={20} className="text-red-500 inline-block" />
+                                            <XCircle className="text-red-500 inline-block w-[clamp(14px,1.5vw,20px)] h-[clamp(14px,1.5vw,20px)]" />
                                         )}
                                     </td>
                                 </tr>
@@ -349,7 +345,7 @@ const OperatorDashboard: React.FC = () => {
                     </tbody>
                 </table>
             </div>
-            <div className="p-2 bg-slate-50 text-center text-[10px] text-slate-500 font-bold border-t border-slate-200">
+            <div className="p-1.5 bg-slate-50 text-center text-[clamp(9px,0.8vw,11px)] text-slate-500 font-bold border-t border-slate-200">
                 {items.filter(i => i.isFilled).length} / {items.length} Terisi
             </div>
         </div>
@@ -359,19 +355,18 @@ const OperatorDashboard: React.FC = () => {
   const StatCard = ({ label, value, icon: Icon, colorClass, bgClass, onClick }: any) => (
       <div 
         onClick={onClick}
-        className={`bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4 ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all' : ''}`}
+        className={`bg-white p-3 rounded-xl shadow-sm border border-slate-100 flex items-center gap-3 ${onClick ? 'cursor-pointer hover:shadow-md hover:-translate-y-1 transition-all' : ''}`}
       >
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${bgClass} ${colorClass}`}>
-              <Icon size={24} />
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${bgClass} ${colorClass}`}>
+              <Icon size={20} />
           </div>
-          <div>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">{label}</p>
-              <p className={`text-2xl font-extrabold ${colorClass}`}>{value}</p>
+          <div className="min-w-0">
+              <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wide truncate">{label}</p>
+              <p className={`text-xl font-extrabold ${colorClass}`}>{value}</p>
           </div>
       </div>
   );
 
-  // Helper to group absence list by class for accordion
   const groupedAbsence = absenceList.reduce((acc: any, curr: any) => {
       if (!acc[curr.kelas]) acc[curr.kelas] = [];
       acc[curr.kelas].push(curr);
@@ -382,19 +377,19 @@ const OperatorDashboard: React.FC = () => {
 
   return (
     <Layout collapsed={true}>
-      <div className="flex flex-col gap-6 pb-20">
+      <div className="flex flex-col gap-4 pb-20">
          
          {/* HEADER AREA */}
-         <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-                <div className="bg-slate-800 p-3 rounded-xl text-white shadow-lg">
-                    <MonitorPlay size={28} />
+         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+                <div className="bg-slate-800 p-2.5 rounded-xl text-white shadow-lg hidden sm:block">
+                    <MonitorPlay size={24} />
                 </div>
                 <div>
-                    <h2 className="text-xl font-extrabold text-slate-800 leading-tight">Dashboard Monitoring KBM</h2>
-                    <div className="flex items-center gap-3 mt-1">
-                        <div className="flex items-center gap-1.5 bg-white px-2 py-1 rounded border border-slate-200 text-xs font-bold text-slate-600">
-                            <CalendarDays size={14}/>
+                    <h2 className="text-lg font-extrabold text-slate-800 leading-tight">Dashboard Monitoring KBM</h2>
+                    <div className="flex items-center gap-3 mt-0.5">
+                        <div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs font-bold text-slate-600">
+                            <CalendarDays size={12}/>
                             <input 
                                 type="date" 
                                 className="bg-transparent border-none p-0 text-xs font-bold text-slate-700 focus:ring-0 cursor-pointer"
@@ -408,12 +403,12 @@ const OperatorDashboard: React.FC = () => {
             </div>
 
             {/* TICKER */}
-            <div className="flex-1 overflow-hidden relative bg-amber-50 border border-amber-200 rounded-xl px-4 py-2 flex items-center gap-3 min-h-[50px]">
-                <div className="flex-shrink-0 bg-amber-200 text-amber-700 p-1.5 rounded-lg">
-                    <AlertTriangle size={18} />
+            <div className="flex-1 overflow-hidden relative bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 flex items-center gap-2 min-h-[42px]">
+                <div className="flex-shrink-0 bg-amber-200 text-amber-700 p-1 rounded-lg">
+                    <AlertTriangle size={16} />
                 </div>
                 <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Guru Belum Mengisi Jurnal</p>
+                    <p className="text-[9px] font-bold text-amber-600 uppercase tracking-wide">Guru Belum Mengisi Jurnal</p>
                     <div className="relative h-5 w-full overflow-hidden">
                         {missingTeachers.length > 0 ? (
                             <div className="absolute transition-all duration-500 ease-in-out transform w-full" key={tickerIndex}>
@@ -431,40 +426,40 @@ const OperatorDashboard: React.FC = () => {
             {/* ACTIONS */}
             <div className="flex items-center gap-2">
                  <div className="relative">
-                     <Search className="absolute left-3 top-2.5 text-slate-400" size={16}/>
+                     <Search className="absolute left-3 top-2.5 text-slate-400" size={14}/>
                      <input 
                         type="text" 
                         placeholder="Cari Guru / Mapel..." 
-                        className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 w-48 md:w-64"
+                        className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-blue-500 w-40"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                      />
                  </div>
                  <button 
                     onClick={fetchMonitorData} 
-                    className="p-2 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 transition-colors"
+                    className="p-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 transition-colors"
                     title="Refresh"
                  >
-                     <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
+                     <RefreshCw size={18} className={loading ? "animate-spin" : ""} />
                  </button>
             </div>
          </div>
 
          {/* STATS CARDS */}
-         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
              <StatCard label="Murid Alpa (Total)" value={stats.alpaCount} icon={UserX} colorClass="text-red-600" bgClass="bg-red-50" onClick={handleAbsenceClick} />
              <StatCard label="Keterlaksanaan" value={stats.kbmPercentage} icon={Percent} colorClass="text-blue-600" bgClass="bg-blue-50" />
              <StatCard label="Kelas Terbersih" value={stats.cleanestClass} icon={Sparkles} colorClass="text-green-600" bgClass="bg-green-50" />
              <StatCard label="Jam Kosong Max" value={stats.mostEmptyClass} icon={Clock} colorClass="text-purple-600" bgClass="bg-purple-50" />
          </div>
 
-         {/* MAIN TABLES */}
+         {/* MAIN TABLES - FORCED 3 COLUMNS */}
          {loading && profiles.length === 0 ? (
              <div className="flex justify-center py-20">
                  <Loader2 className="animate-spin text-blue-500" size={40} />
              </div>
          ) : (
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+             <div className="grid grid-cols-3 gap-2 md:gap-4 items-start w-full">
                  <TableSection title="Kelas 7" items={data7} colorClass="bg-blue-600" />
                  <TableSection title="Kelas 8" items={data8} colorClass="bg-emerald-600" />
                  <TableSection title="Kelas 9" items={data9} colorClass="bg-rose-600" />

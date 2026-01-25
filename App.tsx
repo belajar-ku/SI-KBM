@@ -9,6 +9,7 @@ import AppsMenu from './pages/AppsMenu';
 import JurnalForm from './pages/JurnalForm';
 import ImportData from './pages/ImportData';
 import InputJadwal from './pages/InputJadwal';
+import InputManual from './pages/InputManual'; // New Import
 import UsersData from './pages/UsersData';
 import StudentsData from './pages/StudentsData';
 import ProfilePage from './pages/ProfilePage';
@@ -18,7 +19,7 @@ import RekapAbsensi from './pages/RekapAbsensi';
 import LaporanJurnal from './pages/LaporanJurnal';
 import Kedisiplinan from './pages/Kedisiplinan';
 import AbsensiRapor from './pages/AbsensiRapor'; 
-import OperatorDashboard from './pages/OperatorDashboard'; // New Import
+import OperatorDashboard from './pages/OperatorDashboard';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -33,7 +34,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }
   }
 
   // Operator redirect to their dashboard if they try to access main dashboard
-  // Note: Since Operator Dashboard is now public-ish (Kiosk), logged in operators can still go there.
   if (isOperator) {
       return <Navigate to="/operator-dashboard" replace />;
   }
@@ -69,7 +69,6 @@ const App: React.FC = () => {
             </ProtectedRoute>
           } />
           
-          {/* Operator Specific Route - Made Public/Direct Access for Kiosk Mode */}
           <Route path="/operator-dashboard" element={
              <OperatorDashboard />
           } />
@@ -134,6 +133,12 @@ const App: React.FC = () => {
              </AdminRoute>
           } />
 
+          <Route path="/input-manual" element={
+             <AdminRoute>
+                <InputManual />
+             </AdminRoute>
+          } />
+
            <Route path="/users" element={
              <AdminRoute>
                 <UsersData />
@@ -161,7 +166,7 @@ const App: React.FC = () => {
   );
 };
 
-// Helper for Profile Route (accessible by All Authenticated Users)
+// Helper for Profile Route
 const SharedProfileWrapper = () => {
     const { session, isLoading } = useAuth();
     if (isLoading) return <div className="h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;

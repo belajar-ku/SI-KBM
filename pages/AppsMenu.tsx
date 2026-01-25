@@ -5,7 +5,8 @@ import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   NotebookPen, FileText, ClipboardList, Siren, QrCode, CalendarClock, 
-  Database, UserCog, CalendarRange, GraduationCap, Settings, BookX
+  Database, UserCog, CalendarRange, GraduationCap, Settings, BookX,
+  Keyboard
 } from 'lucide-react';
 
 const AppsMenu: React.FC = () => {
@@ -35,11 +36,18 @@ const AppsMenu: React.FC = () => {
                 {isAdmin ? (
                 <>
                     <AppCard 
-                        label="Import Data" 
+                        label="Import Master" 
                         subLabel="Database CSV"
                         icon={Database} 
                         path="/import-data" 
                         colorClass="bg-rose-500" 
+                    />
+                    <AppCard 
+                        label="Input Manual" 
+                        subLabel="Input Massal CSV"
+                        icon={Keyboard} 
+                        path="/input-manual" 
+                        colorClass="bg-indigo-600" 
                     />
                     <AppCard 
                         label="Jadwal Pelajaran" 
