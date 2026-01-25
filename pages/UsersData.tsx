@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js'; // Import createClient for Admin actions
 import { Profile } from '../types';
-import { Search, UserCog, GraduationCap, Shield, Edit, Save, X, Loader2, BookOpen, ChevronDown, Check, UserPlus, KeyRound, Eye, EyeOff, Lock, User, RefreshCw } from 'lucide-react';
+import { Search, UserCog, GraduationCap, Shield, Edit, Save, X, Loader2, ChevronDown, Check, UserPlus, KeyRound, Eye, EyeOff, Lock, User, RefreshCw } from 'lucide-react';
 
 // Helper Component for Password Cell
 const PasswordCell = ({ password }: { password?: string }) => {
@@ -199,6 +198,7 @@ const UsersData: React.FC = () => {
 
           if (authError) throw new Error("Gagal membuat Auth User: " + authError.message);
           
+          if (!authData.user) throw new Error("Gagal mendapatkan data user baru.");
           const userId = authData.user.id;
 
           // 3. Insert Profile (Termasuk Password Info)
