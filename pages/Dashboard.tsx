@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { 
   User, Bell, Activity, BookOpen, Clock, Stethoscope, CheckCircle2, XCircle, FileText, ClipboardList, 
-  CalendarDays, TrendingUp, Users, Edit2, Plus, X, Loader2, Save, Flag
+  CalendarDays, TrendingUp, Users, Edit2, Plus, X, Loader2, Save, Flag, ArrowRight, Check, Minus
 } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 import { Student } from '../types';
@@ -16,6 +17,7 @@ interface MonthlyStats {
 }
 
 interface WaliKelasAbsence {
+    student_id: string; // Added ID for editing
     student_name: string;
     kelas: string;
     status: string;
@@ -23,20 +25,43 @@ interface WaliKelasAbsence {
     hours?: string; 
 }
 
+interface EditingStudent {
+    student_id: string;
+    student_name: string;
+    currentStatus: string;
+    newStatus: string;
+    note: string;
+}
+
+// Interface untuk status KBM per jam
+interface KbmStatus {
+    hour: number;
+    className: string; // "-" atau "7A"
+    isScheduled: boolean;
+    isFilled: boolean;
+}
+
 const Dashboard: React.FC = () => {
   const { isAdmin, profile } = useAuth();
   
   const [stats, setStats] = useState<MonthlyStats>({ totalJp: 0, totalMeetings: 0, classProgress: {} });
   const [homeroomAbsences, setHomeroomAbsences] = useState<WaliKelasAbsence[]>([]);
+  const [kbmStatus, setKbmStatus] = useState<KbmStatus[]>([]); // State baru untuk tabel KBM
   const [loading, setLoading] = useState(true);
   
   // Filter Date
   const [filterDate, setFilterDate] = useState(getWIBISOString());
 
-  // MODAL STATE
+  // MODAL STATE: General Input
   const [showAbsenceModal, setShowAbsenceModal] = useState(false);
   const [modalStudents, setModalStudents] = useState<Student[]>([]);
   const [modalAttendance, setModalAttendance] = useState<Record<string, 'S' | 'I' | 'A' | 'D'>>({});
+  
+  // MODAL STATE: Specific Edit
+  const [showEditSpecificModal, setShowEditSpecificModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState('');
+  const [specificAbsenceData, setSpecificAbsenceData] = useState<EditingStudent[]>([]);
+
   const [savingAttendance, setSavingAttendance] = useState(false);
 
   useEffect(() => {
@@ -52,10 +77,11 @@ const Dashboard: React.FC = () => {
         const date = getWIBDate();
         const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1).toISOString();
         
+        const todayStr = getWIBISOString(); // Hari ini untuk KBM Status
         const startOfDay = `${filterDate}T00:00:00+07:00`;
         const endOfDay = `${filterDate}T23:59:59+07:00`;
 
-        // 1. Fetch Journals Stats (Monthly)
+        // --- 1. Fetch Journals Stats (Monthly) ---
         const { data: journals } = await supabase
             .from('journals')
             .select('hours, kelas')
@@ -69,7 +95,6 @@ const Dashboard: React.FC = () => {
         if (journals) {
             meetings = journals.length;
             journals.forEach(j => {
-                // FIX: Explicitly type 'h' as string to avoid TS7006 error
                 const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
                 jp += parts.length;
                 classMap[j.kelas] = (classMap[j.kelas] || 0) + 1;
@@ -77,7 +102,50 @@ const Dashboard: React.FC = () => {
         }
         setStats({ totalJp: jp, totalMeetings: meetings, classProgress: classMap });
 
-        // 2. ABSENSI WALI KELAS LOGIC
+        // --- 2. KBM IMPLEMENTATION STATUS (NEW) ---
+        // Logic: Get Today's Schedule & Today's Journals -> Map to Hours 1-8
+        
+        // a. Determine DB Day (1=Senin ... 7=Minggu)
+        const dateObj = new Date(); // Realtime today for the status table
+        const jsDay = dateObj.getDay(); 
+        const dbDay = jsDay === 0 ? 7 : jsDay; 
+        const todayStart = `${todayStr}T00:00:00+07:00`;
+        const todayEnd = `${todayStr}T23:59:59+07:00`;
+
+        // b. Fetch Schedule & Journals for TODAY
+        const [todaySchedRes, todayJournalRes] = await Promise.all([
+            supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay),
+            supabase.from('journals').select('*').eq('teacher_id', profile?.id).gte('created_at', todayStart).lte('created_at', todayEnd)
+        ]);
+
+        // c. Map Data to Hours 1-8 (or 10)
+        const hoursList: KbmStatus[] = [];
+        for(let i = 1; i <= 8; i++) {
+            const hourStr = String(i);
+            
+            // Find schedule for this hour
+            const sched = todaySchedRes.data?.find(s => {
+                const hours = s.hour.split(',').map((h: string) => h.trim());
+                return hours.includes(hourStr);
+            });
+
+            // Find journal for this hour
+            const journal = todayJournalRes.data?.find(j => {
+                const hours = j.hours.split(',').map((h: string) => h.trim());
+                return hours.includes(hourStr) && j.kelas === sched?.kelas && j.subject === sched?.subject;
+            });
+
+            hoursList.push({
+                hour: i,
+                className: sched ? sched.kelas : '-',
+                isScheduled: !!sched,
+                isFilled: !!journal
+            });
+        }
+        setKbmStatus(hoursList);
+
+
+        // --- 3. ABSENSI WALI KELAS LOGIC ---
         if (profile?.wali_kelas) {
             const { data: students } = await supabase.from('students').select('*').eq('kelas', profile.wali_kelas).order('name');
             
@@ -103,7 +171,7 @@ const Dashboard: React.FC = () => {
                     .in('student_id', studentIds)
                     .gte('created_at', startOfDay)
                     .lte('created_at', endOfDay)
-                    .neq('status', 'D'); // Guru mapel biasanya tidak handle 'D', tapi kalau ada kita ignore dulu utk logic S/I/A
+                    .neq('status', 'D'); 
 
                 // Proses Merging
                 const finalAbsences: WaliKelasAbsence[] = [];
@@ -120,17 +188,14 @@ const Dashboard: React.FC = () => {
                     } 
                     // 2. Fallback: Input Guru Mapel (Kalkulasi)
                     else {
-                         // Cari semua log dari guru mapel untuk siswa ini
                          const myLogs = teacherLogs?.filter((l: any) => l.student_id === student.id) || [];
                          if (myLogs.length > 0) {
                              const statuses = new Set(myLogs.map((l:any) => l.status));
                              
-                             // Logic: S > I > A
                              if (statuses.has('S')) finalStatus = 'S';
                              else if (statuses.has('I')) finalStatus = 'I';
                              else if (statuses.has('A')) finalStatus = 'A';
                              
-                             // Collect hours
                              const hoursSet = new Set<number>();
                              myLogs.forEach((l: any) => {
                                  if(l.journals?.hours) {
@@ -146,6 +211,7 @@ const Dashboard: React.FC = () => {
 
                     if (finalStatus) {
                         finalAbsences.push({
+                            student_id: student.id,
                             student_name: student.name,
                             kelas: profile.wali_kelas!,
                             status: finalStatus,
@@ -163,15 +229,13 @@ const Dashboard: React.FC = () => {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  // --- MODAL LOGIC ---
+  // --- MODAL GENERAL LOGIC ---
   const handleOpenAbsenceModal = async () => {
-      setSavingAttendance(true); // show loading state temporarily
+      setSavingAttendance(true); 
       try {
-          // 1. Load Students
           const { data: students } = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).order('name');
           setModalStudents(students || []);
 
-          // 2. Load Existing Homeroom Attendance
           const { data: existing } = await supabase
              .from('homeroom_attendance')
              .select('student_id, status')
@@ -193,10 +257,6 @@ const Dashboard: React.FC = () => {
       if (!profile?.wali_kelas) return;
       setSavingAttendance(true);
       try {
-          // 1. Delete existing for this date/class (to handle unchecks) - or upsert.
-          // Better strategy: Delete all for this date+class, insert new ones.
-          
-          // Get IDs of students in this class to safeguard delete
           const studentIds = modalStudents.map(s => s.id);
           
           await supabase.from('homeroom_attendance')
@@ -204,7 +264,6 @@ const Dashboard: React.FC = () => {
             .eq('date', filterDate)
             .in('student_id', studentIds);
 
-          // 2. Insert New
           const inserts = Object.entries(modalAttendance).map(([studentId, status]) => ({
               date: filterDate,
               kelas: profile.wali_kelas,
@@ -219,7 +278,7 @@ const Dashboard: React.FC = () => {
           }
 
           setShowAbsenceModal(false);
-          fetchDashboardData(); // Refresh Dashboard
+          fetchDashboardData(); 
 
       } catch(e) { 
           alert("Gagal menyimpan absensi: " + e); 
@@ -232,12 +291,64 @@ const Dashboard: React.FC = () => {
       setModalAttendance(prev => {
           const next = { ...prev };
           if (next[studentId] === status) {
-              delete next[studentId]; // Toggle OFF
+              delete next[studentId]; 
           } else {
-              next[studentId] = status; // Toggle ON (Overwrite others)
+              next[studentId] = status; 
           }
           return next;
       });
+  };
+
+  // --- NEW: SPECIFIC EDIT MODAL LOGIC ---
+  const handleEditSpecific = (categoryName: string, list: WaliKelasAbsence[]) => {
+      const editList: EditingStudent[] = list.map(item => ({
+          student_id: item.student_id,
+          student_name: item.student_name,
+          currentStatus: item.status,
+          newStatus: item.status,
+          note: ''
+      }));
+      setSpecificAbsenceData(editList);
+      setEditingCategory(categoryName);
+      setShowEditSpecificModal(true);
+  };
+
+  const updateSpecificRow = (index: number, field: keyof EditingStudent, value: string) => {
+      setSpecificAbsenceData(prev => {
+          const next = [...prev];
+          next[index] = { ...next[index], [field]: value };
+          return next;
+      });
+  };
+
+  const handleSaveSpecific = async () => {
+      if (!profile?.wali_kelas) return;
+      setSavingAttendance(true);
+      try {
+          for (const item of specificAbsenceData) {
+              // Only update if changed or note added
+              if (item.newStatus !== item.currentStatus || item.note) {
+                  const payload: any = {
+                      date: filterDate,
+                      kelas: profile.wali_kelas,
+                      student_id: item.student_id,
+                      status: item.newStatus,
+                      created_by: profile.id
+                  };
+                  
+                  const { error } = await supabase.from('homeroom_attendance').upsert(payload, { onConflict: 'date, student_id' });
+                  if (error) {
+                      console.error("Failed update for", item.student_name, error);
+                  }
+              }
+          }
+          setShowEditSpecificModal(false);
+          fetchDashboardData();
+      } catch (e) {
+          alert("Gagal menyimpan perubahan: " + e);
+      } finally {
+          setSavingAttendance(false);
+      }
   };
 
   // Helper to filter absences
@@ -257,7 +368,11 @@ const Dashboard: React.FC = () => {
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">{title}</span>
                 <div className="ml-auto flex items-center gap-1">
                      <span className="text-[9px] font-bold bg-white px-1.5 py-0.5 rounded-md border border-current opacity-80">{list.length}</span>
-                     <button onClick={onEdit} className="p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-500 transition-colors">
+                     <button 
+                        onClick={() => onEdit(title, list)} 
+                        className="p-0.5 hover:bg-slate-100 rounded text-slate-400 hover:text-blue-500 transition-colors"
+                        title="Edit status murid ini saja"
+                     >
                         <Edit2 size={12} />
                      </button>
                 </div>
@@ -283,7 +398,6 @@ const Dashboard: React.FC = () => {
         
         {/* 1. UNIFIED HEADER */}
         <div className="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-6 text-white shadow-lg shadow-blue-200 relative overflow-hidden">
-             {/* ... Header Content Same as Before ... */}
              <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
                  <Clock size={200} className="-mr-10 -mt-10" />
             </div>
@@ -351,7 +465,7 @@ const Dashboard: React.FC = () => {
 
                             {/* Content Section (Right) */}
                             <div className="flex-1 min-w-0 flex flex-col gap-4">
-                                {/* NEW DATE FILTER PLACEMENT: Row Layout */}
+                                {/* DATE FILTER */}
                                 <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
                                     <div className="flex items-center gap-2 text-slate-500">
                                         <CalendarDays size={14} />
@@ -371,16 +485,61 @@ const Dashboard: React.FC = () => {
                                     </div>
                                 ) : (
                                     <div className="flex flex-wrap gap-x-8 gap-y-6">
-                                        <AbsenceSection title="ALPA" list={listAlpa} colorClass="text-red-600" icon={XCircle} onEdit={handleOpenAbsenceModal} />
-                                        <AbsenceSection title="IZIN" list={listIzin} colorClass="text-blue-600" icon={FileText} onEdit={handleOpenAbsenceModal} />
-                                        <AbsenceSection title="SAKIT" list={listSakit} colorClass="text-yellow-600" icon={Stethoscope} onEdit={handleOpenAbsenceModal} />
-                                        <AbsenceSection title="DISPEN" list={listDispen} colorClass="text-purple-600" icon={Flag} onEdit={handleOpenAbsenceModal} />
+                                        <AbsenceSection title="ALPA" list={listAlpa} colorClass="text-red-600" icon={XCircle} onEdit={handleEditSpecific} />
+                                        <AbsenceSection title="IZIN" list={listIzin} colorClass="text-blue-600" icon={FileText} onEdit={handleEditSpecific} />
+                                        <AbsenceSection title="SAKIT" list={listSakit} colorClass="text-yellow-600" icon={Stethoscope} onEdit={handleEditSpecific} />
+                                        <AbsenceSection title="DISPEN" list={listDispen} colorClass="text-purple-600" icon={Flag} onEdit={handleEditSpecific} />
                                     </div>
                                 )}
                             </div>
                         </div>
                     </div>
                 )}
+
+                {/* KBM IMPLEMENTATION STATUS TABLE (NEW) */}
+                <div className="bg-white rounded-3xl p-5 shadow-sm border border-slate-100">
+                    <h3 className="font-extrabold text-slate-800 text-sm mb-4 uppercase tracking-wide flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-blue-600"/>
+                        Keterlaksanaan KBM Hari Ini Di Kelas
+                    </h3>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-center border-collapse text-sm">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200">
+                                    {kbmStatus.map((status) => (
+                                        <th key={status.hour} className="py-2 px-1 border-r border-slate-100 last:border-0 font-extrabold text-slate-600 w-[12.5%]">
+                                            {status.hour}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr className="border-b border-slate-100">
+                                    {kbmStatus.map((status) => (
+                                        <td key={status.hour} className="py-3 px-1 border-r border-slate-100 last:border-0 font-bold text-slate-700">
+                                            {status.className}
+                                        </td>
+                                    ))}
+                                </tr>
+                                <tr>
+                                    {kbmStatus.map((status) => (
+                                        <td key={status.hour} className="py-3 px-1 border-r border-slate-100 last:border-0">
+                                            <div className="flex justify-center">
+                                                {!status.isScheduled ? (
+                                                    <Minus size={20} className="text-slate-300" strokeWidth={3} />
+                                                ) : status.isFilled ? (
+                                                    <Check size={20} className="text-green-500" strokeWidth={4} />
+                                                ) : (
+                                                    <X size={20} className="text-red-500" strokeWidth={4} />
+                                                )}
+                                            </div>
+                                        </td>
+                                    ))}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
                 
                 {/* Class Progress Widget (Existing) */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative overflow-hidden">
@@ -409,12 +568,10 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* --- MODAL INPUT ABSENSI WALI KELAS --- */}
+        {/* --- MODAL INPUT ABSENSI (ALL STUDENTS) --- */}
         {showAbsenceModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
                 <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-                    
-                    {/* Modal Header */}
                     <div className="bg-white px-6 py-5 border-b border-slate-100 flex justify-between items-center sticky top-0 z-10">
                         <div>
                             <h3 className="font-extrabold text-slate-800 text-lg">Daftar Murid ({modalStudents.length})</h3>
@@ -428,7 +585,6 @@ const Dashboard: React.FC = () => {
                         </button>
                     </div>
 
-                    {/* Modal Content (Table List) */}
                     <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
                          <div className="px-4 py-2 bg-slate-50 border-b border-slate-100 flex justify-end">
                               <button 
@@ -440,7 +596,6 @@ const Dashboard: React.FC = () => {
                          </div>
 
                          <div className="divide-y divide-slate-100">
-                             {/* Table Header */}
                              <div className="flex items-center px-6 py-2 bg-white text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
                                  <div className="flex-1">Nama</div>
                                  <div className="flex gap-4">
@@ -451,7 +606,6 @@ const Dashboard: React.FC = () => {
                                  </div>
                              </div>
 
-                             {/* Rows */}
                              {modalStudents.map(student => (
                                  <div key={student.id} className="flex items-center justify-between px-6 py-3 hover:bg-slate-50 transition-colors group">
                                      <div className="flex-1 pr-4">
@@ -464,11 +618,10 @@ const Dashboard: React.FC = () => {
                                                 onClick={() => toggleModalStatus(student.id, status as any)}
                                                 className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all ${
                                                     modalAttendance[student.id] === status
-                                                    ? 'bg-slate-800 border-slate-800 text-white' // Hitam/Gelap saat terpilih sesuai skrinsut
+                                                    ? 'bg-slate-800 border-slate-800 text-white'
                                                     : 'border-slate-200 bg-white text-transparent hover:border-slate-300'
                                                 }`}
                                              >
-                                                 {/* Kotak saja, jika selected jadi solid */}
                                              </button>
                                          ))}
                                      </div>
@@ -477,7 +630,6 @@ const Dashboard: React.FC = () => {
                          </div>
                     </div>
 
-                    {/* Modal Footer */}
                     <div className="p-4 border-t border-slate-100 bg-white">
                         <button 
                             onClick={handleSaveHomeroomAttendance}
@@ -486,6 +638,76 @@ const Dashboard: React.FC = () => {
                         >
                             {savingAttendance ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />} 
                             Simpan Data Absensi
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* --- MODAL SPECIFIC EDIT (Status & Note) --- */}
+        {showEditSpecificModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+                    <div className="bg-white px-6 py-5 border-b border-slate-100 flex justify-between items-center">
+                        <div>
+                            <h3 className="font-extrabold text-slate-800 text-lg">Edit Data {editingCategory}</h3>
+                            <p className="text-xs text-slate-500 font-medium mt-0.5">Ubah status / Tambah catatan</p>
+                        </div>
+                        <button 
+                            onClick={() => setShowEditSpecificModal(false)} 
+                            className="p-1 rounded-full hover:bg-slate-100 text-slate-400 transition-colors"
+                        >
+                            <X size={24} />
+                        </button>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                        {specificAbsenceData.map((item, idx) => (
+                            <div key={idx} className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                                <p className="font-bold text-slate-800 mb-3 text-sm">{item.student_name}</p>
+                                
+                                {/* Status Toggle */}
+                                <div className="flex gap-2 mb-3">
+                                    {['S', 'I', 'A', 'D'].map(status => (
+                                        <button 
+                                            key={status}
+                                            onClick={() => updateSpecificRow(idx, 'newStatus', status)}
+                                            className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${
+                                                item.newStatus === status 
+                                                ? (status === 'S' ? 'bg-yellow-100 border-yellow-200 text-yellow-700' : 
+                                                   status === 'I' ? 'bg-blue-100 border-blue-200 text-blue-700' :
+                                                   status === 'A' ? 'bg-red-100 border-red-200 text-red-700' : 'bg-purple-100 border-purple-200 text-purple-700')
+                                                : 'bg-white border-slate-200 text-slate-400 hover:bg-slate-100'
+                                            }`}
+                                        >
+                                            {status}
+                                        </button>
+                                    ))}
+                                </div>
+
+                                {/* Note Input */}
+                                <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 mb-1">Alasan / Catatan</label>
+                                    <input 
+                                        type="text" 
+                                        className="w-full border border-slate-200 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500"
+                                        placeholder="Contoh: Orang tua menelepon..."
+                                        value={item.note}
+                                        onChange={(e) => updateSpecificRow(idx, 'note', e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="p-4 border-t border-slate-100 bg-white">
+                        <button 
+                            onClick={handleSaveSpecific}
+                            disabled={savingAttendance}
+                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-200 disabled:opacity-50 transition-all"
+                        >
+                            {savingAttendance ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />} 
+                            Simpan Perubahan
                         </button>
                     </div>
                 </div>

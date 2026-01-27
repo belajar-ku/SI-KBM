@@ -136,8 +136,8 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative">
-          {/* Mobile Header (Updated for Safe Area & Logo Aspect Ratio) */}
-          <div className="md:hidden sticky top-0 bg-white border-b border-gray-200 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+0.5rem)]">
+          {/* Mobile Header (Updated for Safe Area & Logo Aspect Ratio - Increased Padding) */}
+          <div className="md:hidden sticky top-0 bg-white border-b border-gray-200 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+1.5rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
                  <div className="flex items-center gap-3">
                      <img 

@@ -183,7 +183,8 @@ const PublicDashboard: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center p-4 font-sans bg-[#F0F4F8]">
+    // Changed justify-center to justify-start and added pt-[calc(env(safe-area-inset-top)+2rem)]
+    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-[calc(env(safe-area-inset-top)+2rem)] font-sans bg-[#F0F4F8]">
       <main className="w-full max-w-md space-y-4">
         
         {/* HEADER CARD */}

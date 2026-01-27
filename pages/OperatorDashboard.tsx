@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
@@ -61,7 +62,7 @@ const OperatorDashboard: React.FC = () => {
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
 
-  // 1. Initial Load & Realtime Subscription
+  // 1. Initial Load & Realtime Subscription & Auto Refresh
   useEffect(() => {
     fetchInitData();
 
@@ -88,9 +89,15 @@ const OperatorDashboard: React.FC = () => {
         )
         .subscribe();
 
+    // AUTO REFRESH EVERY 3 MINUTES (180,000 ms)
+    const refreshInterval = setInterval(() => {
+        fetchMonitorData();
+    }, 180000);
+
     return () => {
         supabase.removeChannel(journalChannel);
         supabase.removeChannel(attendanceChannel);
+        clearInterval(refreshInterval);
     };
   }, [filterDate]); // Re-subscribe if date changes
 
@@ -115,16 +122,11 @@ const OperatorDashboard: React.FC = () => {
       setLoading(true);
       // Ensure 'role' is fetched to satisfy Profile type
       const { data } = await supabase.from('profiles').select('id, full_name, nip, role');
-      if (data) setProfiles(data as Profile[]);
-      await fetchMonitorData();
+      const loadedProfiles = (data as Profile[]) || [];
+      setProfiles(loadedProfiles);
+      // Pass loadedProfiles directly to ensure names appear on first render
+      await fetchMonitorData(loadedProfiles);
       setLoading(false);
-  };
-
-  const getTeacherName = (id?: string, nip?: string) => {
-      if (!id && !nip) return '-';
-      let p = profiles.find(p => p.id === id);
-      if (!p && nip) p = profiles.find(p => p.nip === nip);
-      return p ? p.full_name : 'Guru';
   };
 
   const formatJam = (jamStr: string) => {
@@ -145,7 +147,8 @@ const OperatorDashboard: React.FC = () => {
       return groups.map(g => g.length > 1 ? `${g[0]}-${g[g.length-1]}` : `${g[0]}`).join(', ');
   };
 
-  const fetchMonitorData = async () => {
+  // UPDATED: Accept optional profiles argument to fix race condition
+  const fetchMonitorData = async (currentProfiles?: Profile[]) => {
       try {
           const dateObj = new Date(filterDate);
           const jsDay = dateObj.getDay(); 
@@ -153,6 +156,9 @@ const OperatorDashboard: React.FC = () => {
 
           const startOfDay = `${filterDate}T00:00:00+07:00`;
           const endOfDay = `${filterDate}T23:59:59+07:00`;
+
+          // Use passed profiles OR state profiles (fallback for auto-refresh)
+          const activeProfiles = currentProfiles || profiles;
 
           const [schedulesRes, journalsRes, attendanceRes, studentsRes] = await Promise.all([
               supabase.from('schedules').select('*').eq('day_of_week', dbDay),
@@ -176,12 +182,23 @@ const OperatorDashboard: React.FC = () => {
                   return schHours.some((h: string) => jHours.includes(h));
               });
 
+              // Lookup Teacher Name using activeProfiles
+              let tName = '-';
+              if (activeProfiles.length > 0) {
+                  let p = activeProfiles.find(p => p.id === sch.teacher_id);
+                  if (!p && sch.teacher_nip) p = activeProfiles.find(p => p.nip === sch.teacher_nip);
+                  if (p) tName = p.full_name;
+                  else tName = 'Guru (Loading...)';
+              } else if (sch.teacher_id) {
+                  tName = 'Memuat...';
+              }
+
               return {
                   scheduleId: sch.id,
                   kelas: sch.kelas,
                   jam: sch.hour,
                   mapel: sch.subject,
-                  teacherName: getTeacherName(sch.teacher_id, sch.teacher_nip),
+                  teacherName: tName,
                   teacherId: sch.teacher_id,
                   isFilled
               };
@@ -436,7 +453,7 @@ const OperatorDashboard: React.FC = () => {
                      />
                  </div>
                  <button 
-                    onClick={fetchMonitorData} 
+                    onClick={() => fetchMonitorData()} 
                     className="p-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 transition-colors"
                     title="Refresh"
                  >
@@ -447,7 +464,7 @@ const OperatorDashboard: React.FC = () => {
 
          {/* STATS CARDS */}
          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-             <StatCard label="Murid Alpa (Total)" value={stats.alpaCount} icon={UserX} colorClass="text-red-600" bgClass="bg-red-50" onClick={handleAbsenceClick} />
+             <StatCard label="Ketidakhadiran Murid" value={stats.alpaCount} icon={UserX} colorClass="text-red-600" bgClass="bg-red-50" onClick={handleAbsenceClick} />
              <StatCard label="Keterlaksanaan" value={stats.kbmPercentage} icon={Percent} colorClass="text-blue-600" bgClass="bg-blue-50" />
              <StatCard label="Kelas Terbersih" value={stats.cleanestClass} icon={Sparkles} colorClass="text-green-600" bgClass="bg-green-50" />
              <StatCard label="Jam Kosong Max" value={stats.mostEmptyClass} icon={Clock} colorClass="text-purple-600" bgClass="bg-purple-50" />
