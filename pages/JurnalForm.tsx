@@ -6,29 +6,31 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Schedule, Journal } from '../types';
 import { getWIBISOString, getWIBDate } from '../utils/dateUtils';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban, ChevronRight, Plus, Trash2, ChevronDown, CheckSquare, Square } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban, ChevronRight, Plus, Trash2, ChevronDown, CheckSquare, Square, Gavel } from 'lucide-react';
 
 interface NoteItem {
     category: string;
     studentIds: string[];
-    followUp?: string; 
-    note?: string; // NEW: Input Manual Guru
+    followUp?: string; // Dropdown
+    note?: string; // Manual Note
 }
 
-// SMART TITLE CASE HELPER
+// SMART TITLE CASE HELPER (Improved)
 const smartTitleCase = (str: string) => {
+    // Kata sambung yang tidak perlu kapital kecuali di awal
     const smallWords = ['di', 'ke', 'dari', 'pada', 'dalam', 'dengan', 'dan', 'atau', 'yang', 'untuk', 'saja'];
     
     return str.split(' ').map((word, index) => {
         const lower = word.toLowerCase();
+        
         // 1. Selalu kapital di awal kalimat
         if (index === 0) return lower.charAt(0).toUpperCase() + lower.slice(1);
         
-        // 2. Kecilkan jika kata sambung (kecuali awal kalimat)
+        // 2. Kecilkan jika kata sambung
         if (smallWords.includes(lower)) return lower;
         
-        // 3. Kecilkan jika satu huruf (misal: "Titik a, b") KECUALI awal kalimat
-        if (lower.length === 1 && /^[a-z]$/.test(lower)) return lower;
+        // 3. Kecilkan jika satu huruf (misal: "Titik a, b") 
+        if (/^[a-z][.,]?$/.test(lower)) return lower;
         
         // 4. Sisanya Kapital
         return lower.charAt(0).toUpperCase() + lower.slice(1);
@@ -55,7 +57,7 @@ const JurnalForm: React.FC = () => {
 
   // --- SETTINGS MASTER DATA ---
   const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
-  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); 
+  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); // New State
   const [activityTypes, setActivityTypes] = useState<string[]>([]);
 
   // --- ASSESSMENT STATE ---
@@ -202,12 +204,10 @@ const JurnalForm: React.FC = () => {
             const loadedNotes = { discipline: [] as NoteItem[], activity: [] as NoteItem[] };
             
             if (notes) {
-                // Group by identical parameters to form a row
                 const discMap: Record<string, string[]> = {};
                 const actMap: Record<string, string[]> = {};
 
                 notes.forEach(n => {
-                    // Key includes all fields to ensure grouping only identical entries
                     const key = `${n.category}|${n.follow_up || ''}|${n.note || ''}`;
                     if (n.type === 'kedisiplinan') {
                         if (!discMap[key]) discMap[key] = [];
@@ -267,7 +267,6 @@ const JurnalForm: React.FC = () => {
 
   const handleMaterialChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value;
-      // APPLY SMART TITLE CASE
       const formatted = smartTitleCase(val);
       setFormData({...formData, material: formatted});
   };
@@ -347,7 +346,6 @@ const JurnalForm: React.FC = () => {
       if (editJournalId) {
           const { error } = await supabase.from('journals').update(payload).eq('id', editJournalId);
           if (error) throw error;
-          // Cleanup logs & notes for full re-insert
           await supabase.from('attendance_logs').delete().eq('journal_id', editJournalId);
           await supabase.from('journal_notes').delete().eq('journal_id', editJournalId);
       } else {
@@ -393,8 +391,8 @@ const JurnalForm: React.FC = () => {
                           student_name: sName,
                           type: 'kedisiplinan',
                           category: row.category,
-                          follow_up: row.followUp || '', 
-                          note: row.note || '' // Ensure custom note is saved
+                          follow_up: row.followUp || '', // Save Dropdown
+                          note: row.note || '' // Save Manual Note
                       });
                   });
               }
@@ -411,7 +409,7 @@ const JurnalForm: React.FC = () => {
                           type: 'keaktifan',
                           category: row.category,
                           follow_up: '', 
-                          note: row.note || '' // Ensure custom note is saved
+                          note: row.note || ''
                       });
                   });
               }
@@ -776,7 +774,7 @@ const JurnalForm: React.FC = () => {
                                 </select>
                             </div>
                             <div className="w-full md:w-1/2">
-                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Gavel size={10}/> Tindak Lanjut</label>
                                 <select 
                                     className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm"
                                     value={row.followUp || ''}
@@ -788,7 +786,7 @@ const JurnalForm: React.FC = () => {
                             </div>
                          </div>
 
-                         {/* NEW: NOTE INPUT */}
+                         {/* NEW: NOTE INPUT (MANUAL) */}
                          <div>
                              <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan / Catatan Kejadian</label>
                              <input 

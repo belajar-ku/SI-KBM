@@ -3,14 +3,14 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, CheckCircle2, XCircle } from 'lucide-react';
+import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, CheckCircle2, XCircle, Gavel } from 'lucide-react';
 import { Student } from '../types';
 
 interface NoteItem {
     category: string;
     studentIds: string[];
-    followUp?: string;
-    note?: string; // NEW: Input Manual Note
+    followUp?: string; // Dropdown
+    note?: string; // Manual Input
 }
 
 const Kedisiplinan: React.FC = () => {
@@ -20,8 +20,10 @@ const Kedisiplinan: React.FC = () => {
   // Data
   const [classes, setClasses] = useState<string[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
+  
+  // Master Data
   const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
-  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]);
+  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); // New State for Dropdown
 
   // Selection
   const [selectedClass, setSelectedClass] = useState('');
@@ -110,15 +112,13 @@ const Kedisiplinan: React.FC = () => {
                   row.studentIds.forEach(sid => {
                       const sName = students.find(s => s.id === sid)?.name || 'Unknown';
                       
-                      // Note: We deliberately exclude 'journal_id' or set it to null if schema permits, 
-                      // because this is a standalone violation not tied to a specific KBM journal.
                       notesInserts.push({
                           student_id: sid,
                           student_name: sName,
                           type: 'kedisiplinan',
                           category: row.category,
-                          follow_up: row.followUp || '',
-                          note: row.note || `Diinput via menu Kedisiplinan oleh ${profile.full_name || 'Guru'}`
+                          follow_up: row.followUp || '', // Save Dropdown Value
+                          note: row.note || `Diinput via menu Kedisiplinan oleh ${profile.full_name || 'Guru'}` // Save Manual Note
                       });
                   });
               }
@@ -284,7 +284,7 @@ const Kedisiplinan: React.FC = () => {
                                     </select>
                                 </div>
                                 <div className="w-full md:w-1/2">
-                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1 flex items-center gap-1"><Gavel size={10}/> Tindak Lanjut</label>
                                     <select 
                                         className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-orange-500"
                                         value={row.followUp || ''}
@@ -296,7 +296,7 @@ const Kedisiplinan: React.FC = () => {
                                 </div>
                             </div>
 
-                            {/* NEW: NOTE INPUT */}
+                            {/* NOTE INPUT (MANUAL) */}
                             <div>
                                 <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan / Catatan Kejadian</label>
                                 <input 

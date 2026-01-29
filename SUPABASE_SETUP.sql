@@ -98,6 +98,14 @@ create table if not exists public.journal_notes (
 );
 alter table public.journal_notes alter column journal_id drop not null;
 
+-- SAFE MIGRATION: Tambahkan kolom follow_up jika belum ada (untuk database yang sudah berjalan)
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'journal_notes' and column_name = 'follow_up') then
+    alter table public.journal_notes add column follow_up text;
+  end if;
+end $$;
+
 -- 7. TABEL HOMEROOM ATTENDANCE (ABSENSI HARIAN WALI KELAS - MUTLAK)
 create table if not exists public.homeroom_attendance (
   id uuid default gen_random_uuid() primary key,
@@ -176,6 +184,7 @@ drop policy if exists "Read journals" on public.journals;
 create policy "Read journals" on public.journals for select to authenticated, anon using (true);
 
 drop policy if exists "Teachers create journals" on public.journals;
+drop policy if exists "Teachers and Admins create journals" on public.journals;
 -- Allow insert if user is the teacher owning the journal OR user is an admin
 create policy "Teachers and Admins create journals" on public.journals for insert to authenticated with check (
   auth.uid() = teacher_id OR 
@@ -183,6 +192,7 @@ create policy "Teachers and Admins create journals" on public.journals for inser
 );
 
 drop policy if exists "Teachers update own journals" on public.journals;
+drop policy if exists "Teachers and Admins update journals" on public.journals;
 -- Allow update if user is the teacher owning the journal OR user is an admin
 create policy "Teachers and Admins update journals" on public.journals for update to authenticated using (
   auth.uid() = teacher_id OR 

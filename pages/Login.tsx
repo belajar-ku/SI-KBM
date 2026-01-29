@@ -10,7 +10,7 @@ const Login: React.FC = () => {
   
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // State toggle password
+  const [showPassword, setShowPassword] = useState(false); // State untuk lihat password
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn } = useAuth();
@@ -175,8 +175,9 @@ const Login: React.FC = () => {
                     <button 
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors cursor-pointer z-10"
                         tabIndex={-1}
+                        title={showPassword ? "Sembunyikan" : "Lihat Password"}
                     >
                         {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
