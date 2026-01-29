@@ -4,14 +4,21 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
-import { Printer, Loader2, BookX, Search, CalendarDays } from 'lucide-react';
-import { formatDateSignature, getWIBISOString } from '../utils/dateUtils';
+import { Printer, Loader2, BookX, CalendarDays, X, Eye } from 'lucide-react';
+import { formatDateSignature, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
+
+interface ReportDetail {
+    date: string;
+    status: string;
+    source: string; // 'Wali' or 'Guru'
+}
 
 interface ReportStudent extends Student {
     s_count: number;
     i_count: number;
     a_count: number;
     d_count: number;
+    details: ReportDetail[];
 }
 
 const AbsensiRapor: React.FC = () => {
@@ -38,6 +45,10 @@ const AbsensiRapor: React.FC = () => {
       headmaster: '...',
       headmaster_nip: ''
   });
+
+  // MODAL DETAIL
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [selectedStudentDetail, setSelectedStudentDetail] = useState<ReportStudent | null>(null);
 
   const componentRef = useRef<HTMLDivElement>(null);
 
@@ -70,7 +81,6 @@ const AbsensiRapor: React.FC = () => {
 
              // 3. Set Default Selection
             if (profile.wali_kelas) {
-                // Jika Wali Kelas, otomatis terpilih kelasnya TAPI TIDAK DIKUNCI
                 setSelectedClass(profile.wali_kelas);
             }
         }
@@ -111,40 +121,48 @@ const AbsensiRapor: React.FC = () => {
             .in('student_id', studentIds)
             .gte('created_at', start)
             .lte('created_at', end)
-            .neq('status', 'D'); // Only S, I, A matter for calculation usually, but D also exists
+            .neq('status', 'D');
 
           // LOGIC AGGREGATION
           const processedStudents: ReportStudent[] = students.map(student => {
               let s_total = 0, i_total = 0, a_total = 0, d_total = 0;
+              const details: ReportDetail[] = [];
 
               // Collect all unique dates relevant to this student
               const hDates = hLogs?.filter(l => l.student_id === student.id).map(l => l.date) || [];
               const tDates = tLogs?.filter(l => l.student_id === student.id).map(l => l.created_at.split('T')[0]) || [];
-              const uniqueDates = Array.from(new Set([...hDates, ...tDates]));
+              const uniqueDates = Array.from(new Set([...hDates, ...tDates])).sort();
 
               uniqueDates.forEach(date => {
+                  let statusFound = '';
+                  let sourceFound = '';
+
                   // A. Cek Wali Kelas (Prioritas Utama)
                   const hLog = hLogs?.find(l => l.student_id === student.id && l.date === date);
                   if (hLog) {
-                      if (hLog.status === 'S') s_total++;
-                      else if (hLog.status === 'I') i_total++;
-                      else if (hLog.status === 'A') a_total++;
-                      else if (hLog.status === 'D') d_total++;
-                      return; // Done for this date
+                      statusFound = hLog.status;
+                      sourceFound = 'Wali Kelas';
+                  } else {
+                      // B. Cek Guru Mapel (Agregasi)
+                      const dayLogs = tLogs?.filter(l => l.student_id === student.id && l.created_at.startsWith(date)) || [];
+                      if (dayLogs.length > 0) {
+                          const statuses = dayLogs.map(l => l.status);
+                          // Hierarchy: S > I > A
+                          if (statuses.includes('S')) statusFound = 'S';
+                          else if (statuses.includes('I')) statusFound = 'I';
+                          else if (statuses.includes('A')) statusFound = 'A';
+                          else if (statuses.includes('D')) statusFound = 'D';
+                          
+                          if (statusFound) sourceFound = 'Guru Mapel';
+                      }
                   }
 
-                  // B. Cek Guru Mapel (Agregasi)
-                  const dayLogs = tLogs?.filter(l => l.student_id === student.id && l.created_at.startsWith(date)) || [];
-                  if (dayLogs.length > 0) {
-                      const statuses = dayLogs.map(l => l.status);
-                      
-                      // Hierarchy: S > I > D > A
-                      if (statuses.includes('S')) s_total++;
-                      else if (statuses.includes('I')) i_total++;
-                      else if (statuses.includes('D')) d_total++; // Usually D is handled same as I, but keeping separate
-                      else if (statuses.includes('A')) a_total++;
-                      
-                      // If no S/I/D/A found (only present), count as present (do nothing to counters)
+                  if (statusFound) {
+                      details.push({ date, status: statusFound, source: sourceFound });
+                      if (statusFound === 'S') s_total++;
+                      else if (statusFound === 'I') i_total++;
+                      else if (statusFound === 'A') a_total++;
+                      else if (statusFound === 'D') d_total++;
                   }
               });
 
@@ -153,7 +171,8 @@ const AbsensiRapor: React.FC = () => {
                   s_count: s_total,
                   i_count: i_total,
                   a_count: a_total,
-                  d_count: d_total
+                  d_count: d_total,
+                  details: details
               };
           });
 
@@ -165,6 +184,11 @@ const AbsensiRapor: React.FC = () => {
 
   const handlePrint = () => window.print();
   const currentDateStr = formatDateSignature(new Date());
+
+  const openDetailModal = (student: ReportStudent) => {
+      setSelectedStudentDetail(student);
+      setShowDetailModal(true);
+  };
 
   return (
     <Layout>
@@ -187,7 +211,6 @@ const AbsensiRapor: React.FC = () => {
                         className="w-full border rounded-xl p-3 bg-gray-50 font-bold text-gray-700 focus:ring-2 focus:ring-red-500"
                         value={selectedClass}
                         onChange={e => setSelectedClass(e.target.value)}
-                        // REMOVED DISABLED PROP TO ALLOW SELECTION CHANGE
                     >
                         <option value="">-- Pilih Kelas --</option>
                         {classes.map(c => <option key={c} value={c}>{c}</option>)}
@@ -243,7 +266,8 @@ const AbsensiRapor: React.FC = () => {
             </div>
 
             {/* Content Table */}
-            <div className="overflow-x-auto">
+            {/* PRINT MODE: Remove overflow-x-auto to ensure it flows down multiple pages without clipping right side */}
+            <div className="overflow-x-auto print:overflow-visible">
                 <table className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
                     <thead>
                         <tr className="bg-gray-100 text-center text-xs font-bold uppercase">
@@ -258,12 +282,19 @@ const AbsensiRapor: React.FC = () => {
                     </thead>
                     <tbody>
                         {reportData.map((s, idx) => {
-                            const total = s.s_count + s.i_count + s.a_count; // Exclude Dispensasi from Total Absen usually for Rapor, or include? Usually Rapor only shows S/I/A.
+                            const total = s.s_count + s.i_count + s.a_count; 
                             return (
-                                <tr key={s.id} className="hover:bg-gray-50">
+                                <tr key={s.id} className="hover:bg-gray-50 print:hover:bg-transparent">
                                     <td className="border border-gray-400 p-1.5 text-center">{idx + 1}</td>
                                     <td className="border border-gray-400 p-1.5 text-center font-mono">{s.nisn}</td>
-                                    <td className="border border-gray-400 p-1.5 font-bold pl-3">{s.name}</td>
+                                    <td className="border border-gray-400 p-1.5 pl-3">
+                                        <button 
+                                            onClick={() => openDetailModal(s)}
+                                            className="font-bold text-left hover:text-blue-600 hover:underline print:no-underline print:text-black text-black"
+                                        >
+                                            {s.name}
+                                        </button>
+                                    </td>
                                     <td className="border border-gray-400 p-1.5 text-center">{s.s_count || '-'}</td>
                                     <td className="border border-gray-400 p-1.5 text-center">{s.i_count || '-'}</td>
                                     <td className="border border-gray-400 p-1.5 text-center">{s.a_count || '-'}</td>
@@ -276,6 +307,7 @@ const AbsensiRapor: React.FC = () => {
             </div>
 
             {/* Signature Area */}
+            {/* PRINT MODE: Ensure break-inside-avoid to try keeping signatures together */}
             <div className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0">
                 <div className="text-center md:text-left md:ml-4">
                     <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>
@@ -290,6 +322,62 @@ const AbsensiRapor: React.FC = () => {
                 </div>
             </div>
 
+          </div>
+      )}
+
+      {/* MODAL DETAIL (Hidden in Print) */}
+      {showDetailModal && selectedStudentDetail && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in print:hidden">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                  <div className="bg-red-600 p-4 flex justify-between items-center text-white">
+                      <div>
+                          <h3 className="font-bold text-lg">{selectedStudentDetail.name}</h3>
+                          <p className="text-xs text-red-100">{selectedStudentDetail.nisn} • Kelas {selectedStudentDetail.kelas}</p>
+                      </div>
+                      <button onClick={() => setShowDetailModal(false)} className="hover:bg-white/20 p-1 rounded-full"><X size={20}/></button>
+                  </div>
+                  
+                  <div className="p-0 overflow-y-auto custom-scrollbar flex-1">
+                      {selectedStudentDetail.details.length === 0 ? (
+                          <div className="p-8 text-center text-gray-400 text-sm">Tidak ada catatan ketidakhadiran (Hadir Penuh).</div>
+                      ) : (
+                          <table className="w-full text-sm text-left">
+                              <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100">
+                                  <tr>
+                                      <th className="p-4">Tanggal</th>
+                                      <th className="p-4 text-center">Status</th>
+                                      <th className="p-4">Sumber Data</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-gray-100">
+                                  {selectedStudentDetail.details.map((d, i) => (
+                                      <tr key={i} className="hover:bg-gray-50">
+                                          <td className="p-4 text-gray-700">
+                                              {formatDateIndo(d.date)}
+                                          </td>
+                                          <td className="p-4 text-center">
+                                              <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                  d.status === 'S' ? 'bg-yellow-100 text-yellow-700' :
+                                                  d.status === 'I' ? 'bg-blue-100 text-blue-700' :
+                                                  d.status === 'A' ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700'
+                                              }`}>
+                                                  {d.status === 'S' ? 'Sakit' : d.status === 'I' ? 'Izin' : d.status === 'A' ? 'Alpa' : 'Dispen'}
+                                              </span>
+                                          </td>
+                                          <td className="p-4 text-gray-500 text-xs">
+                                              {d.source}
+                                          </td>
+                                      </tr>
+                                  ))}
+                              </tbody>
+                          </table>
+                      )}
+                  </div>
+                  
+                  <div className="p-4 border-t border-gray-100 bg-gray-50 text-right">
+                      <button onClick={() => setShowDetailModal(false)} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-bold text-sm transition-colors">Tutup</button>
+                  </div>
+              </div>
           </div>
       )}
     </Layout>

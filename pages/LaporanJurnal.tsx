@@ -138,7 +138,7 @@ const LaporanJurnal: React.FC = () => {
                      </div>
                </div>
 
-               <div className="overflow-x-auto">
+               <div className="overflow-x-auto print:overflow-visible">
                    <table className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[700px]">
                        <thead>
                            <tr className="bg-gray-100">
@@ -151,7 +151,7 @@ const LaporanJurnal: React.FC = () => {
                        </thead>
                        <tbody>
                            {journals.map((journal, index) => (
-                               <tr key={journal.id} className="align-top">
+                               <tr key={journal.id} className="align-top break-inside-avoid">
                                    <td className="border border-gray-400 p-2 text-center font-bold">{index + 1}</td>
                                    <td className="border border-gray-400 p-2">
                                        <div className="font-bold">{formatDateIndo(journal.created_at)}</div>

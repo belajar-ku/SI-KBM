@@ -237,7 +237,8 @@ const RekapAbsensi: React.FC = () => {
                 </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* Print Friendly Table: No scrollbar, full visible */}
+            <div className="overflow-x-auto print:overflow-visible">
                 <table className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
                     <thead>
                         <tr className="bg-gray-200 text-center">
@@ -256,7 +257,7 @@ const RekapAbsensi: React.FC = () => {
                     </thead>
                     <tbody>
                         {reportData.map((item, index) => (
-                            <tr key={item.student.id} className="text-center">
+                            <tr key={item.student.id} className="text-center hover:bg-gray-50 print:hover:bg-transparent">
                                 <td className="border border-gray-400 p-1.5">{index + 1}</td>
                                 <td className="border border-gray-400 p-1.5 font-mono text-xs">{item.student.nisn}</td>
                                 <td className="border border-gray-400 p-1.5 text-left pl-3">{item.student.name}</td>
