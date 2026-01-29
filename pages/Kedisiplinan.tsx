@@ -10,6 +10,7 @@ interface NoteItem {
     category: string;
     studentIds: string[];
     followUp?: string;
+    note?: string; // NEW: Input Manual Note
 }
 
 const Kedisiplinan: React.FC = () => {
@@ -78,7 +79,7 @@ const Kedisiplinan: React.FC = () => {
   };
 
   const addRow = () => {
-      setDisciplineRows(prev => [...prev, { category: '', studentIds: [], followUp: '' }]);
+      setDisciplineRows(prev => [...prev, { category: '', studentIds: [], followUp: '', note: '' }]);
   };
 
   const removeRow = (index: number) => {
@@ -117,7 +118,7 @@ const Kedisiplinan: React.FC = () => {
                           type: 'kedisiplinan',
                           category: row.category,
                           follow_up: row.followUp || '',
-                          note: `Diinput via menu Kedisiplinan oleh ${profile.full_name || 'Guru'}`
+                          note: row.note || `Diinput via menu Kedisiplinan oleh ${profile.full_name || 'Guru'}`
                       });
                   });
               }
@@ -293,6 +294,18 @@ const Kedisiplinan: React.FC = () => {
                                         {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
                                     </select>
                                 </div>
+                            </div>
+
+                            {/* NEW: NOTE INPUT */}
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan / Catatan Kejadian</label>
+                                <input 
+                                    type="text"
+                                    className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-orange-500"
+                                    placeholder="Contoh: Siswa tidur di kelas saat jam kosong..."
+                                    value={row.note || ''}
+                                    onChange={e => updateRow(idx, 'note', e.target.value)}
+                                />
                             </div>
                             
                             {/* Student Select */}

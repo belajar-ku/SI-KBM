@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock, User, ArrowRight, AlertCircle, ShieldCheck, GraduationCap, MonitorPlay, Shield, ChevronLeft } from 'lucide-react';
+import { Lock, User, ArrowRight, AlertCircle, ShieldCheck, GraduationCap, MonitorPlay, Shield, ChevronLeft, Eye, EyeOff } from 'lucide-react';
 
 const Login: React.FC = () => {
   const [viewMode, setViewMode] = useState<'selection' | 'form'>('selection');
@@ -10,6 +10,7 @@ const Login: React.FC = () => {
   
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false); // State toggle password
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn } = useAuth();
@@ -17,10 +18,8 @@ const Login: React.FC = () => {
 
   const handleRoleSelect = (role: 'guru' | 'operator' | 'admin') => {
       if (role === 'operator') {
-          // Direct navigation for Operator (Kiosk Mode)
           navigate('/operator-dashboard');
       } else {
-          // Show Form for Guru or Admin
           setSelectedRoleLabel(role === 'admin' ? 'Administrator' : 'Guru / Staf');
           setViewMode('form');
       }
@@ -54,9 +53,6 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#E3F2E5]"> 
-      {/* Background is specific light green from screenshot */}
-      
-      {/* Top Section: Logo & Title */}
       <div className="text-center mb-8">
            <img 
              src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
@@ -72,7 +68,6 @@ const Login: React.FC = () => {
       </div>
 
       {viewMode === 'selection' ? (
-          /* --- TAMPILAN PILIHAN PERAN --- */
           <div className="w-full max-w-lg grid gap-4 animate-fade-in">
               <p className="text-center text-slate-500 font-bold text-sm mb-2 uppercase tracking-widest">Masuk Sebagai</p>
               
@@ -125,7 +120,6 @@ const Login: React.FC = () => {
               </button>
           </div>
       ) : (
-          /* --- TAMPILAN FORM LOGIN --- */
           <main className="w-full max-w-sm bg-[#F8FDF9] rounded-[2rem] shadow-xl border border-white/50 overflow-hidden relative animate-fade-in">
             
             <div className="p-8">
@@ -171,13 +165,21 @@ const Login: React.FC = () => {
                       <Lock className="h-5 w-5 text-gray-400" />
                     </div>
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-12 block w-full bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3.5 text-slate-800 text-sm font-bold transition-all placeholder:text-gray-300 placeholder:font-normal"
+                      className="pl-12 pr-12 block w-full bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3.5 text-slate-800 text-sm font-bold transition-all placeholder:text-gray-300 placeholder:font-normal"
                       placeholder="Masukkan Password"
                       required
                     />
+                    <button 
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                        tabIndex={-1}
+                    >
+                        {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
                   </div>
                 </div>
 

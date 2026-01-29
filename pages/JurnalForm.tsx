@@ -11,8 +11,29 @@ import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLe
 interface NoteItem {
     category: string;
     studentIds: string[];
-    followUp?: string; // NEW: Tindak Lanjut
+    followUp?: string; 
+    note?: string; // NEW: Input Manual Guru
 }
+
+// SMART TITLE CASE HELPER
+const smartTitleCase = (str: string) => {
+    const smallWords = ['di', 'ke', 'dari', 'pada', 'dalam', 'dengan', 'dan', 'atau', 'yang', 'untuk', 'saja'];
+    
+    return str.split(' ').map((word, index) => {
+        const lower = word.toLowerCase();
+        // 1. Selalu kapital di awal kalimat
+        if (index === 0) return lower.charAt(0).toUpperCase() + lower.slice(1);
+        
+        // 2. Kecilkan jika kata sambung (kecuali awal kalimat)
+        if (smallWords.includes(lower)) return lower;
+        
+        // 3. Kecilkan jika satu huruf (misal: "Titik a, b") KECUALI awal kalimat
+        if (lower.length === 1 && /^[a-z]$/.test(lower)) return lower;
+        
+        // 4. Sisanya Kapital
+        return lower.charAt(0).toUpperCase() + lower.slice(1);
+    }).join(' ');
+};
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
@@ -34,7 +55,7 @@ const JurnalForm: React.FC = () => {
 
   // --- SETTINGS MASTER DATA ---
   const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
-  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); // New State
+  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); 
   const [activityTypes, setActivityTypes] = useState<string[]>([]);
 
   // --- ASSESSMENT STATE ---
@@ -159,8 +180,6 @@ const JurnalForm: React.FC = () => {
   }, [formData.kelas]);
 
   const handleScheduleSelect = async (scheduleId: string) => {
-      // Don't trigger if clicking the same schedule, just toggle view potentially? 
-      // Current logic: Refetch.
       setLoading(true);
       try {
         const selectedSchedule = todaySchedules.find(s => s.id === scheduleId);
@@ -179,29 +198,34 @@ const JurnalForm: React.FC = () => {
             if (logs) logs.forEach(l => { attendanceMap[l.student_id] = l.status as any; });
 
             // Fetch Notes
-            const { data: notes } = await supabase.from('journal_notes').select('type, category, student_id, follow_up').eq('journal_id', existing.id);
+            const { data: notes } = await supabase.from('journal_notes').select('type, category, student_id, follow_up, note').eq('journal_id', existing.id);
             const loadedNotes = { discipline: [] as NoteItem[], activity: [] as NoteItem[] };
             
             if (notes) {
+                // Group by identical parameters to form a row
                 const discMap: Record<string, string[]> = {};
                 const actMap: Record<string, string[]> = {};
 
                 notes.forEach(n => {
-                    const key = `${n.category}|${n.follow_up || ''}`;
+                    // Key includes all fields to ensure grouping only identical entries
+                    const key = `${n.category}|${n.follow_up || ''}|${n.note || ''}`;
                     if (n.type === 'kedisiplinan') {
                         if (!discMap[key]) discMap[key] = [];
                         discMap[key].push(n.student_id);
                     } else {
-                        if (!actMap[n.category]) actMap[n.category] = [];
-                        actMap[n.category].push(n.student_id);
+                        if (!actMap[key]) actMap[key] = [];
+                        actMap[key].push(n.student_id);
                     }
                 });
 
                 loadedNotes.discipline = Object.entries(discMap).map(([key, studentIds]) => {
-                    const [category, followUp] = key.split('|');
-                    return { category, followUp, studentIds };
+                    const [category, followUp, note] = key.split('|');
+                    return { category, followUp, note, studentIds };
                 });
-                loadedNotes.activity = Object.entries(actMap).map(([category, studentIds]) => ({ category, studentIds }));
+                loadedNotes.activity = Object.entries(actMap).map(([key, studentIds]) => {
+                    const [category, _, note] = key.split('|');
+                    return { category, note, studentIds };
+                });
             }
             setNotesData(loadedNotes);
 
@@ -243,15 +267,16 @@ const JurnalForm: React.FC = () => {
 
   const handleMaterialChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value;
-      const titleCased = val.replace(/\b\w/g, l => l.toUpperCase());
-      setFormData({...formData, material: titleCased});
+      // APPLY SMART TITLE CASE
+      const formatted = smartTitleCase(val);
+      setFormData({...formData, material: formatted});
   };
 
   // --- LOGIC NOTES (STEP 3) ---
   const addNoteRow = (type: 'discipline' | 'activity') => {
       setNotesData(prev => ({
           ...prev,
-          [type]: [...prev[type], { category: '', studentIds: [], followUp: '' }]
+          [type]: [...prev[type], { category: '', studentIds: [], followUp: '', note: '' }]
       }));
   };
 
@@ -368,8 +393,8 @@ const JurnalForm: React.FC = () => {
                           student_name: sName,
                           type: 'kedisiplinan',
                           category: row.category,
-                          follow_up: row.followUp,
-                          note: ''
+                          follow_up: row.followUp || '', 
+                          note: row.note || '' // Ensure custom note is saved
                       });
                   });
               }
@@ -385,7 +410,8 @@ const JurnalForm: React.FC = () => {
                           student_name: sName,
                           type: 'keaktifan',
                           category: row.category,
-                          note: ''
+                          follow_up: '', 
+                          note: row.note || '' // Ensure custom note is saved
                       });
                   });
               }
@@ -404,7 +430,8 @@ const JurnalForm: React.FC = () => {
         message: 'Data jurnal pembelajaran dan penilaian telah tersimpan.'
       });
     } catch (err: any) {
-      setAlertState({ isOpen: true, type: 'error', title: 'Gagal Menyimpan', message: err.message });
+      console.error("Submit Error:", err);
+      setAlertState({ isOpen: true, type: 'error', title: 'Gagal Menyimpan', message: err.message || 'Terjadi kesalahan sistem.' });
     } finally {
       setLoading(false);
     }
@@ -555,6 +582,7 @@ const JurnalForm: React.FC = () => {
 
   const renderStep1 = () => (
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+       {/* ... Same as previous implementation ... */}
        <div className="flex justify-between items-start mb-6">
            <div>
                <h3 className="font-extrabold text-lg text-slate-800">Presensi Murid</h3>
@@ -581,9 +609,11 @@ const JurnalForm: React.FC = () => {
                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">Pilih Jadwal Hari Ini</label>
                  <div className="grid gap-3">
                      {todaySchedules.map(sch => {
-                         const filled = isScheduleFilled(sch);
+                         const filled = existingJournals.some(j => j.kelas === sch.kelas && j.subject === sch.subject);
                          const isSelected = formData.kelas === sch.kelas && formData.subject === sch.subject;
-                         const materialText = getDisplayMaterial(sch, filled);
+                         const materialText = filled 
+                            ? (existingJournals.find(j => j.kelas === sch.kelas && j.subject === sch.subject)?.material || '-')
+                            : (lastMaterials[`${sch.kelas}-${sch.subject}`] || 'Belum ada data materi sebelumnya.');
                          
                          return (
                             <div 
@@ -627,7 +657,6 @@ const JurnalForm: React.FC = () => {
                                      </div>
                                 </div>
 
-                                {/* INLINE STUDENT LIST (ACCORDION STYLE) */}
                                 {isSelected && (
                                     <div className="mt-4 pt-4 border-t border-blue-200 animate-fade-in">
                                         {loading ? (
@@ -657,10 +686,8 @@ const JurnalForm: React.FC = () => {
          )}
        </div>
 
-       {/* LOADING STATE FOR MANUAL MODE */}
        {inputMode !== 'auto' && loading && <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>}
 
-       {/* TABLE FOR MANUAL MODE (ONLY SHOWS IF MODE IS MANUAL) */}
        {inputMode !== 'auto' && formData.kelas && !loading && (
          <RenderStudentTable />
        )}
@@ -673,7 +700,6 @@ const JurnalForm: React.FC = () => {
 
   const renderStep2 = () => (
     <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
-       {/* ... (SAME AS BEFORE) ... */}
       <div className="flex justify-between items-center mb-6">
           <h3 className="font-extrabold text-lg text-slate-800">Detail Pembelajaran</h3>
           {inputMode === 'auto' && <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-100">AUTO</span>}
@@ -703,7 +729,13 @@ const JurnalForm: React.FC = () => {
         </div>
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Materi / Topik Bahasan</label>
-          <textarea className="w-full border border-slate-200 rounded-xl p-4 min-h-[140px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 font-medium leading-relaxed" value={formData.material} onChange={handleMaterialChange} placeholder="Tuliskan ringkasan materi yang diajarkan hari ini..."></textarea>
+          <textarea 
+            className="w-full border border-slate-200 rounded-xl p-4 min-h-[140px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 font-medium leading-relaxed" 
+            value={formData.material} 
+            onChange={handleMaterialChange} 
+            placeholder="Tuliskan ringkasan materi yang diajarkan hari ini..."
+          ></textarea>
+          <p className="text-[10px] text-gray-400 mt-1 italic">*Teks akan otomatis diformat kapital di awal kata (kecuali kata sambung).</p>
         </div>
       </div>
       <div className="flex justify-between mt-8 pt-6 border-t border-slate-100">
@@ -715,7 +747,6 @@ const JurnalForm: React.FC = () => {
 
   // --- NEW STEP 3: CATATAN MURID ---
   const renderStep3 = () => {
-    // Filter only present students (those NOT in attendance as S/I/A/D)
     const presentStudents = students.filter(s => !formData.attendance[s.id]);
 
     return (
@@ -730,7 +761,7 @@ const JurnalForm: React.FC = () => {
              
              <div className="space-y-3">
                  {notesData.discipline.map((row, idx) => (
-                     <div key={idx} className="flex flex-col gap-3 p-3 border border-slate-200 rounded-xl bg-slate-50 relative">
+                     <div key={idx} className="flex flex-col gap-3 p-4 border border-slate-200 rounded-xl bg-slate-50 relative">
                          {/* Row Controls: Category & Follow Up */}
                          <div className="flex flex-col md:flex-row gap-3">
                             <div className="w-full md:w-1/2">
@@ -756,6 +787,18 @@ const JurnalForm: React.FC = () => {
                                 </select>
                             </div>
                          </div>
+
+                         {/* NEW: NOTE INPUT */}
+                         <div>
+                             <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan / Catatan Kejadian</label>
+                             <input 
+                                type="text"
+                                className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-blue-500"
+                                placeholder="Contoh: Siswa tidur saat jam pelajaran berlangsung..."
+                                value={row.note || ''}
+                                onChange={e => updateNoteRow('discipline', idx, 'note', e.target.value)}
+                             />
+                         </div>
                          
                          {/* Student Select */}
                          <div className="w-full">
@@ -768,7 +811,7 @@ const JurnalForm: React.FC = () => {
                              />
                          </div>
 
-                         <button onClick={() => removeNoteRow('discipline', idx)} className="absolute top-2 right-2 md:top-auto md:bottom-2 md:right-2 p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                         <button onClick={() => removeNoteRow('discipline', idx)} className="absolute top-2 right-2 p-2 text-red-500 hover:bg-red-50 rounded-lg">
                              <Trash2 size={16}/>
                          </button>
                      </div>
@@ -787,18 +830,34 @@ const JurnalForm: React.FC = () => {
              
              <div className="space-y-3">
                  {notesData.activity.map((row, idx) => (
-                     <div key={idx} className="flex flex-col md:flex-row gap-3 p-3 border border-slate-200 rounded-xl bg-slate-50 relative">
-                         <div className="w-full md:w-1/3">
-                            <select 
-                                className="w-full p-3 rounded-xl border border-slate-200 bg-white text-sm"
-                                value={row.category}
-                                onChange={e => updateNoteRow('activity', idx, 'category', e.target.value)}
-                            >
-                                <option value="">-- Pilih Jenis --</option>
-                                {activityTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                            </select>
+                     <div key={idx} className="flex flex-col gap-3 p-4 border border-slate-200 rounded-xl bg-slate-50 relative">
+                         <div className="flex flex-col md:flex-row gap-3">
+                            <div className="w-full">
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Keaktifan</label>
+                                <select 
+                                    className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm"
+                                    value={row.category}
+                                    onChange={e => updateNoteRow('activity', idx, 'category', e.target.value)}
+                                >
+                                    <option value="">-- Pilih Jenis --</option>
+                                    {activityTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                </select>
+                            </div>
                          </div>
-                         <div className="w-full md:w-2/3">
+                         
+                         <div>
+                             <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan (Opsional)</label>
+                             <input 
+                                type="text"
+                                className="w-full p-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-green-500"
+                                placeholder="Contoh: Menjawab pertanyaan dengan benar..."
+                                value={row.note || ''}
+                                onChange={e => updateNoteRow('activity', idx, 'note', e.target.value)}
+                             />
+                         </div>
+
+                         <div className="w-full">
+                             <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
                              <MultiSelectDropdown 
                                  options={presentStudents} 
                                  selectedIds={row.studentIds}
@@ -806,7 +865,7 @@ const JurnalForm: React.FC = () => {
                                  placeholder="Pilih Murid (Hadir)"
                              />
                          </div>
-                         <button onClick={() => removeNoteRow('activity', idx)} className="absolute top-2 right-2 md:static md:flex items-center justify-center p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                         <button onClick={() => removeNoteRow('activity', idx)} className="absolute top-2 right-2 p-2 text-red-500 hover:bg-red-50 rounded-lg">
                              <Trash2 size={16}/>
                          </button>
                      </div>
