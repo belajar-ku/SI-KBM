@@ -95,6 +95,11 @@ const Kedisiplinan: React.FC = () => {
 
   const handleSave = async () => {
       if (disciplineRows.length === 0 || !selectedClass) return;
+      if (!profile) {
+          setAlertState({ isOpen: true, type: 'error', title: 'Sesi Habis', message: 'Silakan login ulang aplikasi.' });
+          return;
+      }
+
       setLoading(true);
       try {
           const notesInserts: any[] = [];
@@ -103,14 +108,16 @@ const Kedisiplinan: React.FC = () => {
               if (row.category && row.studentIds.length > 0) {
                   row.studentIds.forEach(sid => {
                       const sName = students.find(s => s.id === sid)?.name || 'Unknown';
+                      
+                      // Note: We deliberately exclude 'journal_id' or set it to null if schema permits, 
+                      // because this is a standalone violation not tied to a specific KBM journal.
                       notesInserts.push({
-                          journal_id: null, // Standalone entry
                           student_id: sid,
                           student_name: sName,
                           type: 'kedisiplinan',
                           category: row.category,
-                          follow_up: row.followUp,
-                          note: `Diinput via menu Kedisiplinan oleh ${profile?.full_name}`
+                          follow_up: row.followUp || '',
+                          note: `Diinput via menu Kedisiplinan oleh ${profile.full_name || 'Guru'}`
                       });
                   });
               }
@@ -137,7 +144,8 @@ const Kedisiplinan: React.FC = () => {
           }
 
       } catch (err: any) {
-          setAlertState({ isOpen: true, type: 'error', title: 'Gagal Menyimpan', message: err.message });
+          console.error("Save Error:", err);
+          setAlertState({ isOpen: true, type: 'error', title: 'Gagal Menyimpan', message: err.message || 'Terjadi kesalahan sistem.' });
       } finally {
           setLoading(false);
       }

@@ -159,6 +159,8 @@ const JurnalForm: React.FC = () => {
   }, [formData.kelas]);
 
   const handleScheduleSelect = async (scheduleId: string) => {
+      // Don't trigger if clicking the same schedule, just toggle view potentially? 
+      // Current logic: Refetch.
       setLoading(true);
       try {
         const selectedSchedule = todaySchedules.find(s => s.id === scheduleId);
@@ -415,6 +417,56 @@ const JurnalForm: React.FC = () => {
       }
   };
 
+  // --- COMPONENT: STUDENT TABLE (REUSABLE) ---
+  const RenderStudentTable = () => (
+      <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white">
+           <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+               <span className="text-sm font-bold text-slate-700">Daftar Murid ({students.length})</span>
+               <span className="text-[10px] text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 font-bold">Default: Hadir</span>
+           </div>
+           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
+             <table className="w-full text-sm">
+               <thead className="bg-white sticky top-0 z-10 shadow-sm">
+                 <tr className="text-xs text-slate-500 uppercase tracking-wide">
+                   <th className="p-3 text-left pl-4">Nama</th>
+                   <th className="p-3 w-10 text-center">S</th>
+                   <th className="p-3 w-10 text-center">I</th>
+                   <th className="p-3 w-10 text-center">A</th>
+                   <th className="p-3 w-10 text-center">D</th>
+                 </tr>
+               </thead>
+               <tbody className="divide-y divide-slate-100">
+                 {students.map(student => (
+                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                     <td className="p-3 pl-4 font-bold text-slate-700">{student.name}</td>
+                     {['S', 'I', 'A', 'D'].map((status) => (
+                       <td key={status} className="p-2 text-center">
+                         <input 
+                            type="checkbox" 
+                            className={`w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
+                                status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
+                                status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
+                                status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
+                                'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
+                            }`}
+                           checked={formData.attendance[student.id] === status}
+                           onChange={() => {
+                              const newAtt = {...formData.attendance};
+                              if (newAtt[student.id] === status) delete newAtt[student.id];
+                              else newAtt[student.id] = status as any;
+                              setFormData({...formData, attendance: newAtt});
+                           }}
+                         />
+                       </td>
+                     ))}
+                   </tr>
+                 ))}
+               </tbody>
+             </table>
+           </div>
+      </div>
+  );
+
   // --- CUSTOM MULTI-SELECT COMPONENT (Checklist Style) ---
   const MultiSelectDropdown = ({ options, selectedIds, onChange, placeholder }: any) => {
       const [isOpen, setIsOpen] = useState(false);
@@ -435,7 +487,6 @@ const JurnalForm: React.FC = () => {
             ? selectedIds.filter((sid: string) => sid !== id)
             : [...selectedIds, id];
           onChange(newSelection);
-          // Note: We do NOT close the dropdown here to allow multiple checklists
       };
 
       const selectedNames = options.filter((o: any) => selectedIds.includes(o.id)).map((o: any) => o.name);
@@ -504,7 +555,6 @@ const JurnalForm: React.FC = () => {
 
   const renderStep1 = () => (
       <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
-       {/* ... (SAME AS BEFORE) ... */}
        <div className="flex justify-between items-start mb-6">
            <div>
                <h3 className="font-extrabold text-lg text-slate-800">Presensi Murid</h3>
@@ -538,14 +588,13 @@ const JurnalForm: React.FC = () => {
                          return (
                             <div 
                                 key={sch.id}
-                                onClick={() => handleScheduleSelect(sch.id)}
-                                className={`p-4 rounded-2xl border-2 cursor-pointer transition-all flex flex-col gap-2 relative ${
+                                className={`p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 relative ${
                                     isSelected 
                                     ? (filled ? 'border-green-500 bg-green-50' : 'border-blue-600 bg-blue-50') 
                                     : (filled ? 'border-green-100 bg-green-50/20' : 'border-slate-100 hover:border-blue-200 bg-white')
                                 }`}
                             >
-                                <div className="flex items-center justify-between">
+                                <div onClick={() => handleScheduleSelect(sch.id)} className="cursor-pointer flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                         <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-sm ${
                                             filled ? 'bg-green-500' : (isSelected ? 'bg-blue-600' : 'bg-slate-400')
@@ -568,7 +617,7 @@ const JurnalForm: React.FC = () => {
                                         </div>
                                     )}
                                 </div>
-                                <div className="mt-1 pt-2 border-t border-slate-200/50 flex items-start gap-2">
+                                <div onClick={() => handleScheduleSelect(sch.id)} className="cursor-pointer mt-1 pt-2 border-t border-slate-200/50 flex items-start gap-2">
                                      <History size={14} className="text-slate-400 mt-0.5 flex-shrink-0"/>
                                      <div className="text-xs">
                                          <span className="font-bold text-slate-500 block mb-0.5">
@@ -577,6 +626,17 @@ const JurnalForm: React.FC = () => {
                                          <p className="text-slate-600 line-clamp-1">"{materialText}"</p>
                                      </div>
                                 </div>
+
+                                {/* INLINE STUDENT LIST (ACCORDION STYLE) */}
+                                {isSelected && (
+                                    <div className="mt-4 pt-4 border-t border-blue-200 animate-fade-in">
+                                        {loading ? (
+                                            <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>
+                                        ) : (
+                                            <RenderStudentTable />
+                                        )}
+                                    </div>
+                                )}
                             </div>
                          );
                      })}
@@ -597,56 +657,12 @@ const JurnalForm: React.FC = () => {
          )}
        </div>
 
-       {loading && <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>}
+       {/* LOADING STATE FOR MANUAL MODE */}
+       {inputMode !== 'auto' && loading && <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>}
 
-       {formData.kelas && !loading && (
-         <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white">
-           <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
-               <span className="text-sm font-bold text-slate-700">Daftar Murid ({students.length})</span>
-               <span className="text-[10px] text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 font-bold">Default: Hadir</span>
-           </div>
-           <div className="max-h-[350px] overflow-y-auto custom-scrollbar">
-             <table className="w-full text-sm">
-               <thead className="bg-white sticky top-0 z-10 shadow-sm">
-                 <tr className="text-xs text-slate-500 uppercase tracking-wide">
-                   <th className="p-3 text-left pl-4">Nama</th>
-                   <th className="p-3 w-10 text-center">S</th>
-                   <th className="p-3 w-10 text-center">I</th>
-                   <th className="p-3 w-10 text-center">A</th>
-                   <th className="p-3 w-10 text-center">D</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {students.map(student => (
-                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                     <td className="p-3 pl-4 font-bold text-slate-700">{student.name}</td>
-                     {['S', 'I', 'A', 'D'].map((status) => (
-                       <td key={status} className="p-2 text-center">
-                         <input 
-                            type="checkbox" 
-                            className={`w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
-                                status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
-                                status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
-                                status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
-                                'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
-                            }`}
-                           checked={formData.attendance[student.id] === status}
-                           onChange={() => {
-                              const newAtt = {...formData.attendance};
-                              if (newAtt[student.id] === status) delete newAtt[student.id];
-                              else newAtt[student.id] = status as any;
-                              setFormData({...formData, attendance: newAtt});
-                           }}
-                         />
-                       </td>
-                     ))}
-                   </tr>
-                 ))}
-               </tbody>
-             </table>
-           </div>
-           
-         </div>
+       {/* TABLE FOR MANUAL MODE (ONLY SHOWS IF MODE IS MANUAL) */}
+       {inputMode !== 'auto' && formData.kelas && !loading && (
+         <RenderStudentTable />
        )}
 
        <div className="flex justify-end mt-8 pt-6 border-t border-slate-100">

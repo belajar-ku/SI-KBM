@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types';
@@ -61,6 +61,14 @@ const OperatorDashboard: React.FC = () => {
   const [rotationIndex, setRotationIndex] = useState(0); // For Tables Vertical Scroll
 
   const [profiles, setProfiles] = useState<Profile[]>([]);
+  
+  // Ref to hold latest profiles for interval closure
+  const profilesRef = useRef<Profile[]>([]);
+
+  // Sync Ref with State
+  useEffect(() => {
+      profilesRef.current = profiles;
+  }, [profiles]);
 
   // 1. Initial Load & Realtime Subscription & Auto Refresh
   useEffect(() => {
@@ -157,8 +165,8 @@ const OperatorDashboard: React.FC = () => {
           const startOfDay = `${filterDate}T00:00:00+07:00`;
           const endOfDay = `${filterDate}T23:59:59+07:00`;
 
-          // Use passed profiles OR state profiles (fallback for auto-refresh)
-          const activeProfiles = currentProfiles || profiles;
+          // Use passed profiles OR Ref (latest state fallback for interval)
+          const activeProfiles = currentProfiles || profilesRef.current;
 
           const [schedulesRes, journalsRes, attendanceRes, studentsRes] = await Promise.all([
               supabase.from('schedules').select('*').eq('day_of_week', dbDay),
@@ -184,11 +192,11 @@ const OperatorDashboard: React.FC = () => {
 
               // Lookup Teacher Name using activeProfiles
               let tName = '-';
-              if (activeProfiles.length > 0) {
+              if (activeProfiles && activeProfiles.length > 0) {
                   let p = activeProfiles.find(p => p.id === sch.teacher_id);
                   if (!p && sch.teacher_nip) p = activeProfiles.find(p => p.nip === sch.teacher_nip);
                   if (p) tName = p.full_name;
-                  else tName = 'Guru (Loading...)';
+                  else tName = 'Guru Tidak Ditemukan';
               } else if (sch.teacher_id) {
                   tName = 'Memuat...';
               }
