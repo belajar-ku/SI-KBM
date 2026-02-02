@@ -36,7 +36,7 @@ interface EditingStudent {
 // Interface untuk status KBM per jam
 interface KbmStatus {
     hour: number;
-    className: string; // "-" atau "7A"
+    className: string; // "-" atau "7A" atau "7A / 7B"
     isScheduled: boolean;
     isFilled: boolean;
 }
@@ -123,23 +123,37 @@ const Dashboard: React.FC = () => {
         for(let i = 1; i <= 8; i++) {
             const hourStr = String(i);
             
-            // Find schedule for this hour
-            const sched = todaySchedRes.data?.find(s => {
+            // Find ALL schedules for this hour (Multiple classes support)
+            const scheduledClasses = todaySchedRes.data?.filter(s => {
                 const hours = s.hour.split(',').map((h: string) => h.trim());
                 return hours.includes(hourStr);
-            });
+            }) || [];
 
-            // Find journal for this hour
-            const journal = todayJournalRes.data?.find(j => {
-                const hours = j.hours.split(',').map((h: string) => h.trim());
-                return hours.includes(hourStr) && j.kelas === sched?.kelas && j.subject === sched?.subject;
-            });
+            // Display string (e.g., "7D / 7E")
+            const classDisplay = scheduledClasses.length > 0 
+                ? scheduledClasses.map(s => s.kelas).join(' / ') 
+                : '-';
+
+            // Check if ALL scheduled classes have a corresponding journal for this hour
+            let allFilled = false;
+            
+            if (scheduledClasses.length > 0) {
+                // Determine if filled for EACH scheduled class
+                const fillStatus = scheduledClasses.map(sched => {
+                    return todayJournalRes.data?.some(j => {
+                        const hours = j.hours.split(',').map((h: string) => h.trim());
+                        return hours.includes(hourStr) && j.kelas === sched.kelas && j.subject === sched.subject;
+                    });
+                });
+                // Only return true if EVERY class scheduled for this hour is filled
+                allFilled = fillStatus.every(status => status === true);
+            }
 
             hoursList.push({
                 hour: i,
-                className: sched ? sched.kelas : '-',
-                isScheduled: !!sched,
-                isFilled: !!journal
+                className: classDisplay,
+                isScheduled: scheduledClasses.length > 0,
+                isFilled: allFilled
             });
         }
         setKbmStatus(hoursList);
@@ -517,7 +531,11 @@ const Dashboard: React.FC = () => {
                                 <tr className="border-b border-slate-100">
                                     {kbmStatus.map((status) => (
                                         <td key={status.hour} className="py-3 px-1 border-r border-slate-100 last:border-0 font-bold text-slate-700">
-                                            {status.className}
+                                            <div className="flex flex-col items-center justify-center min-h-[2.5rem]">
+                                                {status.className.split(' / ').map((cls, idx) => (
+                                                    <span key={idx} className={idx > 0 ? "mt-1 block text-xs" : ""}>{cls}</span>
+                                                ))}
+                                            </div>
                                         </td>
                                     ))}
                                 </tr>
@@ -568,6 +586,7 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
+        {/* ... MODALS ... (Same as before) */}
         {/* --- MODAL INPUT ABSENSI (ALL STUDENTS) --- */}
         {showAbsenceModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">

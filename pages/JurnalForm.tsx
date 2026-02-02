@@ -72,6 +72,13 @@ const JurnalForm: React.FC = () => {
       activity: NoteItem[];
   }>({ discipline: [], activity: [] });
 
+  // --- PREVIOUS ATTENDANCE STATE (FOR ALL SUBJECTS) ---
+  const [prevMeetingStats, setPrevMeetingStats] = useState<Record<string, string>>({});
+  const [hasPrevMeeting, setHasPrevMeeting] = useState(false);
+
+  // --- HOMEROOM ATTENDANCE STATE ---
+  const [homeroomStats, setHomeroomStats] = useState<Record<string, string>>({});
+
   const [alertState, setAlertState] = useState<{
     isOpen: boolean;
     type: 'success' | 'error';
@@ -91,9 +98,63 @@ const JurnalForm: React.FC = () => {
     isConfirmed: false
   });
 
+  // --- SPECIAL SUBJECT LOGIC (Salat Dhuha) ---
+  const isSpecialSubjectDhuha = (subject: string) => {
+      return subject && subject.toLowerCase().includes('dhuha');
+  };
+  const isDhuha = isSpecialSubjectDhuha(formData.subject);
+
   useEffect(() => {
     fetchInitData();
   }, [profile]);
+
+  // Effect to auto-fill material for Salat Dhuha
+  useEffect(() => {
+      if (isDhuha && !formData.material) {
+          setFormData(prev => ({ ...prev, material: 'Salat Dhuha' }));
+      }
+  }, [formData.subject, isDhuha]);
+
+  // Effect to fetch PREVIOUS Attendance (Generalized for ALL Subjects)
+  useEffect(() => {
+      if (formData.kelas && formData.subject) {
+          const fetchPreviousAttendance = async () => {
+              try {
+                  const todayStr = getWIBISOString();
+                  // 1. Cari jurnal TERAKHIR untuk mapel & kelas ini sebelum hari ini
+                  const { data: journals } = await supabase.from('journals')
+                      .select('id')
+                      .eq('kelas', formData.kelas)
+                      .eq('subject', formData.subject) // Match exact subject name
+                      .lt('created_at', `${todayStr}T00:00:00+07:00`) // Hanya ambil yang sebelum hari ini
+                      .order('created_at', { ascending: false })
+                      .limit(1);
+
+                  if (journals && journals.length > 0) {
+                      const lastJid = journals[0].id;
+                      setHasPrevMeeting(true);
+
+                      // 2. Ambil log absensi dari jurnal tersebut
+                      const { data: logs } = await supabase.from('attendance_logs')
+                          .select('student_id, status')
+                          .eq('journal_id', lastJid);
+                      
+                      const map: Record<string, string> = {};
+                      if (logs) {
+                          logs.forEach(l => map[l.student_id] = l.status);
+                      }
+                      setPrevMeetingStats(map);
+                  } else {
+                      setHasPrevMeeting(false);
+                      setPrevMeetingStats({});
+                  }
+              } catch (e) {
+                  console.error("Error fetching prev attendance", e);
+              }
+          };
+          fetchPreviousAttendance();
+      }
+  }, [formData.subject, formData.kelas]);
 
   const fetchInitData = async () => {
     setInitLoading(true);
@@ -241,18 +302,41 @@ const JurnalForm: React.FC = () => {
                 isConfirmed: existing.validation === 'hadir_kbm'
             });
         } else {
+            // NEW JOURNAL MODE
             setEditJournalId(null);
             setNotesData({ discipline: [], activity: [] });
             let hoursParsed: string[] = [];
             if (selectedSchedule.hour.includes(',')) hoursParsed = selectedSchedule.hour.split(',').map(s => s.trim());
             else hoursParsed = [selectedSchedule.hour];
 
+            // Auto-fill material for Dhuha immediately upon selection if not existing
+            const isDhuhaSched = isSpecialSubjectDhuha(selectedSchedule.subject);
+            const defaultMaterial = isDhuhaSched ? 'Salat Dhuha' : '';
+
+            // --- FETCH HOMEROOM ATTENDANCE (Wali Kelas Input) ---
+            // If data exists, pre-fill formData.attendance
+            const todayStr = getWIBISOString();
+            const { data: hrData } = await supabase.from('homeroom_attendance')
+                .select('student_id, status')
+                .eq('date', todayStr)
+                .eq('kelas', selectedSchedule.kelas);
+            
+            const initialAttendance: Record<string, 'S' | 'I' | 'A' | 'D'> = {};
+            
+            if (hrData && hrData.length > 0) {
+                hrData.forEach(r => {
+                    if (['S', 'I', 'A', 'D'].includes(r.status)) {
+                        initialAttendance[r.student_id] = r.status as any;
+                    }
+                });
+            }
+
             setFormData({
                 kelas: selectedSchedule.kelas,
                 subject: selectedSchedule.subject,
                 hours: hoursParsed,
-                material: '',
-                attendance: {},
+                material: defaultMaterial,
+                attendance: initialAttendance, // Pre-filled here
                 cleanliness: '',
                 validation: '',
                 notes: '',
@@ -454,38 +538,116 @@ const JurnalForm: React.FC = () => {
                <thead className="bg-white sticky top-0 z-10 shadow-sm">
                  <tr className="text-xs text-slate-500 uppercase tracking-wide">
                    <th className="p-3 text-left pl-4">Nama</th>
-                   <th className="p-3 w-10 text-center">S</th>
-                   <th className="p-3 w-10 text-center">I</th>
-                   <th className="p-3 w-10 text-center">A</th>
-                   <th className="p-3 w-10 text-center">D</th>
+                   {isDhuha ? (
+                        <>
+                            <th className="p-3 w-32 text-center" title="Kehadiran pertemuan terakhir">Kehadiran<br/>Pekan Lalu</th>
+                            <th className="p-3 w-16 text-center" title="Tidak Hadir (Alpa)">TH</th>
+                            <th className="p-3 w-16 text-center" title="Dispensasi">D</th>
+                        </>
+                   ) : (
+                        <>
+                            <th className="p-3 w-32 text-center" title="Kehadiran pertemuan terakhir">Kehadiran<br/>Pekan Lalu</th>
+                            <th className="p-3 w-10 text-center">S</th>
+                            <th className="p-3 w-10 text-center">I</th>
+                            <th className="p-3 w-10 text-center">A</th>
+                            <th className="p-3 w-10 text-center">D</th>
+                        </>
+                   )}
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
-                 {students.map(student => (
+                 {students.map(student => {
+                   // LOGIKA PEKAN LALU
+                   let prevStatusDisplay = '-';
+                   let prevStatusColor = 'bg-slate-100 text-slate-400';
+
+                   if (hasPrevMeeting) {
+                        const rawStatus = prevMeetingStats[student.id];
+                        
+                        if (!rawStatus) {
+                            // Tidak ada data log = Hadir (H)
+                            prevStatusDisplay = 'H';
+                            prevStatusColor = 'bg-green-100 text-green-700';
+                        } else if (rawStatus === 'D') {
+                            prevStatusDisplay = 'D';
+                            prevStatusColor = 'bg-purple-100 text-purple-700';
+                        } else if (isDhuha && ['S', 'I', 'A'].includes(rawStatus)) {
+                            // Khusus Dhuha: S, I, A jadi TH
+                            prevStatusDisplay = 'TH';
+                            prevStatusColor = 'bg-red-100 text-red-700';
+                        } else {
+                            // Mapel Lain: Tampilkan sesuai status
+                            prevStatusDisplay = rawStatus;
+                            if (rawStatus === 'S') prevStatusColor = 'bg-yellow-100 text-yellow-700';
+                            else if (rawStatus === 'I') prevStatusColor = 'bg-blue-100 text-blue-700';
+                            else if (rawStatus === 'A') prevStatusColor = 'bg-red-100 text-red-700';
+                        }
+                   }
+
+                   return (
                    <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                      <td className="p-3 pl-4 font-bold text-slate-700">{student.name}</td>
-                     {['S', 'I', 'A', 'D'].map((status) => (
-                       <td key={status} className="p-2 text-center">
-                         <input 
-                            type="checkbox" 
-                            className={`w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
-                                status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
-                                status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
-                                status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
-                                'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
-                            }`}
-                           checked={formData.attendance[student.id] === status}
-                           onChange={() => {
-                              const newAtt = {...formData.attendance};
-                              if (newAtt[student.id] === status) delete newAtt[student.id];
-                              else newAtt[student.id] = status as any;
-                              setFormData({...formData, attendance: newAtt});
-                           }}
-                         />
-                       </td>
-                     ))}
+                     
+                     {/* Kolom Kehadiran Pekan Lalu (Ada di kedua mode) */}
+                     <td className="p-2 text-center border-l border-r border-slate-100 bg-slate-50/50">
+                        <span className={`px-2 py-1 rounded text-xs font-bold ${prevStatusColor}`}>
+                            {prevStatusDisplay}
+                        </span>
+                     </td>
+
+                     {isDhuha ? (
+                         <>
+                            <td className="p-2 text-center">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500"
+                                    checked={formData.attendance[student.id] === 'A'} // TH maps to A
+                                    onChange={() => {
+                                        const newAtt = {...formData.attendance};
+                                        if (newAtt[student.id] === 'A') delete newAtt[student.id];
+                                        else newAtt[student.id] = 'A';
+                                        setFormData({...formData, attendance: newAtt});
+                                    }}
+                                />
+                            </td>
+                            <td className="p-2 text-center">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500"
+                                    checked={formData.attendance[student.id] === 'D'}
+                                    onChange={() => {
+                                        const newAtt = {...formData.attendance};
+                                        if (newAtt[student.id] === 'D') delete newAtt[student.id];
+                                        else newAtt[student.id] = 'D';
+                                        setFormData({...formData, attendance: newAtt});
+                                    }}
+                                />
+                            </td>
+                         </>
+                     ) : (
+                         ['S', 'I', 'A', 'D'].map((status) => (
+                            <td key={status} className="p-2 text-center">
+                                <input 
+                                    type="checkbox" 
+                                    className={`w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
+                                        status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
+                                        status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
+                                        status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
+                                        'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
+                                    }`}
+                                checked={formData.attendance[student.id] === status}
+                                onChange={() => {
+                                    const newAtt = {...formData.attendance};
+                                    if (newAtt[student.id] === status) delete newAtt[student.id];
+                                    else newAtt[student.id] = status as any;
+                                    setFormData({...formData, attendance: newAtt});
+                                }}
+                                />
+                            </td>
+                            ))
+                     )}
                    </tr>
-                 ))}
+                 )})}
                </tbody>
              </table>
            </div>
@@ -733,6 +895,7 @@ const JurnalForm: React.FC = () => {
             onChange={handleMaterialChange} 
             placeholder="Tuliskan ringkasan materi yang diajarkan hari ini..."
           ></textarea>
+          {isDhuha && <p className="text-[10px] text-green-600 mt-1 font-bold flex items-center gap-1"><Sparkles size={10}/> Materi otomatis terisi untuk Salat Dhuha.</p>}
           <p className="text-[10px] text-gray-400 mt-1 italic">*Teks akan otomatis diformat kapital di awal kata (kecuali kata sambung).</p>
         </div>
       </div>
