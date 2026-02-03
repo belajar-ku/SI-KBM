@@ -66,8 +66,8 @@ const JurnalForm: React.FC = () => {
   const [prevMeetingStats, setPrevMeetingStats] = useState<Record<string, string>>({});
   const [hasPrevMeeting, setHasPrevMeeting] = useState(false);
 
-  // --- ALPA COUNTS STATE ---
-  const [studentAlpaCounts, setStudentAlpaCounts] = useState<Record<string, number>>({});
+  // --- STUDENT STATS STATE (Alpha & Dispen) ---
+  const [studentStats, setStudentStats] = useState<Record<string, { A: number, D: number }>>({});
 
   const [alertState, setAlertState] = useState<{
     isOpen: boolean;
@@ -230,8 +230,8 @@ const JurnalForm: React.FC = () => {
             if (studentIds.length > 0) {
                 let query = supabase
                     .from('attendance_logs')
-                    .select('student_id, journal_id, journals!inner(teacher_id, subject)')
-                    .eq('status', 'A')
+                    .select('student_id, status, journal_id, journals!inner(teacher_id, subject)')
+                    .in('status', ['A', 'D']) // Fetch A and D
                     .in('student_id', studentIds)
                     .eq('journals.teacher_id', profile.id);
                 
@@ -242,12 +242,15 @@ const JurnalForm: React.FC = () => {
                     query = query.eq('journals.subject', formData.subject);
                 }
                 
-                const { data: alpaLogs } = await query;
-                const alpaCounts: Record<string, number> = {};
-                alpaLogs?.forEach((log: any) => {
-                    alpaCounts[log.student_id] = (alpaCounts[log.student_id] || 0) + 1;
+                const { data: logs } = await query;
+                const stats: Record<string, { A: number, D: number }> = {};
+                
+                logs?.forEach((log: any) => {
+                    if (!stats[log.student_id]) stats[log.student_id] = { A: 0, D: 0 };
+                    if (log.status === 'A') stats[log.student_id].A += 1;
+                    if (log.status === 'D') stats[log.student_id].D += 1;
                 });
-                setStudentAlpaCounts(alpaCounts);
+                setStudentStats(stats);
             }
         } else {
             setLoading(false);
@@ -535,7 +538,7 @@ const JurnalForm: React.FC = () => {
       }
   };
 
-  // --- COMPONENT: STUDENT TABLE (OPTIMIZED LAYOUT) ---
+  // --- COMPONENT: STUDENT TABLE (OPTIMIZED LAYOUT - TABLE FIXED) ---
   const RenderStudentTable = () => (
       <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white">
            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -544,22 +547,23 @@ const JurnalForm: React.FC = () => {
            </div>
            
            <div className="overflow-x-auto w-full">
-               <div className="max-h-[500px] overflow-y-auto custom-scrollbar min-w-[350px]">
-                 <table className="w-full text-sm">
+               <div className="max-h-[500px] overflow-y-auto custom-scrollbar min-w-[320px]"> {/* Reduced min-w */}
+                 <table className="w-full text-sm table-fixed"> {/* ADDED table-fixed */}
                    <thead className="bg-white sticky top-0 z-10 shadow-sm">
                      <tr className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">
-                       <th className="p-2 sm:p-3 text-left pl-3 sm:pl-4">Nama / Pekan Lalu</th>
+                       {/* Name Column Adjusted Width */}
+                       <th className="p-2 sm:p-3 text-left pl-3 sm:pl-4 w-[50%]">Nama / Pekan Lalu</th>
                        {isDhuha ? (
                             <>
-                                <th className="p-2 sm:p-3 w-12 text-center" title="Tidak Hadir (Alpa)">TH</th>
-                                <th className="p-2 sm:p-3 w-12 text-center" title="Dispensasi">D</th>
+                                <th className="p-2 sm:p-3 w-[25%] text-center" title="Tidak Hadir (Alpa)">TH</th>
+                                <th className="p-2 sm:p-3 w-[25%] text-center" title="Dispensasi">D</th>
                             </>
                        ) : (
                             <>
-                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">S</th>
-                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">I</th>
-                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">A</th>
-                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">D</th>
+                                <th className="p-2 sm:p-3 w-[12.5%] text-center">S</th>
+                                <th className="p-2 sm:p-3 w-[12.5%] text-center">I</th>
+                                <th className="p-2 sm:p-3 w-[12.5%] text-center">A</th>
+                                <th className="p-2 sm:p-3 w-[12.5%] text-center">D</th>
                             </>
                        )}
                      </tr>
@@ -591,17 +595,25 @@ const JurnalForm: React.FC = () => {
                             }
                        }
 
-                       // LOGIKA ALPA COUNT (Untuk Tampilan di Nama)
-                       const alpaCount = studentAlpaCounts[student.id] || 0;
+                       // LOGIKA ALPA COUNT & DISPEN COUNT
+                       const stats = studentStats[student.id] || { A: 0, D: 0 };
 
                        return (
                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                         <td className="p-2 sm:p-3 pl-3 sm:pl-4">
-                             <div className="font-bold text-slate-700 text-xs sm:text-sm">{student.name}</div>
+                         <td className="p-2 sm:p-3 pl-3 sm:pl-4 overflow-hidden">
+                             {/* ADDED truncate and max-width for mobile */}
+                             <div className="font-bold text-slate-700 text-xs sm:text-sm truncate w-full" title={student.name}>{student.name}</div>
                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                 {alpaCount > 0 && (
+                                 {/* Show Alpha */}
+                                 {stats.A > 0 && (
                                      <span className="text-red-600 text-[10px] font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap" title="Total Alpa">
-                                         A: {alpaCount}
+                                         A: {stats.A}
+                                     </span>
+                                 )}
+                                 {/* Show Dispen ONLY if Dhuha */}
+                                 {isDhuha && stats.D > 0 && (
+                                     <span className="text-purple-600 text-[10px] font-extrabold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 whitespace-nowrap" title="Total Dispen">
+                                         D: {stats.D}
                                      </span>
                                  )}
                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${prevStatusColor} whitespace-nowrap`} title="Kehadiran Pekan Lalu">
@@ -613,51 +625,57 @@ const JurnalForm: React.FC = () => {
                          {isDhuha ? (
                              <>
                                 <td className="p-1 sm:p-2 text-center align-middle">
-                                    <input 
-                                        type="checkbox" 
-                                        className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500"
-                                        checked={formData.attendance[student.id] === 'A'} // TH maps to A
-                                        onChange={() => {
-                                            const newAtt = {...formData.attendance};
-                                            if (newAtt[student.id] === 'A') delete newAtt[student.id];
-                                            else newAtt[student.id] = 'A';
-                                            setFormData({...formData, attendance: newAtt});
-                                        }}
-                                    />
+                                    <div className="flex justify-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500"
+                                            checked={formData.attendance[student.id] === 'A'} // TH maps to A
+                                            onChange={() => {
+                                                const newAtt = {...formData.attendance};
+                                                if (newAtt[student.id] === 'A') delete newAtt[student.id];
+                                                else newAtt[student.id] = 'A';
+                                                setFormData({...formData, attendance: newAtt});
+                                            }}
+                                        />
+                                    </div>
                                 </td>
                                 <td className="p-1 sm:p-2 text-center align-middle">
-                                    <input 
-                                        type="checkbox" 
-                                        className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500"
-                                        checked={formData.attendance[student.id] === 'D'}
-                                        onChange={() => {
-                                            const newAtt = {...formData.attendance};
-                                            if (newAtt[student.id] === 'D') delete newAtt[student.id];
-                                            else newAtt[student.id] = 'D';
-                                            setFormData({...formData, attendance: newAtt});
-                                        }}
-                                    />
+                                    <div className="flex justify-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500"
+                                            checked={formData.attendance[student.id] === 'D'}
+                                            onChange={() => {
+                                                const newAtt = {...formData.attendance};
+                                                if (newAtt[student.id] === 'D') delete newAtt[student.id];
+                                                else newAtt[student.id] = 'D';
+                                                setFormData({...formData, attendance: newAtt});
+                                            }}
+                                        />
+                                    </div>
                                 </td>
                              </>
                          ) : (
                              ['S', 'I', 'A', 'D'].map((status) => (
                                 <td key={status} className="p-1 sm:p-2 text-center align-middle">
-                                    <input 
-                                        type="checkbox" 
-                                        className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
-                                            status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
-                                            status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
-                                            status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
-                                            'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
-                                        }`}
-                                    checked={formData.attendance[student.id] === status}
-                                    onChange={() => {
-                                        const newAtt = {...formData.attendance};
-                                        if (newAtt[student.id] === status) delete newAtt[student.id];
-                                        else newAtt[student.id] = status as any;
-                                        setFormData({...formData, attendance: newAtt});
-                                    }}
-                                    />
+                                    <div className="flex justify-center">
+                                        <input 
+                                            type="checkbox" 
+                                            className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
+                                                status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
+                                                status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
+                                                status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
+                                                'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
+                                            }`}
+                                        checked={formData.attendance[student.id] === status}
+                                        onChange={() => {
+                                            const newAtt = {...formData.attendance};
+                                            if (newAtt[student.id] === status) delete newAtt[student.id];
+                                            else newAtt[student.id] = status as any;
+                                            setFormData({...formData, attendance: newAtt});
+                                        }}
+                                        />
+                                    </div>
                                 </td>
                                 ))
                          )}

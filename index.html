@@ -45,6 +45,22 @@
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
+
+      /* MODERN PAGE TRANSITION */
+      .page-enter {
+        animation: pageSlideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      
+      @keyframes pageSlideUp {
+        0% {
+          opacity: 0;
+          transform: translateY(15px) scale(0.98);
+        }
+        100% {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
     </style>
   <script type="importmap">
 {

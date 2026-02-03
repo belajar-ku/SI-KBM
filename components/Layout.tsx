@@ -163,7 +163,8 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
              </div>
           </div>
 
-          <div className="p-4 md:p-8 max-w-[1920px] w-full mx-auto pb-28 md:pb-10">
+          {/* ADDED page-enter CLASS HERE */}
+          <div className="p-4 md:p-8 max-w-[1920px] w-full mx-auto pb-28 md:pb-10 page-enter">
             {children}
           </div>
       </main>
