@@ -572,137 +572,140 @@ const JurnalForm: React.FC = () => {
   // --- COMPONENT: STUDENT TABLE (REUSABLE) ---
   const RenderStudentTable = () => (
       <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white">
-           <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
+           <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                <span className="text-sm font-bold text-slate-700">Daftar Murid ({students.length})</span>
-               <span className="text-[10px] text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 font-bold">Default: Hadir</span>
+               <span className="text-[10px] text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 font-bold whitespace-nowrap">Default: Hadir</span>
            </div>
-           <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-             <table className="w-full text-sm">
-               <thead className="bg-white sticky top-0 z-10 shadow-sm">
-                 <tr className="text-xs text-slate-500 uppercase tracking-wide">
-                   <th className="p-3 text-left pl-4">Nama</th>
-                   {isDhuha ? (
-                        <>
-                            <th className="p-3 w-32 text-center" title="Kehadiran pertemuan terakhir">Kehadiran<br/>Pekan Lalu</th>
-                            <th className="p-3 w-16 text-center" title="Tidak Hadir (Alpa)">TH</th>
-                            <th className="p-3 w-16 text-center" title="Dispensasi">D</th>
-                        </>
-                   ) : (
-                        <>
-                            <th className="p-3 w-32 text-center" title="Kehadiran pertemuan terakhir">Kehadiran<br/>Pekan Lalu</th>
-                            <th className="p-3 w-10 text-center">S</th>
-                            <th className="p-3 w-10 text-center">I</th>
-                            <th className="p-3 w-10 text-center">A</th>
-                            <th className="p-3 w-10 text-center">D</th>
-                        </>
-                   )}
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-100">
-                 {students.map(student => {
-                   // LOGIKA PEKAN LALU
-                   let prevStatusDisplay = '-';
-                   let prevStatusColor = 'bg-slate-100 text-slate-400';
+           
+           <div className="overflow-x-auto w-full">
+               <div className="max-h-[500px] overflow-y-auto custom-scrollbar min-w-[350px]">
+                 <table className="w-full text-sm">
+                   <thead className="bg-white sticky top-0 z-10 shadow-sm">
+                     <tr className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">
+                       <th className="p-2 sm:p-3 text-left pl-3 sm:pl-4">Nama</th>
+                       {isDhuha ? (
+                            <>
+                                <th className="p-2 sm:p-3 w-20 text-center" title="Kehadiran pertemuan terakhir">Pekan Lalu</th>
+                                <th className="p-2 sm:p-3 w-12 text-center" title="Tidak Hadir (Alpa)">TH</th>
+                                <th className="p-2 sm:p-3 w-12 text-center" title="Dispensasi">D</th>
+                            </>
+                       ) : (
+                            <>
+                                <th className="p-2 sm:p-3 w-20 text-center" title="Kehadiran pertemuan terakhir">Pekan Lalu</th>
+                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">S</th>
+                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">I</th>
+                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">A</th>
+                                <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">D</th>
+                            </>
+                       )}
+                     </tr>
+                   </thead>
+                   <tbody className="divide-y divide-slate-100">
+                     {students.map(student => {
+                       // LOGIKA PEKAN LALU
+                       let prevStatusDisplay = '-';
+                       let prevStatusColor = 'bg-slate-100 text-slate-400';
 
-                   if (hasPrevMeeting) {
-                        const rawStatus = prevMeetingStats[student.id];
-                        
-                        if (!rawStatus) {
-                            // Tidak ada data log = Hadir (H)
-                            prevStatusDisplay = 'H';
-                            prevStatusColor = 'bg-green-100 text-green-700';
-                        } else if (rawStatus === 'D') {
-                            prevStatusDisplay = 'D';
-                            prevStatusColor = 'bg-purple-100 text-purple-700';
-                        } else if (isDhuha && ['S', 'I', 'A'].includes(rawStatus)) {
-                            // Khusus Dhuha: S, I, A jadi TH
-                            prevStatusDisplay = 'TH';
-                            prevStatusColor = 'bg-red-100 text-red-700';
-                        } else {
-                            // Mapel Lain: Tampilkan sesuai status
-                            prevStatusDisplay = rawStatus;
-                            if (rawStatus === 'S') prevStatusColor = 'bg-yellow-100 text-yellow-700';
-                            else if (rawStatus === 'I') prevStatusColor = 'bg-blue-100 text-blue-700';
-                            else if (rawStatus === 'A') prevStatusColor = 'bg-red-100 text-red-700';
-                        }
-                   }
+                       if (hasPrevMeeting) {
+                            const rawStatus = prevMeetingStats[student.id];
+                            
+                            if (!rawStatus) {
+                                // Tidak ada data log = Hadir (H)
+                                prevStatusDisplay = 'H';
+                                prevStatusColor = 'bg-green-100 text-green-700';
+                            } else if (rawStatus === 'D') {
+                                prevStatusDisplay = 'D';
+                                prevStatusColor = 'bg-purple-100 text-purple-700';
+                            } else if (isDhuha && ['S', 'I', 'A'].includes(rawStatus)) {
+                                // Khusus Dhuha: S, I, A jadi TH
+                                prevStatusDisplay = 'TH';
+                                prevStatusColor = 'bg-red-100 text-red-700';
+                            } else {
+                                // Mapel Lain: Tampilkan sesuai status
+                                prevStatusDisplay = rawStatus;
+                                if (rawStatus === 'S') prevStatusColor = 'bg-yellow-100 text-yellow-700';
+                                else if (rawStatus === 'I') prevStatusColor = 'bg-blue-100 text-blue-700';
+                                else if (rawStatus === 'A') prevStatusColor = 'bg-red-100 text-red-700';
+                            }
+                       }
 
-                   // LOGIKA ALPA COUNT (Untuk Tampilan di Nama)
-                   const alpaCount = studentAlpaCounts[student.id] || 0;
+                       // LOGIKA ALPA COUNT (Untuk Tampilan di Nama)
+                       const alpaCount = studentAlpaCounts[student.id] || 0;
 
-                   return (
-                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                     <td className="p-3 pl-4 font-bold text-slate-700">
-                         {student.name}
-                         {alpaCount > 0 && (
-                             <span className="text-red-500 text-[10px] ml-2 font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
-                                 | A: {alpaCount}
-                             </span>
+                       return (
+                       <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                         <td className="p-2 sm:p-3 pl-3 sm:pl-4 font-bold text-slate-700 text-xs sm:text-sm">
+                             {student.name}
+                             {alpaCount > 0 && (
+                                 <span className="text-red-500 text-[10px] ml-1 sm:ml-2 font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap">
+                                     | A: {alpaCount}
+                                 </span>
+                             )}
+                         </td>
+                         
+                         {/* Kolom Kehadiran Pekan Lalu (Ada di kedua mode) */}
+                         <td className="p-1 sm:p-2 text-center border-l border-r border-slate-100 bg-slate-50/50">
+                            <span className={`px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs font-bold ${prevStatusColor}`}>
+                                {prevStatusDisplay}
+                            </span>
+                         </td>
+
+                         {isDhuha ? (
+                             <>
+                                <td className="p-1 sm:p-2 text-center">
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500"
+                                        checked={formData.attendance[student.id] === 'A'} // TH maps to A
+                                        onChange={() => {
+                                            const newAtt = {...formData.attendance};
+                                            if (newAtt[student.id] === 'A') delete newAtt[student.id];
+                                            else newAtt[student.id] = 'A';
+                                            setFormData({...formData, attendance: newAtt});
+                                        }}
+                                    />
+                                </td>
+                                <td className="p-1 sm:p-2 text-center">
+                                    <input 
+                                        type="checkbox" 
+                                        className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500"
+                                        checked={formData.attendance[student.id] === 'D'}
+                                        onChange={() => {
+                                            const newAtt = {...formData.attendance};
+                                            if (newAtt[student.id] === 'D') delete newAtt[student.id];
+                                            else newAtt[student.id] = 'D';
+                                            setFormData({...formData, attendance: newAtt});
+                                        }}
+                                    />
+                                </td>
+                             </>
+                         ) : (
+                             ['S', 'I', 'A', 'D'].map((status) => (
+                                <td key={status} className="p-1 sm:p-2 text-center">
+                                    <input 
+                                        type="checkbox" 
+                                        className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
+                                            status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
+                                            status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
+                                            status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
+                                            'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
+                                        }`}
+                                    checked={formData.attendance[student.id] === status}
+                                    onChange={() => {
+                                        const newAtt = {...formData.attendance};
+                                        if (newAtt[student.id] === status) delete newAtt[student.id];
+                                        else newAtt[student.id] = status as any;
+                                        setFormData({...formData, attendance: newAtt});
+                                    }}
+                                    />
+                                </td>
+                                ))
                          )}
-                     </td>
-                     
-                     {/* Kolom Kehadiran Pekan Lalu (Ada di kedua mode) */}
-                     <td className="p-2 text-center border-l border-r border-slate-100 bg-slate-50/50">
-                        <span className={`px-2 py-1 rounded text-xs font-bold ${prevStatusColor}`}>
-                            {prevStatusDisplay}
-                        </span>
-                     </td>
-
-                     {isDhuha ? (
-                         <>
-                            <td className="p-2 text-center">
-                                <input 
-                                    type="checkbox" 
-                                    className="w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500"
-                                    checked={formData.attendance[student.id] === 'A'} // TH maps to A
-                                    onChange={() => {
-                                        const newAtt = {...formData.attendance};
-                                        if (newAtt[student.id] === 'A') delete newAtt[student.id];
-                                        else newAtt[student.id] = 'A';
-                                        setFormData({...formData, attendance: newAtt});
-                                    }}
-                                />
-                            </td>
-                            <td className="p-2 text-center">
-                                <input 
-                                    type="checkbox" 
-                                    className="w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500"
-                                    checked={formData.attendance[student.id] === 'D'}
-                                    onChange={() => {
-                                        const newAtt = {...formData.attendance};
-                                        if (newAtt[student.id] === 'D') delete newAtt[student.id];
-                                        else newAtt[student.id] = 'D';
-                                        setFormData({...formData, attendance: newAtt});
-                                    }}
-                                />
-                            </td>
-                         </>
-                     ) : (
-                         ['S', 'I', 'A', 'D'].map((status) => (
-                            <td key={status} className="p-2 text-center">
-                                <input 
-                                    type="checkbox" 
-                                    className={`w-5 h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
-                                        status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' :
-                                        status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' :
-                                        status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' :
-                                        'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'
-                                    }`}
-                                checked={formData.attendance[student.id] === status}
-                                onChange={() => {
-                                    const newAtt = {...formData.attendance};
-                                    if (newAtt[student.id] === status) delete newAtt[student.id];
-                                    else newAtt[student.id] = status as any;
-                                    setFormData({...formData, attendance: newAtt});
-                                }}
-                                />
-                            </td>
-                            ))
-                     )}
-                   </tr>
-                 )})}
-               </tbody>
-             </table>
+                       </tr>
+                     )})}
+                   </tbody>
+                 </table>
+               </div>
            </div>
       </div>
   );
