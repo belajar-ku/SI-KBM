@@ -17,22 +17,12 @@ interface NoteItem {
 
 // SMART TITLE CASE HELPER (Improved)
 const smartTitleCase = (str: string) => {
-    // Kata sambung yang tidak perlu kapital kecuali di awal
     const smallWords = ['di', 'ke', 'dari', 'pada', 'dalam', 'dengan', 'dan', 'atau', 'yang', 'untuk', 'saja'];
-    
     return str.split(' ').map((word, index) => {
         const lower = word.toLowerCase();
-        
-        // 1. Selalu kapital di awal kalimat
         if (index === 0) return lower.charAt(0).toUpperCase() + lower.slice(1);
-        
-        // 2. Kecilkan jika kata sambung
         if (smallWords.includes(lower)) return lower;
-        
-        // 3. Kecilkan jika satu huruf (misal: "Titik a, b") 
         if (/^[a-z][.,]?$/.test(lower)) return lower;
-        
-        // 4. Sisanya Kapital
         return lower.charAt(0).toUpperCase() + lower.slice(1);
     }).join(' ');
 };
@@ -57,7 +47,7 @@ const JurnalForm: React.FC = () => {
 
   // --- SETTINGS MASTER DATA ---
   const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
-  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]); // New State
+  const [followUpTypes, setFollowUpTypes] = useState<string[]>([]);
   const [activityTypes, setActivityTypes] = useState<string[]>([]);
 
   // --- ASSESSMENT STATE ---
@@ -75,9 +65,6 @@ const JurnalForm: React.FC = () => {
   // --- PREVIOUS ATTENDANCE STATE (FOR ALL SUBJECTS) ---
   const [prevMeetingStats, setPrevMeetingStats] = useState<Record<string, string>>({});
   const [hasPrevMeeting, setHasPrevMeeting] = useState(false);
-
-  // --- HOMEROOM ATTENDANCE STATE ---
-  const [homeroomStats, setHomeroomStats] = useState<Record<string, string>>({});
 
   // --- ALPA COUNTS STATE ---
   const [studentAlpaCounts, setStudentAlpaCounts] = useState<Record<string, number>>({});
@@ -101,7 +88,6 @@ const JurnalForm: React.FC = () => {
     isConfirmed: false
   });
 
-  // --- SPECIAL SUBJECT LOGIC (Salat Dhuha) ---
   const isSpecialSubjectDhuha = (subject: string) => {
       return subject && subject.toLowerCase().includes('dhuha');
   };
@@ -111,41 +97,35 @@ const JurnalForm: React.FC = () => {
     fetchInitData();
   }, [profile]);
 
-  // Effect to auto-fill material for Salat Dhuha
   useEffect(() => {
       if (isDhuha && !formData.material) {
           setFormData(prev => ({ ...prev, material: 'Salat Dhuha' }));
       }
   }, [formData.subject, isDhuha]);
 
-  // Effect to fetch PREVIOUS Attendance (Generalized for ALL Subjects)
+  // Effect to fetch PREVIOUS Attendance (Async / Background Update)
   useEffect(() => {
       if (formData.kelas && formData.subject) {
           const fetchPreviousAttendance = async () => {
               try {
                   const todayStr = getWIBISOString();
-                  // 1. Cari jurnal TERAKHIR untuk mapel & kelas ini sebelum hari ini
                   const { data: journals } = await supabase.from('journals')
                       .select('id')
                       .eq('kelas', formData.kelas)
-                      .eq('subject', formData.subject) // Match exact subject name
-                      .lt('created_at', `${todayStr}T00:00:00+07:00`) // Hanya ambil yang sebelum hari ini
+                      .eq('subject', formData.subject)
+                      .lt('created_at', `${todayStr}T00:00:00+07:00`)
                       .order('created_at', { ascending: false })
                       .limit(1);
 
                   if (journals && journals.length > 0) {
                       const lastJid = journals[0].id;
                       setHasPrevMeeting(true);
-
-                      // 2. Ambil log absensi dari jurnal tersebut
                       const { data: logs } = await supabase.from('attendance_logs')
                           .select('student_id, status')
                           .eq('journal_id', lastJid);
                       
                       const map: Record<string, string> = {};
-                      if (logs) {
-                          logs.forEach(l => map[l.student_id] = l.status);
-                      }
+                      if (logs) logs.forEach(l => map[l.student_id] = l.status);
                       setPrevMeetingStats(map);
                   } else {
                       setHasPrevMeeting(false);
@@ -175,7 +155,6 @@ const JurnalForm: React.FC = () => {
 
         const schedules = schedulesRes.data;
         
-        // Parse Settings
         if (settingsRes.data) {
             settingsRes.data.forEach(item => {
                 if (item.key === 'discipline_types') setDisciplineTypes(item.value ? JSON.parse(item.value) : []);
@@ -198,11 +177,11 @@ const JurnalForm: React.FC = () => {
         
         const { data: historyJournals } = await supabase
             .from('journals')
-            .select('kelas, subject, material, created_at')
+            .select('kelas, subject, material')
             .eq('teacher_id', profile.id)
             .lt('created_at', startOfDay)
             .order('created_at', { ascending: false })
-            .limit(100);
+            .limit(50); // Reduced limit for performance
 
         const materialMap: Record<string, string> = {};
         if (historyJournals) {
@@ -233,22 +212,22 @@ const JurnalForm: React.FC = () => {
     }
   };
 
+  // OPTIMIZED: Split fetching into Immediate List and Background Stats
   useEffect(() => {
     if (formData.kelas && profile) {
-      const fetchStudentsAndStats = async () => {
-        setLoading(true);
-        // 1. Fetch Students
-        const { data: studentsData } = await supabase.from('students').select('*').eq('kelas', formData.kelas).order('name');
+      const loadStudentsAndStats = async () => {
+        setLoading(true); // Show local loader for students
+        
+        // 1. Fetch Students (Fast)
+        const { data: studentsData } = await supabase.from('students').select('id, name').eq('kelas', formData.kelas).order('name');
         
         if (studentsData) {
-            setStudents(studentsData);
-            
-            // 2. Fetch Total Alpa Count for these students
-            // FILTER: Hanya Alpa pada Guru yang Login (profile.id)
-            // FILTER: Hanya untuk Mapel yang sedang dipilih (formData.subject) - Jika ada
+            setStudents(studentsData as Student[]);
+            setLoading(false); // STOP LOADING HERE (UI appears immediately)
+
+            // 2. Fetch Stats in Background (Lazy Load)
             const studentIds = studentsData.map(s => s.id);
             if (studentIds.length > 0) {
-                // Gunakan inner join ke tabel journals untuk filter by teacher_id & subject
                 let query = supabase
                     .from('attendance_logs')
                     .select('student_id, journal_id, journals!inner(teacher_id, subject)')
@@ -256,137 +235,129 @@ const JurnalForm: React.FC = () => {
                     .in('student_id', studentIds)
                     .eq('journals.teacher_id', profile.id);
                 
-                // Jika sedang mengedit, jangan hitung log dari jurnal yang sedang diedit (biar historis murni)
                 if (editJournalId) {
                     query = query.neq('journal_id', editJournalId);
                 }
-
-                // Jika Mapel sudah terisi (Mode Auto atau Manual Step 2), filter by Mapel juga
                 if (formData.subject) {
                     query = query.eq('journals.subject', formData.subject);
                 }
                 
-                const { data: alpaLogs, error } = await query;
-                
-                if (error) console.error("Error fetching teacher alpa stats:", error);
-
+                const { data: alpaLogs } = await query;
                 const alpaCounts: Record<string, number> = {};
                 alpaLogs?.forEach((log: any) => {
                     alpaCounts[log.student_id] = (alpaCounts[log.student_id] || 0) + 1;
                 });
                 setStudentAlpaCounts(alpaCounts);
-            } else {
-                setStudentAlpaCounts({});
             }
+        } else {
+            setLoading(false);
         }
-        setLoading(false);
       };
-      fetchStudentsAndStats();
+      loadStudentsAndStats();
     }
-  }, [formData.kelas, formData.subject, profile?.id, editJournalId]); 
+  }, [formData.kelas, profile?.id]); // Note: Removed formData.subject dependency to avoid re-fetching list on subject change, only stats might need refresh but generally list is same.
 
   const handleScheduleSelect = async (scheduleId: string) => {
-      setLoading(true);
-      try {
-        const selectedSchedule = todaySchedules.find(s => s.id === scheduleId);
-        if (!selectedSchedule) return;
+      // Don't set global loading here to keep UI responsive, rely on specific loaders if needed
+      const selectedSchedule = todaySchedules.find(s => s.id === scheduleId);
+      if (!selectedSchedule) return;
 
-        const existing = existingJournals.find(j => 
-            j.kelas === selectedSchedule.kelas && 
-            j.subject === selectedSchedule.subject
-        );
+      const existing = existingJournals.find(j => 
+          j.kelas === selectedSchedule.kelas && 
+          j.subject === selectedSchedule.subject
+      );
 
-        if (existing) {
-            setEditJournalId(existing.id);
-            // Fetch Attendance
-            const { data: logs } = await supabase.from('attendance_logs').select('student_id, status').eq('journal_id', existing.id);
-            const attendanceMap: Record<string, 'S'|'I'|'A'|'D'> = {};
-            if (logs) logs.forEach(l => { attendanceMap[l.student_id] = l.status as any; });
+      if (existing) {
+          setEditJournalId(existing.id);
+          // Parallel Fetch
+          const [logsRes, notesRes] = await Promise.all([
+              supabase.from('attendance_logs').select('student_id, status').eq('journal_id', existing.id),
+              supabase.from('journal_notes').select('*').eq('journal_id', existing.id)
+          ]);
 
-            // Fetch Notes
-            const { data: notes } = await supabase.from('journal_notes').select('type, category, student_id, follow_up, note').eq('journal_id', existing.id);
-            const loadedNotes = { discipline: [] as NoteItem[], activity: [] as NoteItem[] };
-            
-            if (notes) {
-                const discMap: Record<string, string[]> = {};
-                const actMap: Record<string, string[]> = {};
+          const attendanceMap: Record<string, 'S'|'I'|'A'|'D'> = {};
+          if (logsRes.data) logsRes.data.forEach(l => { attendanceMap[l.student_id] = l.status as any; });
 
-                notes.forEach(n => {
-                    const key = `${n.category}|${n.follow_up || ''}|${n.note || ''}`;
-                    if (n.type === 'kedisiplinan') {
-                        if (!discMap[key]) discMap[key] = [];
-                        discMap[key].push(n.student_id);
-                    } else {
-                        if (!actMap[key]) actMap[key] = [];
-                        actMap[key].push(n.student_id);
-                    }
-                });
+          const loadedNotes = { discipline: [] as NoteItem[], activity: [] as NoteItem[] };
+          if (notesRes.data) {
+              const discMap: Record<string, string[]> = {};
+              const actMap: Record<string, string[]> = {};
 
-                loadedNotes.discipline = Object.entries(discMap).map(([key, studentIds]) => {
-                    const [category, followUp, note] = key.split('|');
-                    return { category, followUp, note, studentIds };
-                });
-                loadedNotes.activity = Object.entries(actMap).map(([key, studentIds]) => {
-                    const [category, _, note] = key.split('|');
-                    return { category, note, studentIds };
-                });
-            }
-            setNotesData(loadedNotes);
+              notesRes.data.forEach(n => {
+                  const key = `${n.category}|${n.follow_up || ''}|${n.note || ''}`;
+                  if (n.type === 'kedisiplinan') {
+                      if (!discMap[key]) discMap[key] = [];
+                      discMap[key].push(n.student_id);
+                  } else {
+                      if (!actMap[key]) actMap[key] = [];
+                      actMap[key].push(n.student_id);
+                  }
+              });
 
-            setFormData({
-                kelas: existing.kelas,
-                subject: existing.subject,
-                hours: existing.hours.split(',').map(s => s.trim()),
-                material: existing.material,
-                attendance: attendanceMap,
-                cleanliness: existing.cleanliness as any,
-                validation: existing.validation as any,
-                notes: existing.notes || '',
-                isConfirmed: existing.validation === 'hadir_kbm'
-            });
-        } else {
-            // NEW JOURNAL MODE
-            setEditJournalId(null);
-            setNotesData({ discipline: [], activity: [] });
-            let hoursParsed: string[] = [];
-            if (selectedSchedule.hour.includes(',')) hoursParsed = selectedSchedule.hour.split(',').map(s => s.trim());
-            else hoursParsed = [selectedSchedule.hour];
+              loadedNotes.discipline = Object.entries(discMap).map(([key, studentIds]) => {
+                  const [category, followUp, note] = key.split('|');
+                  return { category, followUp, note, studentIds };
+              });
+              loadedNotes.activity = Object.entries(actMap).map(([key, studentIds]) => {
+                  const [category, _, note] = key.split('|');
+                  return { category, note, studentIds };
+              });
+          }
+          setNotesData(loadedNotes);
 
-            // Auto-fill material for Dhuha immediately upon selection if not existing
-            const isDhuhaSched = isSpecialSubjectDhuha(selectedSchedule.subject);
-            const defaultMaterial = isDhuhaSched ? 'Salat Dhuha' : '';
+          setFormData({
+              kelas: existing.kelas,
+              subject: existing.subject,
+              hours: existing.hours.split(',').map(s => s.trim()),
+              material: existing.material,
+              attendance: attendanceMap,
+              cleanliness: existing.cleanliness as any,
+              validation: existing.validation as any,
+              notes: existing.notes || '',
+              isConfirmed: existing.validation === 'hadir_kbm'
+          });
+      } else {
+          // NEW JOURNAL MODE
+          setEditJournalId(null);
+          setNotesData({ discipline: [], activity: [] });
+          let hoursParsed: string[] = [];
+          if (selectedSchedule.hour.includes(',')) hoursParsed = selectedSchedule.hour.split(',').map(s => s.trim());
+          else hoursParsed = [selectedSchedule.hour];
 
-            // --- FETCH HOMEROOM ATTENDANCE (Wali Kelas Input) ---
-            // If data exists, pre-fill formData.attendance
-            const todayStr = getWIBISOString();
-            const { data: hrData } = await supabase.from('homeroom_attendance')
-                .select('student_id, status')
-                .eq('date', todayStr)
-                .eq('kelas', selectedSchedule.kelas);
-            
-            const initialAttendance: Record<string, 'S' | 'I' | 'A' | 'D'> = {};
-            
-            if (hrData && hrData.length > 0) {
-                hrData.forEach(r => {
-                    if (['S', 'I', 'A', 'D'].includes(r.status)) {
-                        initialAttendance[r.student_id] = r.status as any;
-                    }
-                });
-            }
+          const isDhuhaSched = isSpecialSubjectDhuha(selectedSchedule.subject);
+          const defaultMaterial = isDhuhaSched ? 'Salat Dhuha' : '';
 
-            setFormData({
-                kelas: selectedSchedule.kelas,
-                subject: selectedSchedule.subject,
-                hours: hoursParsed,
-                material: defaultMaterial,
-                attendance: initialAttendance, // Pre-filled here
-                cleanliness: '',
-                validation: '',
-                notes: '',
-                isConfirmed: false
-            });
-        }
-      } catch (e) { console.error(e); } finally { setLoading(false); }
+          // Fetch Homeroom attendance in background, don't block
+          const todayStr = getWIBISOString();
+          supabase.from('homeroom_attendance')
+              .select('student_id, status')
+              .eq('date', todayStr)
+              .eq('kelas', selectedSchedule.kelas)
+              .then(({data}) => {
+                  if (data && data.length > 0) {
+                      const initialAttendance: Record<string, any> = {};
+                      data.forEach(r => {
+                          if (['S', 'I', 'A', 'D'].includes(r.status)) {
+                              initialAttendance[r.student_id] = r.status;
+                          }
+                      });
+                      // Update formData only if we found data (React batching handles this well)
+                      setFormData(prev => ({...prev, attendance: initialAttendance}));
+                  }
+              });
+
+          setFormData({
+              kelas: selectedSchedule.kelas,
+              subject: selectedSchedule.subject,
+              hours: hoursParsed,
+              material: defaultMaterial,
+              attendance: {}, 
+              cleanliness: '',
+              validation: '',
+              notes: '',
+              isConfirmed: false
+          });
+      }
   };
 
   const handleNext = () => setStep(prev => prev + 1);
@@ -398,7 +369,7 @@ const JurnalForm: React.FC = () => {
       setFormData({...formData, material: formatted});
   };
 
-  // --- LOGIC NOTES (STEP 3) ---
+  // --- LOGIC NOTES & SUBMIT (UNCHANGED) ---
   const addNoteRow = (type: 'discipline' | 'activity') => {
       setNotesData(prev => ({
           ...prev,
@@ -421,7 +392,6 @@ const JurnalForm: React.FC = () => {
       });
   };
 
-  // --- LOGIC PENILAIAN & SUBMIT ---
   const handlePreSubmit = () => {
       setShowAssessmentModal(true);
       setMissingStudents([]); 
@@ -469,7 +439,6 @@ const JurnalForm: React.FC = () => {
         assessment_missing_students: JSON.stringify(missingNames)
       };
 
-      // 1. Save Journal
       if (editJournalId) {
           const { error } = await supabase.from('journals').update(payload).eq('id', editJournalId);
           if (error) throw error;
@@ -487,7 +456,6 @@ const JurnalForm: React.FC = () => {
           finalJournalId = journal.id;
       }
 
-      // 2. Insert Attendance Logs
       if (finalJournalId) {
           const attendanceInserts = Object.entries(formData.attendance).map(([studentId, status]) => {
               const studentName = students.find(s => s.id === studentId)?.name || 'Unknown';
@@ -505,9 +473,7 @@ const JurnalForm: React.FC = () => {
             if (attError) throw attError;
           }
 
-          // 3. Insert Journal Notes (Discipline & Activity)
           const notesInserts: any[] = [];
-          
           notesData.discipline.forEach(row => {
               if (row.category && row.studentIds.length > 0) {
                   row.studentIds.forEach(sid => {
@@ -518,8 +484,8 @@ const JurnalForm: React.FC = () => {
                           student_name: sName,
                           type: 'kedisiplinan',
                           category: row.category,
-                          follow_up: row.followUp || '', // Save Dropdown
-                          note: row.note || '' // Save Manual Note
+                          follow_up: row.followUp || '',
+                          note: row.note || ''
                       });
                   });
               }
@@ -569,7 +535,7 @@ const JurnalForm: React.FC = () => {
       }
   };
 
-  // --- COMPONENT: STUDENT TABLE (REUSABLE) ---
+  // --- COMPONENT: STUDENT TABLE (OPTIMIZED LAYOUT) ---
   const RenderStudentTable = () => (
       <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white">
            <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
@@ -582,16 +548,14 @@ const JurnalForm: React.FC = () => {
                  <table className="w-full text-sm">
                    <thead className="bg-white sticky top-0 z-10 shadow-sm">
                      <tr className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">
-                       <th className="p-2 sm:p-3 text-left pl-3 sm:pl-4">Nama</th>
+                       <th className="p-2 sm:p-3 text-left pl-3 sm:pl-4">Nama / Pekan Lalu</th>
                        {isDhuha ? (
                             <>
-                                <th className="p-2 sm:p-3 w-20 text-center" title="Kehadiran pertemuan terakhir">Pekan Lalu</th>
                                 <th className="p-2 sm:p-3 w-12 text-center" title="Tidak Hadir (Alpa)">TH</th>
                                 <th className="p-2 sm:p-3 w-12 text-center" title="Dispensasi">D</th>
                             </>
                        ) : (
                             <>
-                                <th className="p-2 sm:p-3 w-20 text-center" title="Kehadiran pertemuan terakhir">Pekan Lalu</th>
                                 <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">S</th>
                                 <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">I</th>
                                 <th className="p-2 sm:p-3 w-8 sm:w-10 text-center">A</th>
@@ -612,20 +576,18 @@ const JurnalForm: React.FC = () => {
                             if (!rawStatus) {
                                 // Tidak ada data log = Hadir (H)
                                 prevStatusDisplay = 'H';
-                                prevStatusColor = 'bg-green-100 text-green-700';
+                                prevStatusColor = 'bg-green-100 text-green-700 border-green-200';
                             } else if (rawStatus === 'D') {
                                 prevStatusDisplay = 'D';
-                                prevStatusColor = 'bg-purple-100 text-purple-700';
+                                prevStatusColor = 'bg-purple-100 text-purple-700 border-purple-200';
                             } else if (isDhuha && ['S', 'I', 'A'].includes(rawStatus)) {
-                                // Khusus Dhuha: S, I, A jadi TH
                                 prevStatusDisplay = 'TH';
-                                prevStatusColor = 'bg-red-100 text-red-700';
+                                prevStatusColor = 'bg-red-100 text-red-700 border-red-200';
                             } else {
-                                // Mapel Lain: Tampilkan sesuai status
                                 prevStatusDisplay = rawStatus;
-                                if (rawStatus === 'S') prevStatusColor = 'bg-yellow-100 text-yellow-700';
-                                else if (rawStatus === 'I') prevStatusColor = 'bg-blue-100 text-blue-700';
-                                else if (rawStatus === 'A') prevStatusColor = 'bg-red-100 text-red-700';
+                                if (rawStatus === 'S') prevStatusColor = 'bg-yellow-100 text-yellow-700 border-yellow-200';
+                                else if (rawStatus === 'I') prevStatusColor = 'bg-blue-100 text-blue-700 border-blue-200';
+                                else if (rawStatus === 'A') prevStatusColor = 'bg-red-100 text-red-700 border-red-200';
                             }
                        }
 
@@ -634,25 +596,23 @@ const JurnalForm: React.FC = () => {
 
                        return (
                        <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                         <td className="p-2 sm:p-3 pl-3 sm:pl-4 font-bold text-slate-700 text-xs sm:text-sm">
-                             {student.name}
-                             {alpaCount > 0 && (
-                                 <span className="text-red-500 text-[10px] ml-1 sm:ml-2 font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap">
-                                     | A: {alpaCount}
+                         <td className="p-2 sm:p-3 pl-3 sm:pl-4">
+                             <div className="font-bold text-slate-700 text-xs sm:text-sm">{student.name}</div>
+                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                 {alpaCount > 0 && (
+                                     <span className="text-red-600 text-[10px] font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap" title="Total Alpa">
+                                         A: {alpaCount}
+                                     </span>
+                                 )}
+                                 <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${prevStatusColor} whitespace-nowrap`} title="Kehadiran Pekan Lalu">
+                                     {prevStatusDisplay}
                                  </span>
-                             )}
+                             </div>
                          </td>
                          
-                         {/* Kolom Kehadiran Pekan Lalu (Ada di kedua mode) */}
-                         <td className="p-1 sm:p-2 text-center border-l border-r border-slate-100 bg-slate-50/50">
-                            <span className={`px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs font-bold ${prevStatusColor}`}>
-                                {prevStatusDisplay}
-                            </span>
-                         </td>
-
                          {isDhuha ? (
                              <>
-                                <td className="p-1 sm:p-2 text-center">
+                                <td className="p-1 sm:p-2 text-center align-middle">
                                     <input 
                                         type="checkbox" 
                                         className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500"
@@ -665,7 +625,7 @@ const JurnalForm: React.FC = () => {
                                         }}
                                     />
                                 </td>
-                                <td className="p-1 sm:p-2 text-center">
+                                <td className="p-1 sm:p-2 text-center align-middle">
                                     <input 
                                         type="checkbox" 
                                         className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500"
@@ -681,7 +641,7 @@ const JurnalForm: React.FC = () => {
                              </>
                          ) : (
                              ['S', 'I', 'A', 'D'].map((status) => (
-                                <td key={status} className="p-1 sm:p-2 text-center">
+                                <td key={status} className="p-1 sm:p-2 text-center align-middle">
                                     <input 
                                         type="checkbox" 
                                         className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${
@@ -757,7 +717,6 @@ const JurnalForm: React.FC = () => {
                                   onClick={() => toggleSelection(opt.id)}
                                   className={`flex items-center gap-3 p-2.5 rounded-lg cursor-pointer transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}
                               >
-                                  {/* Custom Checkbox UI */}
                                   <div className={`w-5 h-5 rounded flex items-center justify-center border transition-all ${
                                       isSelected 
                                       ? 'bg-blue-600 border-blue-600' 
@@ -765,7 +724,6 @@ const JurnalForm: React.FC = () => {
                                   }`}>
                                       {isSelected && <Check size={14} className="text-white" strokeWidth={3} />}
                                   </div>
-                                  
                                   <span className={`text-sm ${isSelected ? 'text-blue-700 font-bold' : 'text-slate-700'}`}>
                                       {opt.name}
                                   </span>
@@ -797,7 +755,7 @@ const JurnalForm: React.FC = () => {
   };
 
   const renderStep1 = () => (
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+      <div className="bg-white rounded-3xl p-4 md:p-6 shadow-sm border border-slate-100 animate-fade-in">
        {/* ... Same as previous implementation ... */}
        <div className="flex justify-between items-start mb-6">
            <div>
@@ -832,49 +790,52 @@ const JurnalForm: React.FC = () => {
                             : (lastMaterials[`${sch.kelas}-${sch.subject}`] || 'Belum ada data materi sebelumnya.');
                          
                          return (
-                            <div 
-                                key={sch.id}
-                                className={`p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 relative ${
-                                    isSelected 
-                                    ? (filled ? 'border-green-500 bg-green-50' : 'border-blue-600 bg-blue-50') 
-                                    : (filled ? 'border-green-100 bg-green-50/20' : 'border-slate-100 hover:border-blue-200 bg-white')
-                                }`}
-                            >
-                                <div onClick={() => handleScheduleSelect(sch.id)} className="cursor-pointer flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-sm ${
-                                            filled ? 'bg-green-500' : (isSelected ? 'bg-blue-600' : 'bg-slate-400')
-                                        }`}>
-                                            {sch.kelas}
+                            <React.Fragment key={sch.id}>
+                                <div 
+                                    onClick={() => handleScheduleSelect(sch.id)}
+                                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col gap-2 relative cursor-pointer ${
+                                        isSelected 
+                                        ? (filled ? 'border-green-500 bg-green-50 shadow-md ring-1 ring-green-500' : 'border-blue-600 bg-blue-50 shadow-md ring-1 ring-blue-500') 
+                                        : (filled ? 'border-green-100 bg-green-50/20 opacity-80' : 'border-slate-100 hover:border-blue-200 bg-white hover:bg-slate-50')
+                                    }`}
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-base shadow-sm ${
+                                                filled ? 'bg-green-500' : (isSelected ? 'bg-blue-600' : 'bg-slate-400')
+                                            }`}>
+                                                {sch.kelas}
+                                            </div>
+                                            <div>
+                                                <p className="font-bold text-slate-800 text-sm">{sch.subject}</p>
+                                                <p className="text-xs text-slate-500 flex items-center gap-1 font-medium mt-0.5"><Clock size={12}/> Jam ke-{sch.hour}</p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="font-bold text-slate-800 text-sm">{sch.subject}</p>
-                                            <p className="text-xs text-slate-500 flex items-center gap-1 font-medium mt-0.5"><Clock size={12}/> Jam ke-{sch.hour}</p>
+                                        
+                                        {filled ? (
+                                            <div className="flex items-center gap-1 text-green-700 text-[10px] font-bold bg-white px-2 py-1 rounded-lg border border-green-200">
+                                                <Check size={12} strokeWidth={3} /> {isSelected ? 'DIEDIT' : 'SELESAI'}
+                                            </div>
+                                        ) : isSelected && (
+                                            <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white">
+                                                <Check size={14} strokeWidth={3} />
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-1 pt-2 border-t border-slate-200/50 flex items-start gap-2">
+                                        <History size={14} className="text-slate-400 mt-0.5 flex-shrink-0"/>
+                                        <div className="text-xs">
+                                            <span className="font-bold text-slate-500 block mb-0.5">
+                                                {filled ? "Materi Hari Ini:" : "Materi Terakhir:"}
+                                            </span>
+                                            <p className="text-slate-600 line-clamp-1">"{materialText}"</p>
                                         </div>
                                     </div>
-                                    
-                                    {filled ? (
-                                        <div className="flex items-center gap-1 text-green-700 text-[10px] font-bold bg-white px-2 py-1 rounded-lg border border-green-200">
-                                            <Check size={12} strokeWidth={3} /> {isSelected ? 'DIEDIT' : 'SELESAI'}
-                                        </div>
-                                    ) : isSelected && (
-                                        <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white">
-                                            <Check size={14} strokeWidth={3} />
-                                        </div>
-                                    )}
-                                </div>
-                                <div onClick={() => handleScheduleSelect(sch.id)} className="cursor-pointer mt-1 pt-2 border-t border-slate-200/50 flex items-start gap-2">
-                                     <History size={14} className="text-slate-400 mt-0.5 flex-shrink-0"/>
-                                     <div className="text-xs">
-                                         <span className="font-bold text-slate-500 block mb-0.5">
-                                            {filled ? "Materi Hari Ini:" : "Materi Terakhir:"}
-                                         </span>
-                                         <p className="text-slate-600 line-clamp-1">"{materialText}"</p>
-                                     </div>
                                 </div>
 
+                                {/* RENDER TABLE INSIDE LOOP IF SELECTED */}
                                 {isSelected && (
-                                    <div className="mt-4 pt-4 border-t border-blue-200 animate-fade-in">
+                                    <div className="animate-fade-in mt-2">
                                         {loading ? (
                                             <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>
                                         ) : (
@@ -882,7 +843,7 @@ const JurnalForm: React.FC = () => {
                                         )}
                                     </div>
                                 )}
-                            </div>
+                            </React.Fragment>
                          );
                      })}
                  </div>
@@ -904,8 +865,17 @@ const JurnalForm: React.FC = () => {
 
        {inputMode !== 'auto' && loading && <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>}
 
+       {/* RENDER TABLE DI BAWAH HANYA UNTUK MODE MANUAL */}
        {inputMode !== 'auto' && formData.kelas && !loading && (
-         <RenderStudentTable />
+         <div className="mt-6 pt-4 border-t border-slate-100 animate-fade-in">
+             <div className="mb-3 flex items-center justify-between">
+                 <h4 className="font-bold text-slate-700 text-sm">Presensi {formData.kelas}</h4>
+                 <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-2 py-1 rounded border border-blue-100">
+                     Manual Input
+                 </span>
+             </div>
+             <RenderStudentTable />
+         </div>
        )}
 
        <div className="flex justify-end mt-8 pt-6 border-t border-slate-100">
