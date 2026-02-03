@@ -79,6 +79,9 @@ const JurnalForm: React.FC = () => {
   // --- HOMEROOM ATTENDANCE STATE ---
   const [homeroomStats, setHomeroomStats] = useState<Record<string, string>>({});
 
+  // --- ALPA COUNTS STATE ---
+  const [studentAlpaCounts, setStudentAlpaCounts] = useState<Record<string, number>>({});
+
   const [alertState, setAlertState] = useState<{
     isOpen: boolean;
     type: 'success' | 'error';
@@ -231,16 +234,56 @@ const JurnalForm: React.FC = () => {
   };
 
   useEffect(() => {
-    if (formData.kelas) {
-      const fetchStudents = async () => {
+    if (formData.kelas && profile) {
+      const fetchStudentsAndStats = async () => {
         setLoading(true);
-        const { data } = await supabase.from('students').select('*').eq('kelas', formData.kelas).order('name');
-        if (data) setStudents(data);
+        // 1. Fetch Students
+        const { data: studentsData } = await supabase.from('students').select('*').eq('kelas', formData.kelas).order('name');
+        
+        if (studentsData) {
+            setStudents(studentsData);
+            
+            // 2. Fetch Total Alpa Count for these students
+            // FILTER: Hanya Alpa pada Guru yang Login (profile.id)
+            // FILTER: Hanya untuk Mapel yang sedang dipilih (formData.subject) - Jika ada
+            const studentIds = studentsData.map(s => s.id);
+            if (studentIds.length > 0) {
+                // Gunakan inner join ke tabel journals untuk filter by teacher_id & subject
+                let query = supabase
+                    .from('attendance_logs')
+                    .select('student_id, journal_id, journals!inner(teacher_id, subject)')
+                    .eq('status', 'A')
+                    .in('student_id', studentIds)
+                    .eq('journals.teacher_id', profile.id);
+                
+                // Jika sedang mengedit, jangan hitung log dari jurnal yang sedang diedit (biar historis murni)
+                if (editJournalId) {
+                    query = query.neq('journal_id', editJournalId);
+                }
+
+                // Jika Mapel sudah terisi (Mode Auto atau Manual Step 2), filter by Mapel juga
+                if (formData.subject) {
+                    query = query.eq('journals.subject', formData.subject);
+                }
+                
+                const { data: alpaLogs, error } = await query;
+                
+                if (error) console.error("Error fetching teacher alpa stats:", error);
+
+                const alpaCounts: Record<string, number> = {};
+                alpaLogs?.forEach((log: any) => {
+                    alpaCounts[log.student_id] = (alpaCounts[log.student_id] || 0) + 1;
+                });
+                setStudentAlpaCounts(alpaCounts);
+            } else {
+                setStudentAlpaCounts({});
+            }
+        }
         setLoading(false);
       };
-      fetchStudents();
+      fetchStudentsAndStats();
     }
-  }, [formData.kelas]);
+  }, [formData.kelas, formData.subject, profile?.id, editJournalId]); 
 
   const handleScheduleSelect = async (scheduleId: string) => {
       setLoading(true);
@@ -584,9 +627,19 @@ const JurnalForm: React.FC = () => {
                         }
                    }
 
+                   // LOGIKA ALPA COUNT (Untuk Tampilan di Nama)
+                   const alpaCount = studentAlpaCounts[student.id] || 0;
+
                    return (
                    <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                     <td className="p-3 pl-4 font-bold text-slate-700">{student.name}</td>
+                     <td className="p-3 pl-4 font-bold text-slate-700">
+                         {student.name}
+                         {alpaCount > 0 && (
+                             <span className="text-red-500 text-[10px] ml-2 font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                                 | A: {alpaCount}
+                             </span>
+                         )}
+                     </td>
                      
                      {/* Kolom Kehadiran Pekan Lalu (Ada di kedua mode) */}
                      <td className="p-2 text-center border-l border-r border-slate-100 bg-slate-50/50">
