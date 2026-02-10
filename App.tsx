@@ -2,6 +2,7 @@
 import React from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider } from './contexts/ThemeContext'; // Import ThemeProvider
 import PublicDashboard from './pages/PublicDashboard';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -9,7 +10,7 @@ import AppsMenu from './pages/AppsMenu';
 import JurnalForm from './pages/JurnalForm';
 import ImportData from './pages/ImportData';
 import InputJadwal from './pages/InputJadwal';
-import InputManual from './pages/InputManual'; // New Import
+import InputManual from './pages/InputManual';
 import UsersData from './pages/UsersData';
 import StudentsData from './pages/StudentsData';
 import ProfilePage from './pages/ProfilePage';
@@ -57,112 +58,114 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
 
 const App: React.FC = () => {
   return (
-    <AuthProvider>
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={<PublicDashboard />} />
-          <Route path="/login" element={<Login />} />
-          
-          <Route path="/dashboard" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/operator-dashboard" element={
-             <OperatorDashboard />
-          } />
-          
-          <Route path="/apps" element={
-            <ProtectedRoute>
-              <AppsMenu />
-            </ProtectedRoute>
-          } />
-          
-          <Route path="/profile" element={
-             <React.Fragment>
-                <SharedProfileWrapper />
-             </React.Fragment>
-          } />
-          
-          <Route path="/jurnal" element={
-             <ProtectedRoute>
-                <JurnalForm />
-             </ProtectedRoute>
-          } />
-          
-          <Route path="/jadwal" element={
-             <ProtectedRoute>
-                <MySchedule />
-             </ProtectedRoute>
-          } />
+    <ThemeProvider> 
+      <AuthProvider>
+        <HashRouter>
+          <Routes>
+            <Route path="/" element={<PublicDashboard />} />
+            <Route path="/login" element={<Login />} />
+            
+            <Route path="/dashboard" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/operator-dashboard" element={
+               <OperatorDashboard />
+            } />
+            
+            <Route path="/apps" element={
+              <ProtectedRoute>
+                <AppsMenu />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/profile" element={
+               <React.Fragment>
+                  <SharedProfileWrapper />
+               </React.Fragment>
+            } />
+            
+            <Route path="/jurnal" element={
+               <ProtectedRoute>
+                  <JurnalForm />
+               </ProtectedRoute>
+            } />
+            
+            <Route path="/jadwal" element={
+               <ProtectedRoute>
+                  <MySchedule />
+               </ProtectedRoute>
+            } />
 
-          <Route path="/rekap-absensi" element={
-             <ProtectedRoute>
-                <RekapAbsensi />
-             </ProtectedRoute>
-          } />
+            <Route path="/rekap-absensi" element={
+               <ProtectedRoute>
+                  <RekapAbsensi />
+               </ProtectedRoute>
+            } />
 
-          <Route path="/absensi-rapor" element={
-             <ProtectedRoute>
-                <AbsensiRapor />
-             </ProtectedRoute>
-          } />
+            <Route path="/absensi-rapor" element={
+               <ProtectedRoute>
+                  <AbsensiRapor />
+               </ProtectedRoute>
+            } />
 
-          <Route path="/laporan" element={
-             <ProtectedRoute>
-                <LaporanJurnal />
-             </ProtectedRoute>
-          } />
+            <Route path="/laporan" element={
+               <ProtectedRoute>
+                  <LaporanJurnal />
+               </ProtectedRoute>
+            } />
 
-           <Route path="/kedisiplinan" element={
-             <ProtectedRoute>
-                <Kedisiplinan />
-             </ProtectedRoute>
-          } />
+             <Route path="/kedisiplinan" element={
+               <ProtectedRoute>
+                  <Kedisiplinan />
+               </ProtectedRoute>
+            } />
 
-          <Route path="/import-data" element={
-             <AdminRoute>
-                <ImportData />
-             </AdminRoute>
-          } />
+            <Route path="/import-data" element={
+               <AdminRoute>
+                  <ImportData />
+               </AdminRoute>
+            } />
 
-          <Route path="/input-jadwal" element={
-             <AdminRoute>
-                <InputJadwal />
-             </AdminRoute>
-          } />
+            <Route path="/input-jadwal" element={
+               <AdminRoute>
+                  <InputJadwal />
+               </AdminRoute>
+            } />
 
-          <Route path="/input-manual" element={
-             <AdminRoute>
-                <InputManual />
-             </AdminRoute>
-          } />
+            <Route path="/input-manual" element={
+               <AdminRoute>
+                  <InputManual />
+               </AdminRoute>
+            } />
 
-           <Route path="/users" element={
-             <AdminRoute>
-                <UsersData />
-             </AdminRoute>
-          } />
+             <Route path="/users" element={
+               <AdminRoute>
+                  <UsersData />
+               </AdminRoute>
+            } />
 
-          <Route path="/students" element={
-             <AdminRoute>
-                <StudentsData />
-             </AdminRoute>
-          } />
+            <Route path="/students" element={
+               <AdminRoute>
+                  <StudentsData />
+               </AdminRoute>
+            } />
 
-           <Route path="/settings" element={
-             <AdminRoute>
-                <SettingsPage />
-             </AdminRoute>
-          } />
+             <Route path="/settings" element={
+               <AdminRoute>
+                  <SettingsPage />
+               </AdminRoute>
+            } />
 
-          {/* Placeholders for other routes */}
-          <Route path="/qr" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            {/* Placeholders for other routes */}
+            <Route path="/qr" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
-        </Routes>
-      </HashRouter>
-    </AuthProvider>
+          </Routes>
+        </HashRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 };
 
