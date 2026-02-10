@@ -120,7 +120,7 @@ const Dashboard: React.FC = () => {
                 dayCounts[dbDay]++;
             }
             mySchedules.forEach(s => {
-                const jpCount = s.hour.split(',').filter(h => h.trim()).length;
+                const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
                 const occurrences = dayCounts[s.day_of_week] || 0;
                 targetJp += (jpCount * occurrences);
             });
