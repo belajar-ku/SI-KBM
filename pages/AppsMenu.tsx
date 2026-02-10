@@ -16,15 +16,17 @@ const AppsMenu: React.FC = () => {
   const AppCard = ({ label, subLabel, icon: Icon, path, colorClass, iconColor }: any) => (
     <button
       onClick={() => navigate(path)}
-      className="bg-white rounded-3xl p-6 flex flex-col items-center justify-center gap-4 shadow-sm border border-slate-100 hover:shadow-lg hover:shadow-blue-100/50 hover:border-blue-200 hover:-translate-y-1 transition-all duration-300 w-full h-48 group"
+      className="bg-white dark:bg-slate-800 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-none hover:border-blue-200 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 w-full h-48 group relative overflow-hidden"
     >
-      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110 ${colorClass}`}>
+      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110 relative z-10 ${colorClass}`}>
          <Icon size={32} strokeWidth={1.5} />
       </div>
-      <div className="text-center">
-          <h3 className="text-base font-extrabold text-slate-700 group-hover:text-blue-600 transition-colors">{label}</h3>
-          <p className="text-xs text-slate-400 font-medium mt-1">{subLabel}</p>
+      <div className="text-center relative z-10">
+          <h3 className="text-base font-extrabold text-slate-700 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{label}</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-1 group-hover:text-slate-500 dark:group-hover:text-slate-400">{subLabel}</p>
       </div>
+      {/* Dark mode hover glow effect */}
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-slate-50 dark:to-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
     </button>
   );
 
