@@ -113,7 +113,8 @@ const Dashboard: React.FC = () => {
         let targetJp = 0;
         if (mySchedules) {
             const dayCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
-            for (let d = 1; d <= lastDayOfMonth.getDate(); d++) {
+            // Loop until TODAY
+            for (let d = 1; d <= date.getDate(); d++) {
                 const tempDate = new Date(currentYear, currentMonth, d);
                 const jsDay = tempDate.getDay(); 
                 const dbDay = jsDay === 0 ? 7 : jsDay;
@@ -413,35 +414,35 @@ const Dashboard: React.FC = () => {
                 </div>
                 
                 {!isAdmin && (
-                    <div className="text-right flex flex-col items-end">
-                        <p className="text-xs font-bold text-blue-100 mb-2 opacity-90">Kinerja Bulan {currentMonthName}</p>
-                        <div className="flex items-center gap-6 bg-white/10 p-3 px-5 rounded-2xl border border-white/10 backdrop-blur-md">
-                            <div className="flex items-center gap-3">
-                                <div className="bg-white/10 p-2 rounded-lg hidden sm:block">
-                                    <Activity size={20} className="text-blue-100" />
+                    <div className="w-full md:w-auto mt-4 md:mt-0">
+                        <p className="text-xs font-bold text-blue-100 mb-2 opacity-90 text-center md:text-right">Kinerja Bulan {currentMonthName}</p>
+                        
+                        {/* KINERJA BULAN INI CONTAINER - UPDATED LAYOUT */}
+                        <div className="bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md w-full overflow-hidden">
+                            <div className="grid grid-cols-3 divide-x divide-white/20">
+                                
+                                {/* 1. Pertemuan */}
+                                <div className="p-3 py-4 flex flex-col items-center justify-center text-center">
+                                    <span className="text-2xl md:text-3xl font-extrabold leading-none tracking-tight">{stats.totalMeetings}</span>
+                                    <span className="text-[10px] md:text-xs font-bold text-blue-100/80 uppercase tracking-wider mt-1">Pertemuan</span>
                                 </div>
-                                <div className="text-left">
-                                    <span className="block text-2xl font-extrabold leading-none">{stats.totalMeetings}</span>
-                                    <span className="text-[9px] uppercase font-bold text-blue-200 tracking-wider">Pertemuan</span>
-                                </div>
-                            </div>
-                            <div className="w-px h-8 bg-white/20"></div>
-                            <div className="flex items-center gap-3">
-                                <div className="bg-white/10 p-2 rounded-lg hidden sm:block">
-                                    <Clock size={20} className="text-blue-100" />
-                                </div>
-                                <div className="text-left">
+
+                                {/* 2. Total JP */}
+                                <div className="p-3 py-4 flex flex-col items-center justify-center text-center">
                                     <div className="flex items-baseline gap-1">
-                                        <span className="block text-2xl font-extrabold leading-none">{stats.totalJp}</span>
-                                        <span className="text-sm font-bold opacity-60">/ {stats.targetJp}</span>
+                                        <span className="text-2xl md:text-3xl font-extrabold leading-none tracking-tight">{stats.totalJp}</span>
+                                        <span className="text-sm md:text-base font-medium opacity-60">/ {stats.targetJp}</span>
                                     </div>
-                                    <div className="flex flex-col">
-                                        <span className="text-[9px] uppercase font-bold text-blue-200 tracking-wider">Total JP</span>
-                                        <span className={`text-[10px] font-extrabold mt-0.5 ${performanceColor}`}>
-                                            {performanceStatus}
-                                        </span>
-                                    </div>
+                                    <span className="text-[10px] md:text-xs font-bold text-blue-100/80 uppercase tracking-wider mt-1">Total JP</span>
                                 </div>
+
+                                {/* 3. Status */}
+                                <div className="p-3 py-4 flex flex-col items-center justify-center text-center h-full">
+                                    <span className={`text-xs md:text-sm font-extrabold leading-tight uppercase ${performanceColor}`}>
+                                        {performanceStatus}
+                                    </span>
+                                </div>
+
                             </div>
                         </div>
                     </div>
