@@ -4,12 +4,11 @@ import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { 
-  User, Bell, Activity, BookOpen, Clock, Stethoscope, CheckCircle2, XCircle, FileText, ClipboardList, 
-  CalendarDays, TrendingUp, Users, Edit2, Plus, X, Loader2, Save, Flag, ArrowRight, Check, Minus, Search, Eye, Calendar,
-  Filter
+  User, Bell, BookOpen, Clock, Stethoscope, CheckCircle2, XCircle, FileText, ClipboardList, 
+  CalendarDays, TrendingUp, Users, Edit2, Plus, X, Loader2, Save, Flag, Check, Minus, Calendar
 } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
-import { Student, Schedule, Profile } from '../types';
+import { Student, Profile } from '../types';
 
 interface MonthlyStats {
     totalJp: number;
@@ -42,12 +41,9 @@ interface KbmStatus {
     isFilled: boolean;
 }
 
-// Interface untuk Data Guru di Dashboard Kepsek
-interface TeacherPerformanceData extends Profile {
-    targetJp: number;
-    actualJp: number;
-    statusKinerja: string;
-    statusColor: string;
+interface TeacherMatrixItem {
+    teacher: Profile;
+    scheduleMap: Record<number, { className: string, isFilled: boolean, hasSchedule: boolean }>;
 }
 
 const Dashboard: React.FC = () => {
@@ -72,163 +68,86 @@ const Dashboard: React.FC = () => {
   const [editingCategory, setEditingCategory] = useState('');
   const [specificAbsenceData, setSpecificAbsenceData] = useState<EditingStudent[]>([]);
 
-  // HEADMASTER STATE
-  const [teachersData, setTeachersData] = useState<TeacherPerformanceData[]>([]);
-  const [filteredTeachers, setFilteredTeachers] = useState<TeacherPerformanceData[]>([]);
-  const [hmSearch, setHmSearch] = useState('');
-  const [showScheduleModal, setShowScheduleModal] = useState(false);
-  const [selectedTeacherSchedule, setSelectedTeacherSchedule] = useState<{teacher: Profile, schedules: Schedule[] } | null>(null);
-  
-  // Headmaster Filter Month
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); // 0-11
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  // HEADMASTER STATE (MATRIX)
+  const [matrixData, setMatrixData] = useState<TeacherMatrixItem[]>([]);
+  const [matrixDate, setMatrixDate] = useState(getWIBISOString());
 
   const [savingAttendance, setSavingAttendance] = useState(false);
 
   useEffect(() => {
     if (profile) {
         if (isHeadmaster) {
-            fetchHeadmasterData();
+            fetchHeadmasterMatrix();
         } else {
             fetchDashboardData();
         }
     } else {
         setLoading(false);
     }
-  }, [profile, filterDate, selectedMonth, selectedYear]); // Trigger update on month/year change
+  }, [profile, filterDate, matrixDate]); 
 
-  useEffect(() => {
-      if (hmSearch) {
-          const lower = hmSearch.toLowerCase();
-          setFilteredTeachers(teachersData.filter(t => t.full_name?.toLowerCase().includes(lower) || t.mengajar_mapel?.toLowerCase().includes(lower)));
-      } else {
-          setFilteredTeachers(teachersData);
-      }
-  }, [hmSearch, teachersData]);
-
-  // --- LOGIC KEPALA SEKOLAH ---
-  const fetchHeadmasterData = async () => {
+  // --- LOGIC KEPALA SEKOLAH (MATRIX SCHEDULE) ---
+  const fetchHeadmasterMatrix = async () => {
       setLoading(true);
       try {
-          // Construct Dates based on Selection
-          const firstDayDate = new Date(selectedYear, selectedMonth, 1);
-          const firstDayStr = firstDayDate.toISOString();
+          const dateObj = new Date(matrixDate);
+          const jsDay = dateObj.getDay();
+          const dbDay = jsDay === 0 ? 7 : jsDay;
           
-          const lastDayDate = new Date(selectedYear, selectedMonth + 1, 0); // Last day of month
-          const endDayStr = lastDayDate.toISOString();
+          const startOfDay = `${matrixDate}T00:00:00+07:00`;
+          const endOfDay = `${matrixDate}T23:59:59+07:00`;
 
-          // Determine End Calculation Date (For Target)
-          // If selected month is current month, calculate UP TO TODAY.
-          // If past month, calculate FULL MONTH.
-          // If future, target is based on full month (though actual will be 0).
-          const today = new Date();
-          let endCalculationDay = lastDayDate.getDate(); // Default full month
-          
-          if (selectedYear === today.getFullYear() && selectedMonth === today.getMonth()) {
-              endCalculationDay = today.getDate(); // Up to today
-          } else if (selectedYear > today.getFullYear() || (selectedYear === today.getFullYear() && selectedMonth > today.getMonth())) {
-              // Future month? maybe 0 or full. Let's keep full for planning.
-              endCalculationDay = lastDayDate.getDate(); 
-          }
-
-          // 1. Fetch Data Master
           const [profilesRes, schedulesRes, journalsRes] = await Promise.all([
               supabase.from('profiles').select('*').neq('role', 'operator').order('full_name'),
-              supabase.from('schedules').select('*'),
-              // Fetch journals within the selected month range
-              supabase.from('journals')
-                .select('teacher_id, hours')
-                .gte('created_at', firstDayStr)
-                .lte('created_at', endDayStr)
+              supabase.from('schedules').select('*').eq('day_of_week', dbDay),
+              supabase.from('journals').select('*').gte('created_at', startOfDay).lte('created_at', endOfDay)
           ]);
 
-          // Filter Excluded Teachers
           const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.'];
           const allTeachers = (profilesRes.data || []).filter(t => !excludedNames.includes(t.full_name));
-          
-          const allSchedules = schedulesRes.data || [];
-          const allJournals = journalsRes.data || [];
+          const todaysSchedules = schedulesRes.data || [];
+          const todaysJournals = journalsRes.data || [];
 
-          // 2. Calculate Day Occurrences in the selected month (up to calculation day)
-          const dayCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
-          
-          // Loop from 1 to endCalculationDay of the selected month
-          for (let d = 1; d <= endCalculationDay; d++) {
-              const tempDate = new Date(selectedYear, selectedMonth, d);
-              const jsDay = tempDate.getDay(); 
-              const dbDay = jsDay === 0 ? 7 : jsDay;
-              dayCounts[dbDay]++;
-          }
-
-          // 3. Process Per Teacher
-          const processed: TeacherPerformanceData[] = allTeachers.map(t => {
-              // Target JP
-              const mySchedules = allSchedules.filter(s => s.teacher_id === t.id);
-              let target = 0;
-              mySchedules.forEach(s => {
-                  // FIXED: Added explicit type (h: string) to fix TS7006 error
-                  const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
-                  const occurrences = dayCounts[s.day_of_week] || 0;
-                  target += (jpCount * occurrences);
-              });
-
-              // Actual JP
-              const myJournals = allJournals.filter(j => j.teacher_id === t.id);
-              let actual = 0;
-              myJournals.forEach(j => {
-                  const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
-                  actual += parts.length;
-              });
-
-              // Status
-              const percentage = target > 0 ? (actual / target) * 100 : 0;
-              let status = "Di Bawah Ekspektasi";
-              let color = "text-red-600 bg-red-50 border-red-100";
+          const matrix: TeacherMatrixItem[] = allTeachers.map(teacher => {
+              const scheduleMap: Record<number, { className: string, isFilled: boolean, hasSchedule: boolean }> = {};
               
-              if (target === 0 && actual === 0) {
-                  status = "Tidak Ada Jadwal";
-                  color = "text-gray-500 bg-gray-50 border-gray-100";
-              } else if (percentage > 85) { 
-                  status = "Di Atas Ekspektasi"; 
-                  color = "text-emerald-600 bg-emerald-50 border-emerald-100"; 
-              } else if (percentage >= 70) { 
-                  status = "Sesuai Ekspektasi"; 
-                  color = "text-blue-600 bg-blue-50 border-blue-100"; 
+              // Initialize 1-8
+              for(let i=1; i<=8; i++) {
+                  scheduleMap[i] = { className: '-', isFilled: false, hasSchedule: false };
               }
 
-              return {
-                  ...t,
-                  targetJp: target,
-                  actualJp: actual,
-                  statusKinerja: status,
-                  statusColor: color
-              };
+              // Fill Schedule
+              const teacherSchedules = todaysSchedules.filter(s => s.teacher_id === teacher.id);
+              teacherSchedules.forEach(s => {
+                  const hours = s.hour.split(',').map(h => parseInt(h.trim()));
+                  hours.forEach(h => {
+                      if(h >= 1 && h <= 8) {
+                          scheduleMap[h].hasSchedule = true;
+                          scheduleMap[h].className = s.kelas;
+                          
+                          // Check Journal
+                          const hasJournal = todaysJournals.some(j => 
+                              j.teacher_id === teacher.id && 
+                              j.kelas === s.kelas && 
+                              j.subject === s.subject &&
+                              j.hours.split(',').map(jh => parseInt(jh.trim())).includes(h)
+                          );
+                          scheduleMap[h].isFilled = hasJournal;
+                      }
+                  });
+              });
+
+              return { teacher, scheduleMap };
           });
 
-          setTeachersData(processed);
-      } catch(e) {
-          console.error("Headmaster Fetch Error", e);
+          setMatrixData(matrix);
+
+      } catch (e) {
+          console.error("Headmaster Matrix Error", e);
       } finally {
           setLoading(false);
       }
   };
-
-  const handleViewSchedule = async (teacher: Profile) => {
-      setLoading(true);
-      try {
-          const { data } = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).order('day_of_week').order('hour');
-          setSelectedTeacherSchedule({ teacher, schedules: data || [] });
-          setShowScheduleModal(true);
-      } catch(e) { console.error(e); }
-      finally { setLoading(false); }
-  };
-
-  const dayName = (num: number) => ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][num];
-  
-  const monthNames = [
-      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
-  ];
 
   // --- LOGIC GURU BIASA (EXISTING) ---
   const fetchDashboardData = async () => {
@@ -238,8 +157,6 @@ const Dashboard: React.FC = () => {
         const currentMonth = date.getMonth(); 
         
         const firstDayOfMonth = new Date(currentYear, currentMonth, 1);
-        const lastDayOfMonth = new Date(currentYear, currentMonth + 1, 0);
-        
         const firstDayStr = firstDayOfMonth.toISOString();
         const todayStr = getWIBISOString();
         const startOfDay = `${filterDate}T00:00:00+07:00`;
@@ -540,7 +457,7 @@ const Dashboard: React.FC = () => {
       );
   };
 
-  // Performance Logic
+  // Performance Logic (Standard User)
   const currentMonthName = new Date().toLocaleDateString('id-ID', { month: 'long' });
   const percentage = stats.targetJp > 0 ? (stats.totalJp / stats.targetJp) * 100 : 0;
   let performanceStatus = "Di Bawah Ekspektasi";
@@ -548,7 +465,7 @@ const Dashboard: React.FC = () => {
   if (percentage > 85) { performanceStatus = "Di Atas Ekspektasi"; performanceColor = "text-emerald-200"; } 
   else if (percentage >= 70) { performanceStatus = "Sesuai Ekspektasi"; performanceColor = "text-blue-200"; }
 
-  // --- RENDER KEPALA SEKOLAH VIEW ---
+  // --- RENDER KEPALA SEKOLAH VIEW (MATRIX) ---
   if (isHeadmaster) {
       return (
         <Layout>
@@ -556,96 +473,73 @@ const Dashboard: React.FC = () => {
                 {/* Header Kepsek */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                            <Activity className="text-blue-600" /> Monitoring Kinerja Guru
+                        <h2 className="text-xl font-bold text-slate-800 dark:text-white uppercase tracking-wide">
+                            KEGIATAN BELAJAR MENGAJAR GURU HARI INI
                         </h2>
                         <p className="text-slate-500 dark:text-slate-400 text-sm">
-                            Dashboard Kepala Sekolah - Kinerja Bulan {monthNames[selectedMonth]} {selectedYear}
+                            {formatDateIndo(matrixDate)}
                         </p>
                     </div>
                     
-                    <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                        {/* Month Selector */}
-                        <div className="relative">
-                            <Calendar className="absolute left-3 top-2.5 text-slate-400" size={18}/>
-                            <select 
-                                className="pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 font-bold text-slate-700 dark:text-white"
-                                value={selectedMonth}
-                                onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                            >
-                                {monthNames.map((m, i) => (
-                                    <option key={i} value={i}>{m}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* Search Bar */}
-                        <div className="relative w-full md:w-64">
-                            <Search className="absolute left-3 top-2.5 text-slate-400" size={18}/>
-                            <input 
-                                type="text" 
-                                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500"
-                                placeholder="Cari Guru / Mapel..."
-                                value={hmSearch}
-                                onChange={(e) => setHmSearch(e.target.value)}
-                            />
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <Calendar size={18} className="text-slate-400"/>
+                        <input 
+                            type="date" 
+                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-3 text-sm font-bold text-slate-700 dark:text-white"
+                            value={matrixDate}
+                            onChange={(e) => setMatrixDate(e.target.value)}
+                        />
                     </div>
                 </div>
 
-                {/* Table Guru */}
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+                {/* MATRIX TABLE */}
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-bold uppercase text-xs">
-                                <tr>
-                                    <th className="px-6 py-4">Nama Guru</th>
-                                    <th className="px-6 py-4">Mata Pelajaran</th>
-                                    <th className="px-6 py-4 text-center">Wali Kelas</th>
-                                    <th className="px-6 py-4 text-center">Jadwal</th>
-                                    <th className="px-6 py-4 text-center">Realisasi JP</th>
-                                    <th className="px-6 py-4">Status Kinerja</th>
+                        <table className="w-full text-sm text-left border-collapse">
+                            <thead>
+                                <tr className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase text-xs border-b border-slate-200 dark:border-slate-600">
+                                    <th className="px-4 py-3 border-r border-slate-200 dark:border-slate-600 w-12 text-center">No</th>
+                                    <th className="px-4 py-3 border-r border-slate-200 dark:border-slate-600 w-64">Nama Guru</th>
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(h => (
+                                        <th key={h} className="px-2 py-3 border-r border-slate-200 dark:border-slate-600 text-center w-20">{h}</th>
+                                    ))}
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                            <tbody className="text-slate-700 dark:text-slate-200">
                                 {loading ? (
-                                    <tr><td colSpan={6} className="px-6 py-10 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr>
-                                ) : filteredTeachers.length === 0 ? (
-                                    <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-400">Tidak ada data guru ditemukan.</td></tr>
+                                    <tr><td colSpan={10} className="p-10 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr>
+                                ) : matrixData.length === 0 ? (
+                                    <tr><td colSpan={10} className="p-10 text-center text-slate-400">Tidak ada data.</td></tr>
                                 ) : (
-                                    filteredTeachers.map(t => (
-                                        <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                                            <td className="px-6 py-4">
-                                                <div className="font-bold text-slate-800 dark:text-white">{t.full_name}</div>
-                                                <div className="text-xs text-slate-400 font-mono">{t.nip}</div>
+                                    matrixData.map((item, idx) => (
+                                        <tr key={item.teacher.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                            <td className="px-4 py-3 border-r border-slate-100 dark:border-slate-700 text-center font-bold text-xs text-slate-500 dark:text-slate-400">{idx + 1}</td>
+                                            <td className="px-4 py-3 border-r border-slate-100 dark:border-slate-700 font-bold text-xs truncate max-w-[200px]" title={item.teacher.full_name}>
+                                                {item.teacher.full_name}
                                             </td>
-                                            <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                                                {t.mengajar_mapel ? t.mengajar_mapel.split(',').map((m,i) => (
-                                                    <span key={i} className="inline-block bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-[10px] mr-1 mb-1">{m.trim()}</span>
-                                                )) : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                {t.wali_kelas ? <span className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 px-2 py-1 rounded font-bold text-xs">{t.wali_kelas}</span> : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <button 
-                                                    onClick={() => handleViewSchedule(t)}
-                                                    className="p-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
-                                                    title="Lihat Jadwal"
-                                                >
-                                                    <Calendar size={16} />
-                                                </button>
-                                            </td>
-                                            <td className="px-6 py-4 text-center">
-                                                <div className="font-bold text-slate-700 dark:text-slate-200">
-                                                    {t.actualJp} <span className="text-slate-400 font-normal">/ {t.targetJp}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border ${t.statusColor} uppercase tracking-wide`}>
-                                                    {t.statusKinerja}
-                                                </span>
-                                            </td>
+                                            {[1, 2, 3, 4, 5, 6, 7, 8].map(h => {
+                                                const cell = item.scheduleMap[h];
+                                                return (
+                                                    <td key={h} className="px-2 py-4 border-r border-slate-100 dark:border-slate-700 text-center align-middle relative group">
+                                                        {cell.hasSchedule ? (
+                                                            <div className="flex flex-col items-center justify-center gap-1.5 transition-transform hover:scale-105">
+                                                                <span className="text-xl leading-none filter drop-shadow-sm">
+                                                                    {cell.isFilled ? '✅' : '❌'}
+                                                                </span>
+                                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm ${
+                                                                    cell.isFilled
+                                                                    ? 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
+                                                                    : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300'
+                                                                }`}>
+                                                                    {cell.className}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-slate-200 dark:text-slate-700 font-bold text-lg select-none">-</span>
+                                                        )}
+                                                    </td>
+                                                );
+                                            })}
                                         </tr>
                                     ))
                                 )}
@@ -653,66 +547,12 @@ const Dashboard: React.FC = () => {
                         </table>
                     </div>
                 </div>
-
-                {/* MODAL JADWAL GURU - RIGHT DRAWER STYLE */}
-                {showScheduleModal && selectedTeacherSchedule && (
-                    <div className="fixed inset-0 z-50 flex justify-end items-stretch p-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}>
-                        <style>{`
-                            @keyframes slideInRight {
-                                from { transform: translateX(100%); }
-                                to { transform: translateX(0); }
-                            }
-                            .animate-slide-in-right {
-                                animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                            }
-                        `}</style>
-                        <div className="bg-white dark:bg-slate-800 w-full max-w-md h-full shadow-2xl overflow-hidden flex flex-col animate-slide-in-right border-l border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
-                            <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
-                                <div>
-                                    <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Jadwal Mengajar</h3>
-                                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">{selectedTeacherSchedule.teacher.full_name}</p>
-                                </div>
-                                <button onClick={() => setShowScheduleModal(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors"><X size={24}/></button>
-                            </div>
-                            
-                            <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50 dark:bg-slate-900">
-                                {selectedTeacherSchedule.schedules.length === 0 ? (
-                                    <div className="text-center text-slate-400 py-10 italic">Belum ada jadwal untuk guru ini.</div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        {[1,2,3,4,5,6].map(day => {
-                                            const dayScheds = selectedTeacherSchedule.schedules.filter(s => s.day_of_week === day);
-                                            if(dayScheds.length === 0) return null;
-                                            return (
-                                                <div key={day} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                    <h4 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                                                        <Calendar size={16} className="text-blue-500"/>
-                                                        {dayName(day)}
-                                                    </h4>
-                                                    <div className="space-y-2">
-                                                        {dayScheds.map(sch => (
-                                                            <div key={sch.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-100 dark:border-slate-600">
-                                                                <div className="flex items-center gap-3">
-                                                                    <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border border-blue-100 dark:border-blue-800">
-                                                                        Jam {sch.hour}
-                                                                    </span>
-                                                                    <div>
-                                                                        <div className="font-bold text-slate-800 dark:text-white text-sm">{sch.subject}</div>
-                                                                        <div className="text-xs text-slate-500 dark:text-slate-400">Kelas {sch.kelas}</div>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
+                
+                <div className="flex gap-6 text-xs font-bold text-slate-500 dark:text-slate-400 mt-2 pl-2">
+                    <div className="flex items-center gap-2"><span className="text-lg">✅</span> Jurnal Terisi</div>
+                    <div className="flex items-center gap-2"><span className="text-lg">❌</span> Belum Mengisi</div>
+                    <div className="flex items-center gap-2"><span className="text-lg text-slate-300">-</span> Tidak Ada Jadwal</div>
+                </div>
             </div>
         </Layout>
       );
@@ -785,7 +625,6 @@ const Dashboard: React.FC = () => {
         {/* MAIN WIDGETS */}
         {!isAdmin && (
             <div className="flex flex-col gap-6">
-                
                 {/* WALI KELAS ABSENCE WIDGET */}
                 {profile?.wali_kelas && (
                     <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:border-blue-200 transition-colors">
