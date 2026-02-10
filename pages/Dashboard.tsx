@@ -119,8 +119,10 @@ const Dashboard: React.FC = () => {
               // Fill Schedule
               const teacherSchedules = todaysSchedules.filter(s => s.teacher_id === teacher.id);
               teacherSchedules.forEach(s => {
-                  const hours = s.hour.split(',').map(h => parseInt(h.trim()));
-                  hours.forEach(h => {
+                  // FIXED: Added explicit type (h: string)
+                  const hours = s.hour.split(',').map((h: string) => parseInt(h.trim()));
+                  // FIXED: Added explicit type (h: number)
+                  hours.forEach((h: number) => {
                       if(h >= 1 && h <= 8) {
                           scheduleMap[h].hasSchedule = true;
                           scheduleMap[h].className = s.kelas;
@@ -130,7 +132,8 @@ const Dashboard: React.FC = () => {
                               j.teacher_id === teacher.id && 
                               j.kelas === s.kelas && 
                               j.subject === s.subject &&
-                              j.hours.split(',').map(jh => parseInt(jh.trim())).includes(h)
+                              // FIXED: Added explicit type (jh: string)
+                              j.hours.split(',').map((jh: string) => parseInt(jh.trim())).includes(h)
                           );
                           scheduleMap[h].isFilled = hasJournal;
                       }
