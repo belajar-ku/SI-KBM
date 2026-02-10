@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext'; // Import Theme Context
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun } from 'lucide-react';
+import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // CHANGED: Default collapsed is now true for all pages
@@ -17,6 +17,9 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const [semester, setSemester] = useState('...');
   const [academicYear, setAcademicYear] = useState('...');
   const [currentTime, setCurrentTime] = useState(new Date());
+
+  // Logic to identify Headmaster
+  const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah';
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -102,7 +105,8 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                 ) : (
                     <>
                         <NavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
-                        <NavItem path="/apps" label="KBM" icon={Grid} />
+                        {!isHeadmaster && <NavItem path="/apps" label="KBM" icon={Grid} />}
+                        {isHeadmaster && <NavItem path="/kedisiplinan" label="Kedisiplinan" icon={Siren} />}
                         <NavItem path="/profile" label="Profil Saya" icon={User} />
                     </>
                 )}
@@ -219,17 +223,33 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                   {location.pathname === '/dashboard' && <span className="text-xs font-bold animate-fade-in">Beranda</span>}
                 </button>
 
-                <button 
-                   onClick={() => navigate('/apps')}
-                   className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                       location.pathname === '/apps' 
-                       ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                       : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                   }`}
-                >
-                   <Grid size={20} strokeWidth={2.5} />
-                   {location.pathname === '/apps' && <span className="text-xs font-bold animate-fade-in">KBM</span>}
-                </button>
+                {!isHeadmaster && (
+                    <button 
+                    onClick={() => navigate('/apps')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
+                        location.pathname === '/apps' 
+                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
+                        : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
+                    }`}
+                    >
+                    <Grid size={20} strokeWidth={2.5} />
+                    {location.pathname === '/apps' && <span className="text-xs font-bold animate-fade-in">KBM</span>}
+                    </button>
+                )}
+
+                {isHeadmaster && (
+                    <button 
+                    onClick={() => navigate('/kedisiplinan')}
+                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
+                        location.pathname === '/kedisiplinan' 
+                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
+                        : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
+                    }`}
+                    >
+                    <Siren size={20} strokeWidth={2.5} />
+                    {location.pathname === '/kedisiplinan' && <span className="text-xs font-bold animate-fade-in">Disiplin</span>}
+                    </button>
+                )}
 
                 <button 
                    onClick={() => navigate('/profile')}

@@ -31,6 +31,8 @@ const Kedisiplinan: React.FC = () => {
   const { profile } = useAuth();
   const [loading, setLoading] = useState(false);
   
+  const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin';
+
   // Filters
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -343,12 +345,14 @@ const Kedisiplinan: React.FC = () => {
                 </div>
              </div>
              
-             <button 
-                onClick={() => setShowInputModal(true)}
-                className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-orange-200 transition-all hover:-translate-y-0.5"
-             >
-                <Plus size={18} /> Input Pelanggaran Baru
-             </button>
+             {!isHeadmaster && (
+                 <button 
+                    onClick={() => setShowInputModal(true)}
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-orange-200 transition-all hover:-translate-y-0.5"
+                 >
+                    <Plus size={18} /> Input Pelanggaran Baru
+                 </button>
+             )}
          </div>
 
          {/* FILTER BAR */}
