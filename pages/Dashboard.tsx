@@ -166,7 +166,8 @@ const Dashboard: React.FC = () => {
               const mySchedules = allSchedules.filter(s => s.teacher_id === t.id);
               let target = 0;
               mySchedules.forEach(s => {
-                  const jpCount = s.hour.split(',').filter(h => h.trim()).length;
+                  // FIXED: Added explicit type (h: string) to fix TS7006 error
+                  const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
                   const occurrences = dayCounts[s.day_of_week] || 0;
                   target += (jpCount * occurrences);
               });
