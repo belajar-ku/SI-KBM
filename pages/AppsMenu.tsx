@@ -16,7 +16,7 @@ const AppsMenu: React.FC = () => {
   const AppCard = ({ label, subLabel, icon: Icon, path, colorClass, iconColor }: any) => (
     <button
       onClick={() => navigate(path)}
-      className="bg-mint dark:bg-slate-800 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 shadow-sm border border-white dark:border-slate-700 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-none hover:border-blue-200 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 w-full h-48 group relative overflow-hidden"
+      className="bg-white dark:bg-slate-800 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-none hover:border-blue-200 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 w-full h-48 group relative overflow-hidden"
     >
       <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110 relative z-10 ${colorClass}`}>
          <Icon size={32} strokeWidth={1.5} />

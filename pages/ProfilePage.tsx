@@ -128,10 +128,10 @@ const ProfilePage: React.FC = () => {
           {/* KOLOM KIRI: FOTO */}
           <div className="md:col-span-1 space-y-6">
             
-            {/* Kartu Foto */}
-            <div className="bg-mint dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-white dark:border-slate-700 flex flex-col items-center text-center">
+            {/* Kartu Foto - Reverted to White */}
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 flex flex-col items-center text-center">
               <div className="relative group">
-                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white dark:border-slate-700 mb-4 bg-gray-100 dark:bg-slate-700 flex items-center justify-center shadow-inner">
+                <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-slate-100 dark:border-slate-700 mb-4 bg-gray-100 dark:bg-slate-700 flex items-center justify-center shadow-inner">
                   {avatarUrl ? (
                     <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -161,8 +161,8 @@ const ProfilePage: React.FC = () => {
 
           {/* KOLOM KANAN: DATA DIRI */}
           <div className="md:col-span-2">
-            <div className="bg-mint dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-white dark:border-slate-700 h-full">
-              <div className="flex items-center justify-between mb-6 border-b border-white/50 dark:border-slate-700 pb-4">
+            <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 h-full">
+              <div className="flex items-center justify-between mb-6 border-b border-slate-100 dark:border-slate-700 pb-4">
                 <h3 className="font-bold text-gray-800 dark:text-white flex items-center gap-2">
                    <User size={20} className="text-blue-500 dark:text-blue-400" /> Data Akademik
                 </h3>
@@ -182,7 +182,7 @@ const ProfilePage: React.FC = () => {
                       type="text" 
                       value={profile?.nip || ''} 
                       disabled 
-                      className="w-full bg-white/50 dark:bg-slate-700 border border-white dark:border-slate-600 rounded-xl p-3 text-gray-500 dark:text-gray-400 font-mono font-bold cursor-not-allowed"
+                      className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl p-3 text-gray-500 dark:text-gray-400 font-mono font-bold cursor-not-allowed"
                     />
                   </div>
                   <div>
@@ -191,7 +191,7 @@ const ProfilePage: React.FC = () => {
                       type="text" 
                       value={profile?.full_name || ''} 
                       disabled 
-                      className="w-full bg-white/50 dark:bg-slate-700 border border-white dark:border-slate-600 rounded-xl p-3 text-gray-500 dark:text-gray-400 font-bold cursor-not-allowed"
+                      className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl p-3 text-gray-500 dark:text-gray-400 font-bold cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -229,7 +229,7 @@ const ProfilePage: React.FC = () => {
                   </select>
                 </div>
 
-                <div className="pt-6 border-t border-white/50 dark:border-slate-700 flex justify-end">
+                <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-end">
                    <button 
                       type="submit" 
                       disabled={loading}

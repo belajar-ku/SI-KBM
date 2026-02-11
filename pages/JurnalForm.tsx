@@ -623,7 +623,7 @@ const JurnalForm: React.FC = () => {
   };
 
   const renderStep1 = () => (
-      <div className="bg-mint dark:bg-slate-800 rounded-3xl p-4 md:p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-700 animate-fade-in">
        {/* ... Same as previous implementation ... */}
        <div className="flex justify-between items-start mb-6">
            <div>
@@ -892,7 +892,7 @@ const JurnalForm: React.FC = () => {
   );
 
   const renderStep2 = () => (
-    <div className="bg-mint dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
+    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 animate-fade-in">
       <div className="flex justify-between items-center mb-6">
           <h3 className="font-extrabold text-lg text-slate-800 dark:text-white">Detail Pembelajaran</h3>
           {inputMode === 'auto' && <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-100">AUTO</span>}
@@ -944,7 +944,7 @@ const JurnalForm: React.FC = () => {
     const presentStudents = students.filter(s => !formData.attendance[s.id]);
 
     return (
-      <div className="bg-mint dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
+      <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 animate-fade-in">
          <h3 className="font-extrabold text-lg text-slate-800 dark:text-white mb-4">Catatan Murid</h3>
          
          {/* SECTION 1: KEDISIPLINAN */}
@@ -1084,7 +1084,7 @@ const JurnalForm: React.FC = () => {
     const noteCount = [...notesData.discipline, ...notesData.activity].reduce((acc, row) => acc + row.studentIds.length, 0);
 
     return (
-    <div className="bg-mint dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
+    <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-200 dark:border-slate-700 animate-fade-in">
        <h3 className="font-extrabold text-lg text-slate-800 dark:text-white mb-1">Validasi Akhir</h3>
        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Konfirmasi status kelas sebelum mengirim laporan.</p>
        

@@ -73,7 +73,7 @@ const KinerjaGuru: React.FC = () => {
                 .lte('created_at', endDayStr)
           ]);
 
-          // EXCLUDED NAMES UPDATED
+          // EXCLUDED NAMES (Updated)
           const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.', 'Dra.Laily Asriyah, M.Pd.I.'];
           const allTeachers = (profilesRes.data || []).filter(t => !excludedNames.includes(t.full_name));
           const allSchedules = schedulesRes.data || [];
@@ -189,8 +189,8 @@ const KinerjaGuru: React.FC = () => {
                 </div>
             </div>
 
-            {/* Table Guru */}
-            <div className="bg-mint dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+            {/* Table Guru - Reverted to White */}
+            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-bold uppercase text-xs">

@@ -59,7 +59,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
             className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 group relative ${
                 isActive 
                 ? 'bg-blue-600 text-white shadow-md' 
-                : 'text-gray-600 hover:bg-white/50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-slate-700 dark:hover:text-white'
+                : 'text-gray-600 hover:bg-slate-50 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-slate-700 dark:hover:text-white'
             } ${collapsed ? 'justify-center' : ''}`}
             title={label} 
           >
@@ -77,9 +77,9 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       
       {/* --- DESKTOP SIDEBAR (Compact Mode Default) --- */}
       {showNav && (
-        <aside className={`hidden md:flex flex-col h-screen sticky top-0 bg-mint dark:bg-slate-800 border-r border-white/50 dark:border-slate-700 z-20 transition-all duration-300 ${collapsed ? 'w-20' : 'w-72'}`}>
+        <aside className={`hidden md:flex flex-col h-screen sticky top-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-20 transition-all duration-300 ${collapsed ? 'w-20' : 'w-72'}`}>
             {/* Logo Area */}
-            <div className={`p-4 flex items-center gap-3 border-b border-white/50 dark:border-slate-700 ${collapsed ? 'justify-center' : ''} h-20`}>
+            <div className={`p-4 flex items-center gap-3 border-b border-slate-100 dark:border-slate-700 ${collapsed ? 'justify-center' : ''} h-20`}>
                  <img 
                     src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
                     alt="Logo" 
@@ -114,7 +114,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
             </div>
 
             {/* Theme & Logout Area */}
-            <div className="p-4 border-t border-white/50 dark:border-slate-700 bg-white/30 dark:bg-slate-800/50">
+            <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
                 <div className={`flex flex-col gap-4 ${collapsed ? 'items-center' : ''}`}>
                     
                     {/* Theme Toggle */}
@@ -171,7 +171,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
           {/* Mobile Header (Updated for Safe Area & Logo Aspect Ratio - Increased Padding) */}
-          <div className="md:hidden sticky top-0 bg-mint dark:bg-slate-800 border-b border-white/50 dark:border-slate-700 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+          <div className="md:hidden sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+1.5rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
                  <div className="flex items-center gap-3">
                      <img 
@@ -187,16 +187,16 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                      </div>
                  </div>
                  <div className="flex items-center gap-2">
-                     <button onClick={toggleTheme} className="w-9 h-9 bg-white/50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-yellow-400 border border-white/50 dark:border-slate-600">
+                     <button onClick={toggleTheme} className="w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-yellow-400 border border-slate-200 dark:border-slate-600">
                          {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
                      </button>
-                     <button onClick={handleLogoutClick} className="w-9 h-9 bg-white/50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-slate-300 active:bg-gray-100 border border-white/50 dark:border-slate-600 flex-shrink-0">
+                     <button onClick={handleLogoutClick} className="w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-slate-300 active:bg-gray-100 border border-slate-200 dark:border-slate-600 flex-shrink-0">
                          <LogOut size={18}/>
                      </button>
                  </div>
              </div>
              {/* Running Date & Time Bar */}
-             <div className="bg-white/30 dark:bg-slate-800/50 px-4 py-1.5 border-t border-white/50 dark:border-slate-700 flex justify-between items-center text-[10px] font-bold text-slate-600 dark:text-slate-400">
+             <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-1.5 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-[10px] font-bold text-slate-600 dark:text-slate-400">
                  <span>{formattedDate}</span>
                  <span className="font-mono text-blue-600 dark:text-blue-400">{formattedTime} WIB</span>
              </div>
@@ -211,7 +211,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* --- MOBILE BOTTOM NAV (Floating Figma Style) --- */}
       {showNav && !isOperator && (
         <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-            <nav className="bg-mint/90 dark:bg-slate-800/90 backdrop-blur-md border border-white/50 dark:border-slate-600 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
+            <nav className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
                 <button 
                   onClick={() => navigate('/dashboard')}
                   className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
@@ -284,7 +284,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* Mobile Nav for Operator */}
       {showNav && isOperator && (
            <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-                <nav className="bg-mint/90 dark:bg-slate-800/90 backdrop-blur-md border border-white/50 dark:border-slate-600 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
+                <nav className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
                     <button 
                     onClick={() => navigate('/operator-dashboard')}
                     className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
@@ -315,7 +315,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* LOGOUT MODAL */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in">
-           <div className="bg-mint dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-xs p-6 transform scale-100 transition-all border border-white/50 dark:border-slate-700">
+           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-xs p-6 transform scale-100 transition-all border border-slate-200 dark:border-slate-700">
               <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Konfirmasi Keluar</h3>
               <p className="text-gray-600 dark:text-gray-300 text-sm mb-6">
                 Apakah Anda yakin ingin mengakhiri sesi ini?
@@ -324,7 +324,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
               <div className="flex justify-end gap-3">
                   <button 
                     onClick={() => setShowLogoutModal(false)}
-                    className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 font-bold text-sm hover:bg-white/50 dark:hover:bg-slate-700 transition-colors"
+                    className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
                   >
                     Batal
                   </button>

@@ -52,7 +52,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#E3F2E5] dark:bg-slate-900 transition-colors duration-300"> 
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300"> 
       <div className="text-center mb-8">
            <img 
              src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
@@ -120,7 +120,7 @@ const Login: React.FC = () => {
               </button>
           </div>
       ) : (
-          <main className="w-full max-w-sm bg-[#F8FDF9] dark:bg-slate-800 rounded-[2rem] shadow-xl border border-white/50 dark:border-slate-700 overflow-hidden relative animate-fade-in transition-colors">
+          <main className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden relative animate-fade-in transition-colors">
             
             <div className="p-8">
               <button 
