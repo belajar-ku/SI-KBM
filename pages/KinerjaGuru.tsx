@@ -73,7 +73,8 @@ const KinerjaGuru: React.FC = () => {
                 .lte('created_at', endDayStr)
           ]);
 
-          const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.'];
+          // EXCLUDED NAMES UPDATED
+          const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.', 'Dra.Laily Asriyah, M.Pd.I.'];
           const allTeachers = (profilesRes.data || []).filter(t => !excludedNames.includes(t.full_name));
           const allSchedules = schedulesRes.data || [];
           const allJournals = journalsRes.data || [];
@@ -189,17 +190,17 @@ const KinerjaGuru: React.FC = () => {
             </div>
 
             {/* Table Guru */}
-            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
+            <div className="bg-mint dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm text-left">
                         <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-bold uppercase text-xs">
                             <tr>
                                 <th className="px-6 py-4">Nama Guru</th>
+                                <th className="px-6 py-4">Status Kinerja</th>
                                 <th className="px-6 py-4">Mata Pelajaran</th>
                                 <th className="px-6 py-4 text-center">Wali Kelas</th>
                                 <th className="px-6 py-4 text-center">Jadwal</th>
                                 <th className="px-6 py-4 text-center">Realisasi JP</th>
-                                <th className="px-6 py-4">Status Kinerja</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
@@ -214,6 +215,11 @@ const KinerjaGuru: React.FC = () => {
                                             <div className="font-bold text-slate-800 dark:text-white">{t.full_name}</div>
                                             <div className="text-xs text-slate-400 font-mono">{t.nip}</div>
                                         </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border ${t.statusColor} uppercase tracking-wide`}>
+                                                {t.statusKinerja}
+                                            </span>
+                                        </td>
                                         <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
                                             {t.mengajar_mapel ? t.mengajar_mapel.split(',').map((m,i) => (
                                                 <span key={i} className="inline-block bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-[10px] mr-1 mb-1">{m.trim()}</span>
@@ -225,21 +231,17 @@ const KinerjaGuru: React.FC = () => {
                                         <td className="px-6 py-4 text-center">
                                             <button 
                                                 onClick={() => handleViewSchedule(t)}
-                                                className="p-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                                                className="px-3 py-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-1.5 mx-auto"
                                                 title="Lihat Jadwal"
                                             >
                                                 <Calendar size={16} />
+                                                <span className="text-[10px] font-bold">Click Here</span>
                                             </button>
                                         </td>
                                         <td className="px-6 py-4 text-center">
                                             <div className="font-bold text-slate-700 dark:text-slate-200">
                                                 {t.actualJp} <span className="text-slate-400 font-normal">/ {t.targetJp}</span>
                                             </div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border ${t.statusColor} uppercase tracking-wide`}>
-                                                {t.statusKinerja}
-                                            </span>
                                         </td>
                                     </tr>
                                 ))

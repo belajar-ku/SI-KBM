@@ -623,11 +623,11 @@ const JurnalForm: React.FC = () => {
   };
 
   const renderStep1 = () => (
-      <div className="bg-white rounded-3xl p-4 md:p-6 shadow-sm border border-slate-100 animate-fade-in">
+      <div className="bg-mint dark:bg-slate-800 rounded-3xl p-4 md:p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
        {/* ... Same as previous implementation ... */}
        <div className="flex justify-between items-start mb-6">
            <div>
-               <h3 className="font-extrabold text-lg text-slate-800">Presensi Murid</h3>
+               <h3 className="font-extrabold text-lg text-slate-800 dark:text-white">Presensi Murid</h3>
                <p className="text-slate-500 text-sm mt-1">Pilih kelas & tandai murid yang tidak hadir.</p>
            </div>
            
@@ -892,9 +892,9 @@ const JurnalForm: React.FC = () => {
   );
 
   const renderStep2 = () => (
-    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
+    <div className="bg-mint dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
       <div className="flex justify-between items-center mb-6">
-          <h3 className="font-extrabold text-lg text-slate-800">Detail Pembelajaran</h3>
+          <h3 className="font-extrabold text-lg text-slate-800 dark:text-white">Detail Pembelajaran</h3>
           {inputMode === 'auto' && <span className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-[10px] font-bold border border-blue-100">AUTO</span>}
       </div>
       <div className="space-y-6">
@@ -923,7 +923,7 @@ const JurnalForm: React.FC = () => {
         <div>
           <label className="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">Materi / Topik Bahasan</label>
           <textarea 
-            className="w-full border border-slate-200 rounded-xl p-4 min-h-[140px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 font-medium leading-relaxed" 
+            className="w-full border border-slate-200 rounded-xl p-4 min-h-[140px] focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-slate-700 font-medium leading-relaxed bg-white" 
             value={formData.material} 
             onChange={handleMaterialChange} 
             placeholder="Tuliskan ringkasan materi yang diajarkan hari ini..."
@@ -944,13 +944,13 @@ const JurnalForm: React.FC = () => {
     const presentStudents = students.filter(s => !formData.attendance[s.id]);
 
     return (
-      <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
-         <h3 className="font-extrabold text-lg text-slate-800 mb-4">Catatan Murid</h3>
+      <div className="bg-mint dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
+         <h3 className="font-extrabold text-lg text-slate-800 dark:text-white mb-4">Catatan Murid</h3>
          
          {/* SECTION 1: KEDISIPLINAN */}
          <div className="mb-8">
              <div className="flex justify-between items-center mb-3">
-                 <h4 className="font-bold text-gray-700 text-sm">Catatan Kedisiplinan</h4>
+                 <h4 className="font-bold text-gray-700 dark:text-gray-300 text-sm">Catatan Kedisiplinan</h4>
              </div>
              
              <div className="space-y-3">
@@ -1019,7 +1019,7 @@ const JurnalForm: React.FC = () => {
          {/* SECTION 2: KEAKTIFAN */}
          <div className="mb-6">
              <div className="flex justify-between items-center mb-3">
-                 <h4 className="font-bold text-gray-700 text-sm">Catatan Keaktifan</h4>
+                 <h4 className="font-bold text-gray-700 dark:text-gray-300 text-sm">Catatan Keaktifan</h4>
              </div>
              
              <div className="space-y-3">
@@ -1084,17 +1084,17 @@ const JurnalForm: React.FC = () => {
     const noteCount = [...notesData.discipline, ...notesData.activity].reduce((acc, row) => acc + row.studentIds.length, 0);
 
     return (
-    <div className="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 animate-fade-in">
-       <h3 className="font-extrabold text-lg text-slate-800 mb-1">Validasi Akhir</h3>
-       <p className="text-slate-500 text-sm mb-6">Konfirmasi status kelas sebelum mengirim laporan.</p>
+    <div className="bg-mint dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-white dark:border-slate-700 animate-fade-in">
+       <h3 className="font-extrabold text-lg text-slate-800 dark:text-white mb-1">Validasi Akhir</h3>
+       <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">Konfirmasi status kelas sebelum mengirim laporan.</p>
        
        <div className="space-y-6">
-          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-             <ul className="text-sm space-y-2 text-slate-700">
+          <div className="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-600">
+             <ul className="text-sm space-y-2 text-slate-700 dark:text-slate-300">
                  <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Mapel</span> <span className="font-bold">: {formData.subject}</span></li>
                  <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Kelas</span> <span className="font-bold">: {formData.kelas}</span></li>
                  <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Jam Ke</span> <span className="font-bold">: {formData.hours.join(', ')}</span></li>
-                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Absen</span> <span className="font-extrabold text-red-500 bg-red-50 px-2 rounded">: {Object.keys(formData.attendance).length} Murid</span></li>
+                 <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Absen</span> <span className="font-extrabold text-red-500 bg-red-50 dark:bg-red-900/30 px-2 rounded">: {Object.keys(formData.attendance).length} Murid</span></li>
                  <li className="flex"><span className="font-bold text-slate-400 w-24 flex-shrink-0">Catatan</span> <span className="font-bold">: {noteCount} Murid</span></li>
              </ul>
           </div>
@@ -1120,7 +1120,7 @@ const JurnalForm: React.FC = () => {
                     {formData.isConfirmed && <Check size={16} strokeWidth={4} />}
                  </div>
                  <input type="checkbox" className="hidden" checked={formData.isConfirmed} onChange={e => setFormData({...formData, isConfirmed: e.target.checked})} />
-                 <span className="font-bold text-slate-700 text-sm leading-tight">Saya menyatakan bahwa saya benar-benar melaksanakan KBM di dalam kelas dengan baik.</span>
+                 <span className="font-bold text-slate-700 dark:text-slate-300 text-sm leading-tight">Saya menyatakan bahwa saya benar-benar melaksanakan KBM di dalam kelas dengan baik.</span>
             </label>
           </div>
 
@@ -1152,7 +1152,7 @@ const JurnalForm: React.FC = () => {
           return journal?.material || '-';
       } else {
           const key = `${sch.kelas}-${sch.subject}`;
-          return lastMaterials[key] || 'Belum ada data materi sebelumnya.';
+          return lastMaterials[key] || 'Belum ada data materi sebelumnya.');
       }
   };
   const getPresentStudents = () => students.filter(s => !formData.attendance[s.id]);
@@ -1162,10 +1162,10 @@ const JurnalForm: React.FC = () => {
       <div className="max-w-xl mx-auto pb-24">
         <div className="flex justify-between items-center mb-8 px-2">
             <div>
-               <h2 className="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+               <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                    {editJournalId ? 'Edit Jurnal' : 'Isi Jurnal KBM'}
                </h2>
-               <p className="text-slate-500 font-medium text-sm mt-1">Langkah {step} dari 4</p>
+               <p className="text-slate-500 dark:text-slate-400 font-medium text-sm mt-1">Langkah {step} dari 4</p>
             </div>
             <div className="flex gap-2">
                {[1,2,3,4].map(i => <div key={i} className={`h-2 rounded-full transition-all duration-500 ${step >= i ? 'bg-blue-600 w-8' : 'bg-slate-200 w-3'}`}></div>)}

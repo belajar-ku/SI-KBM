@@ -103,7 +103,8 @@ const Dashboard: React.FC = () => {
               supabase.from('journals').select('*').gte('created_at', startOfDay).lte('created_at', endOfDay)
           ]);
 
-          const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.'];
+          // EXCLUDED NAMES UPDATED
+          const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.', 'Dra.Laily Asriyah, M.Pd.I.'];
           const allTeachers = (profilesRes.data || []).filter(t => !excludedNames.includes(t.full_name));
           const todaysSchedules = schedulesRes.data || [];
           const todaysJournals = journalsRes.data || [];
@@ -119,9 +120,7 @@ const Dashboard: React.FC = () => {
               // Fill Schedule
               const teacherSchedules = todaysSchedules.filter(s => s.teacher_id === teacher.id);
               teacherSchedules.forEach(s => {
-                  // FIXED: Added explicit type (h: string)
                   const hours = s.hour.split(',').map((h: string) => parseInt(h.trim()));
-                  // FIXED: Added explicit type (h: number)
                   hours.forEach((h: number) => {
                       if(h >= 1 && h <= 8) {
                           scheduleMap[h].hasSchedule = true;
@@ -132,7 +131,6 @@ const Dashboard: React.FC = () => {
                               j.teacher_id === teacher.id && 
                               j.kelas === s.kelas && 
                               j.subject === s.subject &&
-                              // FIXED: Added explicit type (jh: string)
                               j.hours.split(',').map((jh: string) => parseInt(jh.trim())).includes(h)
                           );
                           scheduleMap[h].isFilled = hasJournal;
@@ -488,7 +486,7 @@ const Dashboard: React.FC = () => {
                         <Calendar size={18} className="text-slate-400"/>
                         <input 
                             type="date" 
-                            className="bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-3 text-sm font-bold text-slate-700 dark:text-white"
+                            className="bg-mint dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg py-1.5 px-3 text-sm font-bold text-slate-700 dark:text-white"
                             value={matrixDate}
                             onChange={(e) => setMatrixDate(e.target.value)}
                         />
@@ -496,11 +494,11 @@ const Dashboard: React.FC = () => {
                 </div>
 
                 {/* MATRIX TABLE */}
-                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+                <div className="bg-mint dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left border-collapse">
                             <thead>
-                                <tr className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase text-xs border-b border-slate-200 dark:border-slate-600">
+                                <tr className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold uppercase text-sm border-b border-slate-200 dark:border-slate-600">
                                     <th className="px-4 py-3 border-r border-slate-200 dark:border-slate-600 w-12 text-center">No</th>
                                     <th className="px-4 py-3 border-r border-slate-200 dark:border-slate-600 w-64">Nama Guru</th>
                                     {[1, 2, 3, 4, 5, 6, 7, 8].map(h => (
@@ -516,8 +514,8 @@ const Dashboard: React.FC = () => {
                                 ) : (
                                     matrixData.map((item, idx) => (
                                         <tr key={item.teacher.id} className="border-b border-slate-100 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                                            <td className="px-4 py-3 border-r border-slate-100 dark:border-slate-700 text-center font-bold text-xs text-slate-500 dark:text-slate-400">{idx + 1}</td>
-                                            <td className="px-4 py-3 border-r border-slate-100 dark:border-slate-700 font-bold text-xs truncate max-w-[200px]" title={item.teacher.full_name}>
+                                            <td className="px-4 py-3 border-r border-slate-100 dark:border-slate-700 text-center font-bold text-sm text-slate-500 dark:text-slate-400">{idx + 1}</td>
+                                            <td className="px-4 py-3 border-r border-slate-100 dark:border-slate-700 font-bold text-sm truncate max-w-[200px]" title={item.teacher.full_name}>
                                                 {item.teacher.full_name}
                                             </td>
                                             {[1, 2, 3, 4, 5, 6, 7, 8].map(h => {
@@ -526,13 +524,10 @@ const Dashboard: React.FC = () => {
                                                     <td key={h} className="px-2 py-4 border-r border-slate-100 dark:border-slate-700 text-center align-middle relative group">
                                                         {cell.hasSchedule ? (
                                                             <div className="flex flex-col items-center justify-center gap-1.5 transition-transform hover:scale-105">
-                                                                <span className="text-xl leading-none filter drop-shadow-sm">
-                                                                    {cell.isFilled ? '✅' : '❌'}
-                                                                </span>
-                                                                <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full shadow-sm ${
-                                                                    cell.isFilled
-                                                                    ? 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300'
-                                                                    : 'bg-red-100 text-red-600 dark:bg-red-900/50 dark:text-red-300'
+                                                                <span className={`text-xl md:text-2xl font-extrabold ${
+                                                                    cell.isFilled 
+                                                                    ? 'text-emerald-600 dark:text-emerald-400' 
+                                                                    : 'text-rose-600 dark:text-rose-400'
                                                                 }`}>
                                                                     {cell.className}
                                                                 </span>
@@ -552,8 +547,8 @@ const Dashboard: React.FC = () => {
                 </div>
                 
                 <div className="flex gap-6 text-xs font-bold text-slate-500 dark:text-slate-400 mt-2 pl-2">
-                    <div className="flex items-center gap-2"><span className="text-lg">✅</span> Jurnal Terisi</div>
-                    <div className="flex items-center gap-2"><span className="text-lg">❌</span> Belum Mengisi</div>
+                    <div className="flex items-center gap-2"><span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">7A</span> Sudah Mengisi</div>
+                    <div className="flex items-center gap-2"><span className="text-lg font-extrabold text-rose-600 dark:text-rose-400">7A</span> Belum Mengisi</div>
                     <div className="flex items-center gap-2"><span className="text-lg text-slate-300">-</span> Tidak Ada Jadwal</div>
                 </div>
             </div>
@@ -630,7 +625,7 @@ const Dashboard: React.FC = () => {
             <div className="flex flex-col gap-6">
                 {/* WALI KELAS ABSENCE WIDGET */}
                 {profile?.wali_kelas && (
-                    <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:border-blue-200 transition-colors">
+                    <div className="bg-mint dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:border-blue-200 transition-colors">
                         <div className="absolute -top-6 -right-6 p-4 opacity-5 dark:opacity-10 pointer-events-none group-hover:opacity-10 transition-opacity rotate-12"><ClipboardList size={140} className="text-slate-800 dark:text-slate-100" /></div>
 
                         <div className="flex flex-col md:flex-row gap-4 md:gap-8 relative z-10">
@@ -690,8 +685,8 @@ const Dashboard: React.FC = () => {
                     </div>
                 )}
 
-                {/* KBM STATUS TABLE */}
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
+                {/* KBM STATUS TABLE (UPDATED FOR TEACHER VIEW - REMOVED ICONS ROW) */}
+                <div className="bg-mint dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
                     <h3 className="font-extrabold text-slate-800 dark:text-white text-sm mb-4 uppercase tracking-wide flex items-center gap-2">
                         <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400"/>
                         Keterlaksanaan KBM Hari Ini Di Kelas
@@ -710,25 +705,20 @@ const Dashboard: React.FC = () => {
                             <tbody>
                                 <tr className="border-b border-slate-100 dark:border-slate-700">
                                     {kbmStatus.map((status) => (
-                                        <td key={status.hour} className="py-3 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0 font-bold text-slate-700 dark:text-slate-200">
-                                            <div className="flex flex-col items-center justify-center min-h-[2.5rem]">
-                                                {status.className.split(' / ').map((cls, idx) => (
-                                                    <span key={idx} className={idx > 0 ? "mt-1 block text-xs" : ""}>{cls}</span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                    ))}
-                                </tr>
-                                <tr>
-                                    {kbmStatus.map((status) => (
                                         <td key={status.hour} className="py-3 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0">
-                                            <div className="flex justify-center">
-                                                {!status.isScheduled ? (
-                                                    <Minus size={20} className="text-slate-300 dark:text-slate-600" strokeWidth={3} />
-                                                ) : status.isFilled ? (
-                                                    <Check size={20} className="text-green-500 dark:text-green-400" strokeWidth={4} />
+                                            <div className="flex flex-col items-center justify-center min-h-[3rem]">
+                                                {status.isScheduled ? (
+                                                    status.className.split(' / ').map((cls, idx) => (
+                                                        <span key={idx} className={`block font-extrabold text-xl md:text-2xl ${
+                                                            status.isFilled 
+                                                            ? 'text-emerald-600 dark:text-emerald-400' 
+                                                            : 'text-rose-600 dark:text-rose-400'
+                                                        }`}>
+                                                            {cls}
+                                                        </span>
+                                                    ))
                                                 ) : (
-                                                    <X size={20} className="text-red-500 dark:text-red-400" strokeWidth={4} />
+                                                    <span className="text-slate-200 dark:text-slate-600 font-bold text-xl">-</span>
                                                 )}
                                             </div>
                                         </td>
@@ -740,7 +730,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 
                 {/* CLASS PROGRESS WIDGET */}
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
+                <div className="bg-mint dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
                     <div className="absolute -bottom-10 -right-6 p-4 opacity-5 pointer-events-none rotate-12"><BookOpen size={180} className="text-slate-900 dark:text-white" /></div>
                     <h3 className="relative z-10 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-6 flex items-center gap-2 tracking-wide"><TrendingUp size={16} className="text-blue-500"/> Distribusi Pertemuan Kelas (Bulanan)</h3>
                     <div className="relative z-10 space-y-3">
@@ -766,11 +756,12 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* --- MODAL INPUT ABSENSI (EXISTING) --- */}
+        {/* ... MODALS EXISTING ... */}
+        {/* Code for modals remains unchanged */}
         {showAbsenceModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-                    <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center sticky top-0 z-10">
+                <div className="bg-mint dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-mint dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center sticky top-0 z-10">
                         <div>
                             <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Daftar Murid ({modalStudents.length})</h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Absensi Mutlak - {formatDateIndo(filterDate)}</p>
@@ -794,7 +785,7 @@ const Dashboard: React.FC = () => {
                          </div>
 
                          <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                             <div className="flex items-center px-6 py-2 bg-white dark:bg-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
+                             <div className="flex items-center px-6 py-2 bg-mint dark:bg-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
                                  <div className="flex-1">Nama</div>
                                  <div className="flex gap-4">
                                      <span className="w-6 text-center">S</span>
@@ -828,7 +819,7 @@ const Dashboard: React.FC = () => {
                          </div>
                     </div>
 
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-mint dark:bg-slate-800">
                         <button 
                             onClick={handleSaveHomeroomAttendance}
                             disabled={savingAttendance}
@@ -842,11 +833,10 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* --- MODAL SPECIFIC EDIT (EXISTING) --- */}
         {showEditSpecificModal && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
-                    <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                <div className="bg-mint dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
+                    <div className="bg-mint dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
                         <div>
                             <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Edit Data {editingCategory}</h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Ubah status / Tambah catatan</p>
@@ -896,7 +886,7 @@ const Dashboard: React.FC = () => {
                         ))}
                     </div>
 
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-mint dark:bg-slate-800">
                         <button 
                             onClick={handleSaveSpecific}
                             disabled={savingAttendance}
