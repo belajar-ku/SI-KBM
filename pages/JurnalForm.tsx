@@ -1152,7 +1152,7 @@ const JurnalForm: React.FC = () => {
           return journal?.material || '-';
       } else {
           const key = `${sch.kelas}-${sch.subject}`;
-          return lastMaterials[key] || 'Belum ada data materi sebelumnya.');
+          return lastMaterials[key] || 'Belum ada data materi sebelumnya.';
       }
   };
   const getPresentStudents = () => students.filter(s => !formData.attendance[s.id]);
