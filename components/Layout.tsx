@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext'; // Import Theme Context
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity } from 'lucide-react';
+import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // CHANGED: Default collapsed is now true for all pages
@@ -20,6 +20,8 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
 
   // Logic to identify Headmaster
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah';
+  // Logic to identify Dhuha Teacher
+  const isDhuhaTeacher = profile?.mengajar_mapel?.toLowerCase().includes('dhuha');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -108,6 +110,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         {isHeadmaster && <NavItem path="/kinerja" label="Kinerja" icon={Activity} />}
                         {!isHeadmaster && <NavItem path="/apps" label="KBM" icon={Grid} />}
                         {isHeadmaster && <NavItem path="/kedisiplinan" label="Kedisiplinan" icon={Siren} />}
+                        {isDhuhaTeacher && <NavItem path="/rekap-dhuha" label="Rekap Dhuha" icon={Sunset} />}
                         <NavItem path="/profile" label="Profil Saya" icon={User} />
                     </>
                 )}
@@ -252,20 +255,6 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                     </button>
                 )}
 
-                {isHeadmaster && (
-                    <button 
-                    onClick={() => navigate('/kedisiplinan')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                        location.pathname === '/kedisiplinan' 
-                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                    }`}
-                    >
-                    <Siren size={20} strokeWidth={2.5} />
-                    {location.pathname === '/kedisiplinan' && <span className="text-xs font-bold animate-fade-in">Disiplin</span>}
-                    </button>
-                )}
-
                 <button 
                    onClick={() => navigate('/profile')}
                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
@@ -312,7 +301,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
            </div>
       )}
 
-      {/* LOGOUT MODAL */}
+      {/* LOGOUT MODAL - REVERTED TO CENTER */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in">
            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-xs p-6 transform scale-100 transition-all border border-slate-200 dark:border-slate-700">

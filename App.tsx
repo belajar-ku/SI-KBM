@@ -22,6 +22,7 @@ import Kedisiplinan from './pages/Kedisiplinan';
 import AbsensiRapor from './pages/AbsensiRapor'; 
 import OperatorDashboard from './pages/OperatorDashboard';
 import KinerjaGuru from './pages/KinerjaGuru';
+import RekapDhuha from './pages/RekapDhuha';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute: React.FC<{ children: React.ReactElement }> = ({ children }) => {
@@ -127,6 +128,12 @@ const App: React.FC = () => {
             <Route path="/kinerja" element={
                <ProtectedRoute>
                   <KinerjaGuru />
+               </ProtectedRoute>
+            } />
+
+            <Route path="/rekap-dhuha" element={
+               <ProtectedRoute>
+                  <RekapDhuha />
                </ProtectedRoute>
             } />
 

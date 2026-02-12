@@ -6,12 +6,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   NotebookPen, FileText, ClipboardList, Siren, QrCode, CalendarClock, 
   Database, UserCog, CalendarRange, GraduationCap, Settings, BookX,
-  Keyboard
+  Keyboard, Sunset
 } from 'lucide-react';
 
 const AppsMenu: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
+  const { isAdmin, profile } = useAuth();
+
+  // Logic to identify Dhuha Teacher
+  const isDhuhaTeacher = profile?.mengajar_mapel?.toLowerCase().includes('dhuha');
 
   const AppCard = ({ label, subLabel, icon: Icon, path, colorClass, iconColor }: any) => (
     <button
@@ -96,6 +99,15 @@ const AppsMenu: React.FC = () => {
                         path="/jadwal" 
                         colorClass="bg-indigo-500" 
                     />
+                    {isDhuhaTeacher && (
+                      <AppCard 
+                          label="Presensi Dhuha" 
+                          subLabel="Rekap Kehadiran"
+                          icon={Sunset} 
+                          path="/rekap-dhuha" 
+                          colorClass="bg-purple-600" 
+                      />
+                    )}
                     <AppCard 
                         label="Kehadiran" 
                         subLabel="Rekap Absensi Mapel"

@@ -62,7 +62,7 @@ const PublicDashboard: React.FC = () => {
         const [studentsRes, journalsRes, attendanceRes] = await Promise.all([
             supabase.from('students').select('id, kelas'),
             supabase.from('journals').select('hours').gte('created_at', startOfDay),
-            supabase.from('attendance_logs').select('student_id, student_name, status, created_at').gte('created_at', startOfDay)
+            supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').gte('created_at', startOfDay)
         ]);
 
         const classCounts: Record<string, number> = {};
@@ -91,15 +91,19 @@ const PublicDashboard: React.FC = () => {
             });
         }
 
-        setRawAttendance(attendanceRes.data || []);
+        // FILTER: Exclude Salat Dhuha from Global Absence Calculation
+        const validAttendanceLogs = (attendanceRes.data || []).filter((log: any) => {
+            const subject = log.subject ? log.subject.toLowerCase() : '';
+            return !subject.includes('dhuha');
+        });
+
+        setRawAttendance(validAttendanceLogs);
 
         const studentStatusMap: Record<string, string[]> = {};
-        if (attendanceRes.data) {
-            attendanceRes.data.forEach((log: any) => {
-                if (!studentStatusMap[log.student_id]) studentStatusMap[log.student_id] = [];
-                studentStatusMap[log.student_id].push(log.status);
-            });
-        }
+        validAttendanceLogs.forEach((log: any) => {
+            if (!studentStatusMap[log.student_id]) studentStatusMap[log.student_id] = [];
+            studentStatusMap[log.student_id].push(log.status);
+        });
 
         let sCount = 0, iCount = 0, aCount = 0;
         const absencePerClass: Record<string, number> = {};
@@ -301,6 +305,10 @@ const PublicDashboard: React.FC = () => {
                                     <span className="text-red-700 dark:text-red-400 font-bold text-[10px] uppercase mb-1">Alpa</span>
                                     <span className="text-3xl font-extrabold text-red-600 dark:text-red-400">{modalContent.data.absenceDetails.A}</span>
                                 </div>
+                            </div>
+
+                            <div className="p-3 bg-slate-50 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-600 rounded-xl text-center">
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">*Absensi Salat Dhuha tidak dihitung.</span>
                             </div>
 
                             <hr className="border-gray-100 dark:border-slate-700" />
