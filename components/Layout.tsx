@@ -71,6 +71,29 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       );
   };
 
+  // --- NEW: ANIMATED BOTTOM NAV ITEM ---
+  const BottomNavItem = ({ path, label, icon: Icon }: any) => {
+      const isActive = location.pathname === path;
+      return (
+          <button 
+            onClick={() => navigate(path)}
+            className={`relative flex items-center justify-center h-12 rounded-full transition-all duration-500 ease-out overflow-hidden ${
+                isActive 
+                ? 'w-32 bg-slate-900 dark:bg-blue-600 text-white shadow-lg shadow-slate-200 dark:shadow-blue-900/50' 
+                : 'w-12 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 dark:text-slate-500'
+            }`}
+          >
+              <Icon size={24} strokeWidth={isActive ? 2.5 : 2} className={`flex-shrink-0 transition-transform duration-300 ${isActive ? '-ml-2' : ''}`} />
+              
+              <span className={`ml-2 text-xs font-bold whitespace-nowrap transition-all duration-500 ${
+                  isActive ? 'opacity-100 max-w-[100px] translate-x-0' : 'opacity-0 max-w-0 -translate-x-4 absolute'
+              }`}>
+                  {label}
+              </span>
+          </button>
+      );
+  };
+
   const formattedDate = new Intl.DateTimeFormat('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(currentTime);
   const formattedTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(currentTime).replace(/\./g, ':');
 
@@ -211,61 +234,21 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
           </div>
       </main>
 
-      {/* --- MOBILE BOTTOM NAV (Floating Figma Style) --- */}
+      {/* --- MOBILE BOTTOM NAV (FLUTTER STYLE ANIMATED) --- */}
       {showNav && !isOperator && (
         <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-            <nav className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
-                <button 
-                  onClick={() => navigate('/dashboard')}
-                  className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                      location.pathname === '/dashboard' 
-                      ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                      : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                  }`}
-                >
-                  <LayoutDashboard size={20} strokeWidth={2.5} />
-                  {location.pathname === '/dashboard' && <span className="text-xs font-bold animate-fade-in">Beranda</span>}
-                </button>
+            <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2 max-w-[95vw]">
+                <BottomNavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
 
                 {!isHeadmaster && (
-                    <button 
-                    onClick={() => navigate('/apps')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                        location.pathname === '/apps' 
-                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                    }`}
-                    >
-                    <Grid size={20} strokeWidth={2.5} />
-                    {location.pathname === '/apps' && <span className="text-xs font-bold animate-fade-in">KBM</span>}
-                    </button>
+                    <BottomNavItem path="/apps" label="KBM" icon={Grid} />
                 )}
 
                 {isHeadmaster && (
-                    <button 
-                    onClick={() => navigate('/kinerja')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                        location.pathname === '/kinerja' 
-                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                    }`}
-                    >
-                    <Activity size={20} strokeWidth={2.5} />
-                    {location.pathname === '/kinerja' && <span className="text-xs font-bold animate-fade-in">Kinerja</span>}
-                    </button>
+                    <BottomNavItem path="/kinerja" label="Kinerja" icon={Activity} />
                 )}
 
-                <button 
-                   onClick={() => navigate('/profile')}
-                   className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                       location.pathname === '/profile' 
-                       ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                       : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                   }`}
-                >
-                  <User size={20} strokeWidth={2.5} />
-                  {location.pathname === '/profile' && <span className="text-xs font-bold animate-fade-in">Profil</span>}
-                </button>
+                <BottomNavItem path="/profile" label="Profil" icon={User} />
             </nav>
         </div>
       )}
@@ -273,30 +256,9 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* Mobile Nav for Operator */}
       {showNav && isOperator && (
            <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-                <nav className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-md border border-slate-200 dark:border-slate-600 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-1.5 pointer-events-auto gap-1">
-                    <button 
-                    onClick={() => navigate('/operator-dashboard')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                        location.pathname === '/operator-dashboard' 
-                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                    }`}
-                    >
-                    <MonitorPlay size={20} strokeWidth={2.5} />
-                    {location.pathname === '/operator-dashboard' && <span className="text-xs font-bold animate-fade-in">Monitor</span>}
-                    </button>
-
-                    <button 
-                    onClick={() => navigate('/profile')}
-                    className={`flex items-center gap-2 px-5 py-3 rounded-full transition-all duration-300 ${
-                        location.pathname === '/profile' 
-                        ? 'bg-slate-800 dark:bg-blue-600 text-white shadow-md' 
-                        : 'text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200'
-                    }`}
-                    >
-                    <User size={20} strokeWidth={2.5} />
-                    {location.pathname === '/profile' && <span className="text-xs font-bold animate-fade-in">Profil</span>}
-                    </button>
+                <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2">
+                    <BottomNavItem path="/operator-dashboard" label="Monitor" icon={MonitorPlay} />
+                    <BottomNavItem path="/profile" label="Profil" icon={User} />
                 </nav>
            </div>
       )}

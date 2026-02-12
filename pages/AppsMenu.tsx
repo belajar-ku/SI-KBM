@@ -16,20 +16,24 @@ const AppsMenu: React.FC = () => {
   // Logic to identify Dhuha Teacher
   const isDhuhaTeacher = profile?.mengajar_mapel?.toLowerCase().includes('dhuha');
 
-  const AppCard = ({ label, subLabel, icon: Icon, path, colorClass, iconColor }: any) => (
+  const AppCard = ({ label, subLabel, icon: Icon, path, gradientClass }: any) => (
     <button
       onClick={() => navigate(path)}
-      className="bg-white dark:bg-slate-800 rounded-3xl p-6 flex flex-col items-center justify-center gap-4 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-none hover:border-blue-200 dark:hover:border-blue-500/30 hover:-translate-y-1 transition-all duration-300 w-full h-48 group relative overflow-hidden"
+      className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 flex flex-col items-center justify-center gap-5 shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-500/30 hover:-translate-y-1.5 transition-all duration-300 w-full h-52 group relative overflow-hidden"
     >
-      <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white shadow-md transition-transform group-hover:scale-110 relative z-10 ${colorClass}`}>
-         <Icon size={32} strokeWidth={1.5} />
+      {/* 3D ICON CONTAINER */}
+      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white shadow-[0_12px_25px_-8px_rgba(0,0,0,0.3)] border-t border-white/40 relative z-10 transform transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${gradientClass}`}>
+         <div className="absolute inset-0 rounded-3xl bg-gradient-to-b from-white/20 to-transparent opacity-50 pointer-events-none"></div>
+         <Icon size={36} strokeWidth={1.8} className="drop-shadow-md" />
       </div>
+      
       <div className="text-center relative z-10">
-          <h3 className="text-base font-extrabold text-slate-700 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{label}</h3>
-          <p className="text-xs text-slate-400 dark:text-slate-500 font-medium mt-1 group-hover:text-slate-500 dark:group-hover:text-slate-400">{subLabel}</p>
+          <h3 className="text-lg font-extrabold text-slate-700 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors tracking-tight leading-tight">{label}</h3>
+          <p className="text-xs text-slate-400 dark:text-slate-500 font-bold mt-1.5 uppercase tracking-wide group-hover:text-slate-500 dark:group-hover:text-slate-400">{subLabel}</p>
       </div>
-      {/* Dark mode hover glow effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent to-slate-50 dark:to-white/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+      
+      {/* Background Decor */}
+      <div className="absolute -bottom-10 -right-10 w-32 h-32 bg-gradient-to-br from-slate-100 to-slate-50 dark:from-white/5 dark:to-transparent rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"></div>
     </button>
   );
 
@@ -45,42 +49,42 @@ const AppsMenu: React.FC = () => {
                         subLabel="Database CSV"
                         icon={Database} 
                         path="/import-data" 
-                        colorClass="bg-rose-500" 
+                        gradientClass="bg-gradient-to-br from-rose-400 to-red-600" 
                     />
                     <AppCard 
                         label="Input Manual" 
                         subLabel="Input Massal CSV"
                         icon={Keyboard} 
                         path="/input-manual" 
-                        colorClass="bg-indigo-600" 
+                        gradientClass="bg-gradient-to-br from-indigo-400 to-violet-600" 
                     />
                     <AppCard 
                         label="Jadwal Pelajaran" 
                         subLabel="Setup Jadwal"
                         icon={CalendarRange} 
                         path="/input-jadwal" 
-                        colorClass="bg-purple-500" 
+                        gradientClass="bg-gradient-to-br from-purple-400 to-fuchsia-600" 
                     />
                     <AppCard 
                         label="Manajemen User" 
                         subLabel="Akun Guru"
                         icon={UserCog} 
                         path="/users" 
-                        colorClass="bg-teal-500" 
+                        gradientClass="bg-gradient-to-br from-teal-400 to-emerald-600" 
                     />
                     <AppCard 
                         label="Data Murid" 
                         subLabel="Siswa & Mutasi"
                         icon={GraduationCap} 
                         path="/students" 
-                        colorClass="bg-blue-500" 
+                        gradientClass="bg-gradient-to-br from-blue-400 to-cyan-600" 
                     />
                     <AppCard 
                         label="Pengaturan" 
                         subLabel="Konfigurasi Umum"
                         icon={Settings} 
                         path="/settings" 
-                        colorClass="bg-slate-700" 
+                        gradientClass="bg-gradient-to-br from-slate-500 to-slate-700" 
                     />
                 </>
                 ) : (
@@ -90,14 +94,14 @@ const AppsMenu: React.FC = () => {
                         subLabel="Input KBM Harian"
                         icon={NotebookPen} 
                         path="/jurnal" 
-                        colorClass="bg-blue-600" 
+                        gradientClass="bg-gradient-to-br from-blue-500 to-blue-700" 
                     />
                     <AppCard 
                         label="Jadwalku" 
                         subLabel="Jadwal Mengajar"
                         icon={CalendarClock} 
                         path="/jadwal" 
-                        colorClass="bg-indigo-500" 
+                        gradientClass="bg-gradient-to-br from-indigo-400 to-indigo-600" 
                     />
                     {isDhuhaTeacher && (
                       <AppCard 
@@ -105,7 +109,7 @@ const AppsMenu: React.FC = () => {
                           subLabel="Rekap Kehadiran"
                           icon={Sunset} 
                           path="/rekap-dhuha" 
-                          colorClass="bg-purple-600" 
+                          gradientClass="bg-gradient-to-br from-purple-500 to-purple-700" 
                       />
                     )}
                     <AppCard 
@@ -113,35 +117,35 @@ const AppsMenu: React.FC = () => {
                         subLabel="Rekap Absensi Mapel"
                         icon={ClipboardList} 
                         path="/rekap-absensi" 
-                        colorClass="bg-emerald-500" 
+                        gradientClass="bg-gradient-to-br from-emerald-400 to-green-600" 
                     />
                      <AppCard 
                         label="Ketidakhadiran" 
                         subLabel="Untuk Rapor"
                         icon={BookX} 
                         path="/absensi-rapor" 
-                        colorClass="bg-red-500" 
+                        gradientClass="bg-gradient-to-br from-red-400 to-rose-600" 
                     />
                     <AppCard 
                         label="Laporan" 
                         subLabel="Cetak Jurnal"
                         icon={FileText} 
                         path="/laporan" 
-                        colorClass="bg-amber-500" 
+                        gradientClass="bg-gradient-to-br from-amber-400 to-orange-500" 
                     />
                     <AppCard 
                         label="Pelanggaran" 
                         subLabel="Temuan di Luar KBM"
                         icon={Siren} 
                         path="/kedisiplinan" 
-                        colorClass="bg-orange-600" 
+                        gradientClass="bg-gradient-to-br from-orange-500 to-red-600" 
                     />
                     <AppCard 
                         label="Presensi QR" 
                         subLabel="Scan Kartu"
                         icon={QrCode} 
                         path="/qr" 
-                        colorClass="bg-slate-700" 
+                        gradientClass="bg-gradient-to-br from-slate-600 to-slate-800" 
                     />
                 </>
                 )}

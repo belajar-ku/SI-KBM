@@ -76,11 +76,16 @@ const RekapAbsensi: React.FC = () => {
         .eq('teacher_id', profile.id);
 
       if (schedules) {
-        const uniqueClasses = Array.from(new Set(schedules.map(s => s.kelas))).sort();
+        // FILTER: Exclude 'Salat Dhuha' from this report because it has its own dedicated menu.
+        // Only show academic subjects like PAI, Math, etc.
+        const validSchedules = schedules.filter(s => !s.subject.toLowerCase().includes('dhuha'));
+
+        const uniqueClasses = Array.from(new Set(validSchedules.map(s => s.kelas))).sort();
         setClasses(uniqueClasses as string[]);
 
         const map: Record<string, string> = {};
-        schedules.forEach(s => {
+        validSchedules.forEach(s => {
+            // Determine subject for the class (non-Dhuha)
             if (!map[s.kelas]) map[s.kelas] = s.subject;
         });
         setSubjectsMap(map);
