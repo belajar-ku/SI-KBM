@@ -619,6 +619,70 @@ const Dashboard: React.FC = () => {
 
                             {/* Content Section (Right) */}
                             <div className="flex-1 min-w-0 flex flex-col gap-4">
+                                
+                                {/* ACCORDION INPUT FORM (Moved Here, above Date Picker) */}
+                                {showInputForm && (
+                                    <div className="mb-2 p-4 border-2 border-blue-100 dark:border-slate-600 rounded-2xl bg-white dark:bg-slate-800 animate-fade-in shadow-sm">
+                                        <div className="flex justify-between items-center mb-3">
+                                            <h4 className="font-bold text-slate-700 dark:text-white text-xs flex items-center gap-2">
+                                                <Edit2 size={14} className="text-blue-500"/> Input Absensi: {formatDateIndo(filterDate)}
+                                            </h4>
+                                            <button 
+                                                onClick={() => setModalAttendance({})}
+                                                className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 px-2 py-1 rounded transition-colors"
+                                            >
+                                                Reset
+                                            </button>
+                                        </div>
+
+                                        <div className="max-h-[300px] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-700/30">
+                                            <div className="sticky top-0 z-10 bg-slate-100 dark:bg-slate-700 border-b border-slate-200 dark:border-slate-600 px-3 py-2 flex items-center text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase">
+                                                <div className="flex-1">NAMA MURID</div>
+                                                <div className="flex gap-1.5 w-24 justify-end">
+                                                    <span className="w-7 text-center">S</span>
+                                                    <span className="w-7 text-center">I</span>
+                                                    <span className="w-7 text-center">D</span> 
+                                                </div>
+                                            </div>
+                                            <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                                                {modalStudents.map(student => (
+                                                    <div key={student.id} className="flex items-center justify-between px-3 py-2 hover:bg-white dark:hover:bg-slate-600/50 transition-colors">
+                                                        <div className="flex-1 pr-2">
+                                                            <p className="text-xs font-bold text-slate-700 dark:text-slate-200 line-clamp-1">{student.name}</p>
+                                                        </div>
+                                                        <div className="flex gap-1.5 w-24 justify-end">
+                                                            {['S', 'I', 'D'].map(status => (
+                                                                <button 
+                                                                    key={status}
+                                                                    onClick={() => toggleModalStatus(student.id, status as any)}
+                                                                    className={`w-7 h-7 rounded-md flex items-center justify-center border transition-all text-[10px] font-bold ${
+                                                                        modalAttendance[student.id] === status
+                                                                        ? (status === 'S' ? 'bg-yellow-500 border-yellow-600 text-white' : status === 'I' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-purple-500 border-purple-600 text-white')
+                                                                        : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                                    }`}
+                                                                >
+                                                                    {status}
+                                                                </button>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="mt-3 flex justify-end">
+                                            <button 
+                                                onClick={handleSaveHomeroomAttendance}
+                                                disabled={savingAttendance}
+                                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl font-bold flex items-center gap-2 shadow-md shadow-blue-200 dark:shadow-none disabled:opacity-50 transition-all text-xs"
+                                            >
+                                                {savingAttendance ? <Loader2 className="animate-spin" size={14}/> : <Save size={14} />} 
+                                                Simpan
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-700/50 p-2.5 rounded-xl border border-slate-100 dark:border-slate-700">
                                     <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
                                         <CalendarDays size={14} />
@@ -646,69 +710,6 @@ const Dashboard: React.FC = () => {
                                 )}
                             </div>
                         </div>
-
-                        {/* ACCORDION INPUT FORM (Replaces Modal) */}
-                        {showInputForm && (
-                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 animate-fade-in">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-bold text-slate-700 dark:text-white text-sm flex items-center gap-2">
-                                        <Edit2 size={14} /> Input Absensi: {formatDateIndo(filterDate)}
-                                    </h4>
-                                    <button 
-                                        onClick={() => setModalAttendance({})}
-                                        className="text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
-                                    >
-                                        Reset (Hadir Semua)
-                                    </button>
-                                </div>
-
-                                <div className="max-h-[400px] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800">
-                                    <div className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-700/80 backdrop-blur-sm border-b border-slate-100 dark:border-slate-600 px-4 py-2 flex items-center text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wide">
-                                        <div className="flex-1">Nama Siswa</div>
-                                        <div className="flex gap-2">
-                                            <span className="w-8 text-center">S</span>
-                                            <span className="w-8 text-center">I</span>
-                                            <span className="w-8 text-center">D</span>
-                                        </div>
-                                    </div>
-                                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                                        {modalStudents.map(student => (
-                                            <div key={student.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
-                                                <div className="flex-1 pr-2">
-                                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1">{student.name}</p>
-                                                </div>
-                                                <div className="flex gap-2">
-                                                    {['S', 'I', 'D'].map(status => (
-                                                        <button 
-                                                            key={status}
-                                                            onClick={() => toggleModalStatus(student.id, status as any)}
-                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all text-xs font-bold ${
-                                                                modalAttendance[student.id] === status
-                                                                ? (status === 'S' ? 'bg-yellow-500 border-yellow-600 text-white' : status === 'I' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-purple-500 border-purple-600 text-white')
-                                                                : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
-                                                            }`}
-                                                        >
-                                                            {status}
-                                                        </button>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="mt-4 flex justify-end">
-                                    <button 
-                                        onClick={handleSaveHomeroomAttendance}
-                                        disabled={savingAttendance}
-                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none disabled:opacity-50 transition-all text-xs"
-                                    >
-                                        {savingAttendance ? <Loader2 className="animate-spin" size={14}/> : <Save size={14} />} 
-                                        Simpan Data
-                                    </button>
-                                </div>
-                            </div>
-                        )}
                     </div>
                 )}
 
@@ -745,7 +746,7 @@ const Dashboard: React.FC = () => {
                                                         </span>
                                                     ))
                                                 ) : (
-                                                    <span className="text-slate-200 dark:text-slate-600 font-bold text-xl">-</span>
+                                                    <span className="text-slate-200 dark:text-slate-700 font-bold text-lg select-none">-</span>
                                                 )}
                                             </div>
                                         </td>
@@ -783,26 +784,28 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* MODAL EDIT SPECIFIC - FIXED VIEWPORT */}
+        {/* MODAL EDIT SPECIFIC - TOP ALIGNED & MODERN */}
         {showEditSpecificModal && (
-            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
-                <div className="bg-white dark:bg-slate-800 w-full md:w-full md:max-w-md rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] mb-0 md:mb-auto transition-transform transform scale-100">
-                    <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
+            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+                <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-700 relative flex flex-col max-h-[80vh] transform transition-all scale-100 animate-fade-in">
+                    
+                    {/* Header */}
+                    <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center bg-white dark:bg-slate-800">
                         <div>
                             <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Edit Data {editingCategory}</h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Ubah status / Tambah catatan</p>
+                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Ubah status / Tambah catatan</p>
                         </div>
                         <button 
                             onClick={() => setShowEditSpecificModal(false)} 
-                            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors"
+                            className="p-1.5 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors"
                         >
-                            <X size={24} />
+                            <X size={20} />
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 bg-white dark:bg-slate-800">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 bg-slate-50/50 dark:bg-slate-800/50">
                         {specificAbsenceData.map((item, idx) => (
-                            <div key={idx} className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-4 border border-slate-200 dark:border-slate-600">
+                            <div key={idx} className="bg-white dark:bg-slate-700/50 rounded-xl p-4 border border-slate-200 dark:border-slate-600 shadow-sm">
                                 <p className="font-bold text-slate-800 dark:text-white mb-3 text-sm">{item.student_name}</p>
                                 
                                 <div className="flex gap-2 mb-3">
@@ -810,12 +813,12 @@ const Dashboard: React.FC = () => {
                                         <button 
                                             key={status}
                                             onClick={() => updateSpecificRow(idx, 'newStatus', status)}
-                                            className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${
+                                            className={`flex-1 py-1.5 rounded-lg text-xs font-bold border transition-all ${
                                                 item.newStatus === status 
                                                 ? (status === 'S' ? 'bg-yellow-100 border-yellow-200 text-yellow-700 dark:bg-yellow-900 dark:border-yellow-700 dark:text-yellow-100' : 
                                                    status === 'I' ? 'bg-blue-100 border-blue-200 text-blue-700 dark:bg-blue-900 dark:border-blue-700 dark:text-blue-100' :
                                                    status === 'A' ? 'bg-red-100 border-red-200 text-red-700 dark:bg-red-900 dark:border-red-700 dark:text-red-100' : 'bg-purple-100 border-purple-200 text-purple-700 dark:bg-purple-900 dark:border-purple-700 dark:text-purple-100')
-                                                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                                                : 'bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-600 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
                                             }`}
                                         >
                                             {status}
@@ -824,11 +827,10 @@ const Dashboard: React.FC = () => {
                                 </div>
 
                                 <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 mb-1">Alasan / Catatan</label>
                                     <input 
                                         type="text" 
-                                        className="w-full border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 rounded-lg p-2 text-xs focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-white"
-                                        placeholder="Contoh: Orang tua menelepon..."
+                                        className="w-full border border-slate-200 dark:border-slate-600 bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2.5 text-xs focus:ring-2 focus:ring-blue-500 text-slate-700 dark:text-white transition-all placeholder:text-slate-400"
+                                        placeholder="Catatan (Opsional)..."
                                         value={item.note}
                                         onChange={(e) => updateSpecificRow(idx, 'note', e.target.value)}
                                     />
@@ -837,13 +839,13 @@ const Dashboard: React.FC = () => {
                         ))}
                     </div>
 
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0 pb-8 md:pb-4">
+                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
                         <button 
                             onClick={handleSaveSpecific}
                             disabled={savingAttendance}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none disabled:opacity-50 transition-all"
+                            className="w-full bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all"
                         >
-                            {savingAttendance ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />} 
+                            {savingAttendance ? <Loader2 className="animate-spin" size={18}/> : <Save size={18} />} 
                             Simpan Perubahan
                         </button>
                     </div>
