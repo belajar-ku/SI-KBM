@@ -298,9 +298,9 @@ const RekapDhuha: React.FC = () => {
         </div>
       )}
 
-      {/* DETAIL MODAL */}
+      {/* DETAIL MODAL - Fixed Z-Index */}
       {showModal && selectedStudentSummary && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in print:hidden" onClick={() => setShowModal(false)}>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in print:hidden" onClick={() => setShowModal(false)}>
               <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
                   <div className="bg-purple-600 px-6 py-5 border-b border-purple-500 flex justify-between items-center text-white">
                       <div>

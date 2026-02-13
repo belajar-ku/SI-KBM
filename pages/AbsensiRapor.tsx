@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
-import { Printer, Loader2, BookX, CalendarDays, X, Eye } from 'lucide-react';
+import { Printer, Loader2, BookX, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import { formatDateSignature, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 
 interface ReportDetail {
@@ -30,7 +30,7 @@ const AbsensiRapor: React.FC = () => {
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   
-  // Date Range (Defaults to current month)
+  // Date Range
   const [startDate, setStartDate] = useState(() => {
       const d = new Date();
       d.setDate(1); // 1st of current month
@@ -46,9 +46,8 @@ const AbsensiRapor: React.FC = () => {
       headmaster_nip: ''
   });
 
-  // MODAL DETAIL
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedStudentDetail, setSelectedStudentDetail] = useState<ReportStudent | null>(null);
+  // ACCORDION STATE
+  const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
 
   const componentRef = useRef<HTMLDivElement>(null);
 
@@ -67,19 +66,15 @@ const AbsensiRapor: React.FC = () => {
   const fetchInitData = async () => {
     if(!profile) return;
     try {
-        // 1. Get Settings
         const { data: settingsData } = await supabase.from('app_settings').select('*');
         const newSettings: any = {};
         settingsData?.forEach(item => newSettings[item.key] = item.value);
         setSettings(prev => ({ ...prev, ...newSettings }));
 
-        // 2. Determine Class List (Fetch ALL Classes)
         const { data } = await supabase.from('students').select('kelas');
         if(data) {
             const unique = Array.from(new Set(data.map((s:any) => s.kelas))).sort();
             setClasses(unique as string[]);
-
-             // 3. Set Default Selection
             if (profile.wali_kelas) {
                 setSelectedClass(profile.wali_kelas);
             }
@@ -89,16 +84,12 @@ const AbsensiRapor: React.FC = () => {
 
   const generateReport = async () => {
       setLoading(true);
+      setExpandedStudentId(null); // Reset accordion on new fetch
       try {
           const start = `${startDate}T00:00:00+07:00`;
           const end = `${endDate}T23:59:59+07:00`;
 
-          // 1. Get Students
-          const { data: students } = await supabase
-            .from('students')
-            .select('*')
-            .eq('kelas', selectedClass)
-            .order('name');
+          const { data: students } = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
           
           if(!students || students.length === 0) {
               setReportData([]); setLoading(false); return;
@@ -106,29 +97,13 @@ const AbsensiRapor: React.FC = () => {
 
           const studentIds = students.map(s => s.id);
 
-          // 2. Get Homeroom Attendance (Mutlak)
-          const { data: hLogs } = await supabase
-            .from('homeroom_attendance')
-            .select('student_id, date, status')
-            .in('student_id', studentIds)
-            .gte('date', startDate)
-            .lte('date', endDate);
-        
-          // 3. Get Teacher Logs
-          const { data: tLogs } = await supabase
-            .from('attendance_logs')
-            .select('student_id, created_at, status')
-            .in('student_id', studentIds)
-            .gte('created_at', start)
-            .lte('created_at', end)
-            .neq('status', 'D');
+          const { data: hLogs } = await supabase.from('homeroom_attendance').select('student_id, date, status').in('student_id', studentIds).gte('date', startDate).lte('date', endDate);
+          const { data: tLogs } = await supabase.from('attendance_logs').select('student_id, created_at, status').in('student_id', studentIds).gte('created_at', start).lte('created_at', end).neq('status', 'D');
 
-          // LOGIC AGGREGATION
           const processedStudents: ReportStudent[] = students.map(student => {
               let s_total = 0, i_total = 0, a_total = 0, d_total = 0;
               const details: ReportDetail[] = [];
 
-              // Collect all unique dates relevant to this student
               const hDates = hLogs?.filter(l => l.student_id === student.id).map(l => l.date) || [];
               const tDates = tLogs?.filter(l => l.student_id === student.id).map(l => l.created_at.split('T')[0]) || [];
               const uniqueDates = Array.from(new Set([...hDates, ...tDates])).sort();
@@ -137,17 +112,14 @@ const AbsensiRapor: React.FC = () => {
                   let statusFound = '';
                   let sourceFound = '';
 
-                  // A. Cek Wali Kelas (Prioritas Utama)
                   const hLog = hLogs?.find(l => l.student_id === student.id && l.date === date);
                   if (hLog) {
                       statusFound = hLog.status;
                       sourceFound = 'Wali Kelas';
                   } else {
-                      // B. Cek Guru Mapel (Agregasi)
                       const dayLogs = tLogs?.filter(l => l.student_id === student.id && l.created_at.startsWith(date)) || [];
                       if (dayLogs.length > 0) {
                           const statuses = dayLogs.map(l => l.status);
-                          // Hierarchy: S > I > A
                           if (statuses.includes('S')) statusFound = 'S';
                           else if (statuses.includes('I')) statusFound = 'I';
                           else if (statuses.includes('A')) statusFound = 'A';
@@ -185,9 +157,8 @@ const AbsensiRapor: React.FC = () => {
   const handlePrint = () => window.print();
   const currentDateStr = formatDateSignature(new Date());
 
-  const openDetailModal = (student: ReportStudent) => {
-      setSelectedStudentDetail(student);
-      setShowDetailModal(true);
+  const toggleAccordion = (studentId: string) => {
+      setExpandedStudentId(prev => prev === studentId ? null : studentId);
   };
 
   return (
@@ -266,7 +237,6 @@ const AbsensiRapor: React.FC = () => {
             </div>
 
             {/* Content Table */}
-            {/* PRINT MODE: Remove overflow-x-auto to ensure it flows down multiple pages without clipping right side */}
             <div className="overflow-x-auto print:overflow-visible">
                 <table className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
                     <thead>
@@ -283,23 +253,61 @@ const AbsensiRapor: React.FC = () => {
                     <tbody>
                         {reportData.map((s, idx) => {
                             const total = s.s_count + s.i_count + s.a_count; 
+                            const isExpanded = expandedStudentId === s.id;
+                            
                             return (
-                                <tr key={s.id} className="hover:bg-gray-50 print:hover:bg-transparent">
-                                    <td className="border border-gray-400 p-1.5 text-center">{idx + 1}</td>
-                                    <td className="border border-gray-400 p-1.5 text-center font-mono">{s.nisn}</td>
-                                    <td className="border border-gray-400 p-1.5 pl-3">
-                                        <button 
-                                            onClick={() => openDetailModal(s)}
-                                            className="font-bold text-left hover:text-blue-600 hover:underline print:no-underline print:text-black text-black"
-                                        >
-                                            {s.name}
-                                        </button>
-                                    </td>
-                                    <td className="border border-gray-400 p-1.5 text-center">{s.s_count || '-'}</td>
-                                    <td className="border border-gray-400 p-1.5 text-center">{s.i_count || '-'}</td>
-                                    <td className="border border-gray-400 p-1.5 text-center">{s.a_count || '-'}</td>
-                                    <td className="border border-gray-400 p-1.5 text-center font-bold">{total || '-'}</td>
-                                </tr>
+                                <React.Fragment key={s.id}>
+                                    <tr className="hover:bg-gray-50 print:hover:bg-transparent">
+                                        <td className="border border-gray-400 p-1.5 text-center">{idx + 1}</td>
+                                        <td className="border border-gray-400 p-1.5 text-center font-mono">{s.nisn}</td>
+                                        <td className="border border-gray-400 p-1.5 pl-3">
+                                            <button 
+                                                onClick={() => toggleAccordion(s.id)}
+                                                className="font-bold text-left hover:text-blue-600 hover:underline print:no-underline print:text-black text-black w-full flex justify-between items-center group"
+                                            >
+                                                {s.name}
+                                                <span className="text-gray-400 group-hover:text-blue-500 print:hidden">
+                                                    {isExpanded ? <ChevronUp size={14}/> : <ChevronDown size={14}/>}
+                                                </span>
+                                            </button>
+                                        </td>
+                                        <td className="border border-gray-400 p-1.5 text-center">{s.s_count || '-'}</td>
+                                        <td className="border border-gray-400 p-1.5 text-center">{s.i_count || '-'}</td>
+                                        <td className="border border-gray-400 p-1.5 text-center">{s.a_count || '-'}</td>
+                                        <td className="border border-gray-400 p-1.5 text-center font-bold">{total || '-'}</td>
+                                    </tr>
+                                    
+                                    {/* ACCORDION ROW */}
+                                    {isExpanded && s.details.length > 0 && (
+                                        <tr className="bg-slate-50 print:hidden animate-fade-in">
+                                            <td colSpan={7} className="border border-gray-400 p-4">
+                                                <div className="text-xs">
+                                                    <p className="font-bold text-slate-500 mb-2">Rincian Ketidakhadiran:</p>
+                                                    <div className="flex flex-wrap gap-2">
+                                                        {s.details.map((det, i) => (
+                                                            <div key={i} className={`flex items-center gap-2 p-2 rounded border ${
+                                                                det.status === 'S' ? 'bg-yellow-100 border-yellow-200 text-yellow-800' :
+                                                                det.status === 'I' ? 'bg-blue-100 border-blue-200 text-blue-800' :
+                                                                det.status === 'A' ? 'bg-red-100 border-red-200 text-red-800' : 'bg-purple-100 border-purple-200 text-purple-800'
+                                                            }`}>
+                                                                <span className="font-mono font-bold">{formatDateIndo(det.date)}</span>
+                                                                <span className="font-extrabold px-1 bg-white/50 rounded">{det.status}</span>
+                                                                <span className="text-[10px] opacity-70">({det.source})</span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )}
+                                    {isExpanded && s.details.length === 0 && (
+                                        <tr className="bg-slate-50 print:hidden animate-fade-in">
+                                            <td colSpan={7} className="border border-gray-400 p-3 text-center text-xs text-gray-400 italic">
+                                                Hadir penuh (Tidak ada catatan ketidakhadiran).
+                                            </td>
+                                        </tr>
+                                    )}
+                                </React.Fragment>
                             );
                         })}
                     </tbody>
@@ -307,7 +315,6 @@ const AbsensiRapor: React.FC = () => {
             </div>
 
             {/* Signature Area */}
-            {/* PRINT MODE: Ensure break-inside-avoid to try keeping signatures together */}
             <div className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0">
                 <div className="text-center md:text-left md:ml-4">
                     <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>
@@ -322,62 +329,6 @@ const AbsensiRapor: React.FC = () => {
                 </div>
             </div>
 
-          </div>
-      )}
-
-      {/* MODAL DETAIL (Hidden in Print) */}
-      {showDetailModal && selectedStudentDetail && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in print:hidden">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
-                  <div className="bg-red-600 p-4 flex justify-between items-center text-white">
-                      <div>
-                          <h3 className="font-bold text-lg">{selectedStudentDetail.name}</h3>
-                          <p className="text-xs text-red-100">{selectedStudentDetail.nisn} • Kelas {selectedStudentDetail.kelas}</p>
-                      </div>
-                      <button onClick={() => setShowDetailModal(false)} className="hover:bg-white/20 p-1 rounded-full"><X size={20}/></button>
-                  </div>
-                  
-                  <div className="p-0 overflow-y-auto custom-scrollbar flex-1">
-                      {selectedStudentDetail.details.length === 0 ? (
-                          <div className="p-8 text-center text-gray-400 text-sm">Tidak ada catatan ketidakhadiran (Hadir Penuh).</div>
-                      ) : (
-                          <table className="w-full text-sm text-left">
-                              <thead className="bg-gray-50 text-gray-500 font-bold border-b border-gray-100">
-                                  <tr>
-                                      <th className="p-4">Tanggal</th>
-                                      <th className="p-4 text-center">Status</th>
-                                      <th className="p-4">Sumber Data</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-100">
-                                  {selectedStudentDetail.details.map((d, i) => (
-                                      <tr key={i} className="hover:bg-gray-50">
-                                          <td className="p-4 text-gray-700">
-                                              {formatDateIndo(d.date)}
-                                          </td>
-                                          <td className="p-4 text-center">
-                                              <span className={`px-2 py-1 rounded text-xs font-bold ${
-                                                  d.status === 'S' ? 'bg-yellow-100 text-yellow-700' :
-                                                  d.status === 'I' ? 'bg-blue-100 text-blue-700' :
-                                                  d.status === 'A' ? 'bg-red-100 text-red-700' : 'bg-purple-100 text-purple-700'
-                                              }`}>
-                                                  {d.status === 'S' ? 'Sakit' : d.status === 'I' ? 'Izin' : d.status === 'A' ? 'Alpa' : 'Dispen'}
-                                              </span>
-                                          </td>
-                                          <td className="p-4 text-gray-500 text-xs">
-                                              {d.source}
-                                          </td>
-                                      </tr>
-                                  ))}
-                              </tbody>
-                          </table>
-                      )}
-                  </div>
-                  
-                  <div className="p-4 border-t border-gray-100 bg-gray-50 text-right">
-                      <button onClick={() => setShowDetailModal(false)} className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg font-bold text-sm transition-colors">Tutup</button>
-                  </div>
-              </div>
           </div>
       )}
     </Layout>

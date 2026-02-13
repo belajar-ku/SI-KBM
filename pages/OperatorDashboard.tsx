@@ -90,11 +90,8 @@ const OperatorDashboard: React.FC = () => {
     // Subscribe to Attendance changes
     const attendanceChannel = supabase
         .channel('realtime-operator-attendance')
-        .on(
-            'postgres_changes',
-            { event: '*', schema: 'public', table: 'attendance_logs' },
-            () => { fetchMonitorData(); }
-        )
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => { fetchMonitorData(); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'homeroom_attendance' }, () => { fetchMonitorData(); })
         .subscribe();
 
     // AUTO REFRESH EVERY 3 MINUTES (180,000 ms)
@@ -168,17 +165,19 @@ const OperatorDashboard: React.FC = () => {
           // Use passed profiles OR Ref (latest state fallback for interval)
           const activeProfiles = currentProfiles || profilesRef.current;
 
-          const [schedulesRes, journalsRes, attendanceRes, studentsRes] = await Promise.all([
+          const [schedulesRes, journalsRes, attendanceRes, studentsRes, homeroomRes] = await Promise.all([
               supabase.from('schedules').select('*').eq('day_of_week', dbDay),
               supabase.from('journals').select('teacher_id, kelas, subject, hours, cleanliness').gte('created_at', startOfDay).lte('created_at', endOfDay),
               supabase.from('attendance_logs').select('student_id, student_name, status, created_at').gte('created_at', startOfDay).lte('created_at', endOfDay).neq('status', 'D'),
-              supabase.from('students').select('id, kelas') 
+              supabase.from('students').select('id, kelas, name'),
+              supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('date', filterDate)
           ]);
 
           const schedules = schedulesRes.data || [];
           const journals = journalsRes.data || [];
           const attendanceLogs = attendanceRes.data || [];
           const studentsData = studentsRes.data || [];
+          const homeroomLogs = homeroomRes.data || [];
 
           // Process Schedules
           const processed: MonitorItem[] = schedules.map(sch => {
@@ -228,12 +227,14 @@ const OperatorDashboard: React.FC = () => {
           setData8(sortBase(processed.filter(i => i.kelas.startsWith('8'))));
           setData9(sortBase(processed.filter(i => i.kelas.startsWith('9'))));
 
-          // Process Absence
+          // Process Absence (MERGED HOMEROOM & TEACHER)
           const studentClassMap: Record<string, string> = {};
+          const studentNameMap: Record<string, string> = {};
           const classCounts: Record<string, number> = {}; 
 
           studentsData.forEach((s: any) => {
               studentClassMap[s.id] = s.kelas;
+              studentNameMap[s.id] = s.name;
               if (s.kelas) {
                   classCounts[s.kelas] = (classCounts[s.kelas] || 0) + 1;
               }
@@ -241,20 +242,34 @@ const OperatorDashboard: React.FC = () => {
           setStudentClassCounts(classCounts);
 
           const uniqueAbsenceMap: Record<string, {name: string, status: string, kelas: string}> = {};
-          let sCount = 0, iCount = 0, aCount = 0;
-
-          attendanceLogs.forEach((log: any) => {
-              if (['S', 'I', 'A'].includes(log.status)) {
-                  uniqueAbsenceMap[log.student_id] = {
-                      name: log.student_name,
-                      status: log.status,
-                      kelas: studentClassMap[log.student_id] || '?'
+          
+          // 1. Homeroom
+          homeroomLogs.forEach((h: any) => {
+              if (['S', 'I', 'A'].includes(h.status)) {
+                  uniqueAbsenceMap[h.student_id] = {
+                      name: studentNameMap[h.student_id] || 'Siswa',
+                      status: h.status,
+                      kelas: studentClassMap[h.student_id] || h.kelas || '?'
                   };
+              }
+          });
+
+          // 2. Teacher Logs
+          attendanceLogs.forEach((log: any) => {
+              if (!uniqueAbsenceMap[log.student_id]) {
+                  if (['S', 'I', 'A'].includes(log.status)) {
+                      uniqueAbsenceMap[log.student_id] = {
+                          name: log.student_name,
+                          status: log.status,
+                          kelas: studentClassMap[log.student_id] || '?'
+                      };
+                  }
               }
           });
 
           const absenceListFinal = Object.values(uniqueAbsenceMap).sort((a,b) => a.kelas.localeCompare(b.kelas) || a.name.localeCompare(b.name));
           
+          let sCount = 0, iCount = 0, aCount = 0;
           absenceListFinal.forEach(item => {
               if (item.status === 'S') sCount++;
               else if (item.status === 'I') iCount++;
@@ -491,10 +506,10 @@ const OperatorDashboard: React.FC = () => {
              </div>
          )}
 
-         {/* ABSENCE MODAL */}
+         {/* ABSENCE MODAL - Fixed Center Viewport */}
          {modalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setModalOpen(false)}>
-              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm flex flex-col max-h-[85vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]" onClick={() => setModalOpen(false)}>
+              <div className="bg-white rounded-3xl shadow-2xl w-full md:w-full md:max-w-md flex flex-col max-h-[85vh] overflow-hidden mb-0 md:mb-auto transition-transform transform scale-100" onClick={e => e.stopPropagation()}>
                   
                   {/* Modal Header */}
                   <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100">

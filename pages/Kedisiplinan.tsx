@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, Filter, Search, Gavel, User, Calendar } from 'lucide-react';
+import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, Filter, Search, Gavel, User, Calendar, ChevronUp } from 'lucide-react';
 import { Student } from '../types';
 import { getWIBISOString } from '../utils/dateUtils';
 
@@ -46,8 +46,8 @@ const Kedisiplinan: React.FC = () => {
   // Data
   const [reportData, setReportData] = useState<DisciplineData[]>([]);
 
-  // --- INPUT MODAL STATE ---
-  const [showInputModal, setShowInputModal] = useState(false);
+  // --- INPUT FORM STATE (ACCORDION) ---
+  const [showInputForm, setShowInputForm] = useState(false);
   const [students, setStudents] = useState<Student[]>([]); 
   const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
   const [followUpTypes, setFollowUpTypes] = useState<string[]>([]);
@@ -104,10 +104,6 @@ const Kedisiplinan: React.FC = () => {
 
           let targetStudents: Student[] = [];
           let targetStudentIds: string[] = [];
-
-          // STRATEGY:
-          // Jika Kelas Dipilih -> Ambil semua siswa di kelas itu (agar yang 0 pelanggaran pun bisa terhitung jika perlu, atau difilter nanti)
-          // Jika Semua Kelas -> Ambil LOGS dulu baru ambil Siswa (Hanya siswa yang bermasalah yang diambil untuk performa)
 
           if (selectedClass) {
               const { data } = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
@@ -234,8 +230,6 @@ const Kedisiplinan: React.FC = () => {
               };
           });
 
-          // 5. Sort by Alpa Count Descending, then by Name. Filter out empty if needed.
-          // Requirement: "Sajikan data ... yang memiliki Alpa dan catatan Pelanggaran"
           const sorted = processed.filter(p => p.alpaCount > 0 || p.violations.length > 0)
               .sort((a, b) => b.alpaCount - a.alpaCount || a.student.kelas.localeCompare(b.student.kelas) || a.student.name.localeCompare(b.student.name));
 
@@ -285,7 +279,7 @@ const Kedisiplinan: React.FC = () => {
               const { error } = await supabase.from('journal_notes').insert(notesInserts);
               if (error) throw error;
               alert("Data pelanggaran berhasil disimpan.");
-              setShowInputModal(false);
+              setShowInputForm(false);
               setDisciplineRows([]);
               setInputClass('');
               fetchReportData();
@@ -347,13 +341,73 @@ const Kedisiplinan: React.FC = () => {
              
              {!isHeadmaster && (
                  <button 
-                    onClick={() => setShowInputModal(true)}
-                    className="bg-orange-600 hover:bg-orange-700 text-white px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-orange-200 transition-all hover:-translate-y-0.5"
+                    onClick={() => setShowInputForm(!showInputForm)}
+                    className={`px-5 py-2.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg transition-all hover:-translate-y-0.5 ${showInputForm ? 'bg-slate-200 text-slate-600 hover:bg-slate-300' : 'bg-orange-600 hover:bg-orange-700 text-white shadow-orange-200'}`}
                  >
-                    <Plus size={18} /> Input Pelanggaran Baru
+                    {showInputForm ? <ChevronUp size={18} /> : <Plus size={18} />} 
+                    {showInputForm ? 'Tutup Form Input' : 'Input Pelanggaran Baru'}
                  </button>
              )}
          </div>
+
+         {/* ACCORDION INPUT FORM */}
+         {showInputForm && (
+             <div className="bg-white rounded-3xl p-6 shadow-lg border border-orange-200 animate-fade-in transition-all">
+                  <div className="flex items-center gap-2 text-orange-600 font-bold mb-4 pb-2 border-b border-orange-100">
+                      <Gavel size={20}/>
+                      <h3>Form Input Pelanggaran</h3>
+                  </div>
+
+                  <div className="mb-4">
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Pilih Kelas</label>
+                      <select className="w-full md:w-1/3 border p-2.5 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 font-bold text-slate-700" value={inputClass} onChange={e => setInputClass(e.target.value)}>
+                          <option value="">-- Pilih Kelas --</option>
+                          {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                      </select>
+                  </div>
+
+                  {inputClass && (
+                      <div className="space-y-4">
+                          {disciplineRows.map((row, idx) => (
+                              <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative space-y-3 shadow-sm">
+                                  <div className="flex flex-col md:flex-row gap-3">
+                                      <div className="w-full md:w-1/2">
+                                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
+                                          <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.category} onChange={e => updateRow(idx, 'category', e.target.value)}>
+                                              <option value="">- Pilih -</option>
+                                              {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                          </select>
+                                      </div>
+                                      <div className="w-full md:w-1/2">
+                                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
+                                          <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.followUp} onChange={e => updateRow(idx, 'followUp', e.target.value)}>
+                                              <option value="">- Pilih -</option>
+                                              {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                          </select>
+                                      </div>
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan</label>
+                                      <input type="text" className="w-full p-2.5 border rounded-lg text-xs bg-white" placeholder="Detail kejadian..." value={row.note} onChange={e => updateRow(idx, 'note', e.target.value)}/>
+                                  </div>
+                                  <div>
+                                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
+                                      <MultiSelectDropdown options={students} selectedIds={row.studentIds} onChange={(ids: string[]) => updateRow(idx, 'studentIds', ids)} placeholder="Pilih Murid" />
+                                  </div>
+                                  <button onClick={() => removeRow(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                              </div>
+                          ))}
+                          <div className="flex gap-3 pt-2">
+                              <button onClick={addRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors border border-orange-200"><Plus size={14}/> Tambah Baris</button>
+                              <div className="flex-1"></div>
+                              <button onClick={handleSaveInput} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-200 transition-all active:scale-95 text-sm">
+                                  <Save size={16}/> Simpan Data
+                              </button>
+                          </div>
+                      </div>
+                  )}
+             </div>
+         )}
 
          {/* FILTER BAR */}
          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-end md:items-center">
@@ -456,69 +510,6 @@ const Kedisiplinan: React.FC = () => {
              </div>
          </div>
       </div>
-
-      {/* INPUT MODAL (UNCHANGED FUNCTIONALITY) */}
-      {showInputModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                  <div className="bg-orange-600 p-4 flex justify-between items-center text-white">
-                      <h3 className="font-bold flex items-center gap-2"><Gavel size={20}/> Input Pelanggaran</h3>
-                      <button onClick={() => setShowInputModal(false)} className="hover:bg-white/20 p-1 rounded-full"><X size={20}/></button>
-                  </div>
-                  
-                  <div className="p-6 overflow-y-auto flex-1 custom-scrollbar">
-                        <div className="mb-4">
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Pilih Kelas</label>
-                            <select className="w-full border p-2.5 rounded-xl text-sm focus:ring-2 focus:ring-orange-500" value={inputClass} onChange={e => setInputClass(e.target.value)}>
-                                <option value="">-- Pilih Kelas --</option>
-                                {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                        </div>
-
-                        {inputClass && (
-                            <div className="space-y-4">
-                                {disciplineRows.map((row, idx) => (
-                                    <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-200 relative space-y-3">
-                                        <div className="flex gap-3">
-                                            <div className="w-1/2">
-                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
-                                                <select className="w-full p-2 border rounded-lg text-xs" value={row.category} onChange={e => updateRow(idx, 'category', e.target.value)}>
-                                                    <option value="">- Pilih -</option>
-                                                    {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="w-1/2">
-                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
-                                                <select className="w-full p-2 border rounded-lg text-xs" value={row.followUp} onChange={e => updateRow(idx, 'followUp', e.target.value)}>
-                                                    <option value="">- Pilih -</option>
-                                                    {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                                </select>
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan</label>
-                                            <input type="text" className="w-full p-2 border rounded-lg text-xs" placeholder="Detail kejadian..." value={row.note} onChange={e => updateRow(idx, 'note', e.target.value)}/>
-                                        </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
-                                            <MultiSelectDropdown options={students} selectedIds={row.studentIds} onChange={(ids: string[]) => updateRow(idx, 'studentIds', ids)} placeholder="Pilih Murid" />
-                                        </div>
-                                        <button onClick={() => removeRow(idx)} className="absolute top-1 right-1 text-red-400 hover:text-red-600 p-1"><Trash2 size={16}/></button>
-                                    </div>
-                                ))}
-                                <button onClick={addRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:bg-orange-50 px-2 py-1 rounded transition-colors"><Plus size={14}/> Tambah Baris</button>
-                            </div>
-                        )}
-                  </div>
-
-                  <div className="p-4 border-t border-gray-100 bg-gray-50 text-right">
-                      <button onClick={handleSaveInput} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 w-full shadow-lg shadow-orange-200 transition-all active:scale-95">
-                          <Save size={18}/> Simpan Data
-                      </button>
-                  </div>
-              </div>
-          </div>
-      )}
     </Layout>
   );
 };

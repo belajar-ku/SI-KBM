@@ -73,7 +73,7 @@ const KinerjaGuru: React.FC = () => {
                 .lte('created_at', endDayStr)
           ]);
 
-          // EXCLUDED NAMES (Updated)
+          // EXCLUDED NAMES
           const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.', 'Dra.Laily Asriyah, M.Pd.I.'];
           const allTeachers = (profilesRes.data || []).filter(t => !excludedNames.includes(t.full_name));
           const allSchedules = schedulesRes.data || [];
@@ -155,155 +155,115 @@ const KinerjaGuru: React.FC = () => {
                     <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
                         <Activity className="text-blue-600" /> Monitoring Kinerja Guru
                     </h2>
-                    <p className="text-slate-500 dark:text-slate-400 text-sm">
-                        Analisis target vs realisasi jam mengajar bulan {monthNames[selectedMonth]} {selectedYear}
-                    </p>
+                    <p className="text-slate-500 text-sm mt-1">Evaluasi pemenuhan jam mengajar (JP) guru.</p>
                 </div>
                 
-                <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                    {/* Month Selector */}
+                <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
                     <div className="relative">
-                        <Calendar className="absolute left-3 top-2.5 text-slate-400" size={18}/>
-                        <select 
-                            className="pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500 font-bold text-slate-700 dark:text-white"
-                            value={selectedMonth}
-                            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-                        >
-                            {monthNames.map((m, i) => (
-                                <option key={i} value={i}>{m}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Search Bar */}
-                    <div className="relative w-full md:w-64">
-                        <Search className="absolute left-3 top-2.5 text-slate-400" size={18}/>
+                        <Search className="absolute left-3 top-2.5 text-slate-400" size={16}/>
                         <input 
                             type="text" 
-                            className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-blue-500"
-                            placeholder="Cari Guru / Mapel..."
+                            placeholder="Cari Guru..." 
+                            className="pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-40"
                             value={hmSearch}
                             onChange={(e) => setHmSearch(e.target.value)}
                         />
                     </div>
+                    <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                    <select 
+                        className="py-2 px-3 border border-slate-200 rounded-lg text-sm bg-white font-bold text-slate-700"
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                    >
+                        {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                    </select>
+                    <select 
+                        className="py-2 px-3 border border-slate-200 rounded-lg text-sm bg-white font-bold text-slate-700"
+                        value={selectedYear}
+                        onChange={(e) => setSelectedYear(Number(e.target.value))}
+                    >
+                        {[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
                 </div>
             </div>
 
-            {/* Table Guru - Reverted to White */}
-            <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden">
-                <div className="overflow-x-auto">
-                    <table className="w-full text-sm text-left">
-                        <thead className="bg-slate-50 dark:bg-slate-700/50 text-slate-500 dark:text-slate-400 font-bold uppercase text-xs">
-                            <tr>
-                                <th className="px-6 py-4">Nama Guru</th>
-                                <th className="px-6 py-4">Status Kinerja</th>
-                                <th className="px-6 py-4">Mata Pelajaran</th>
-                                <th className="px-6 py-4 text-center">Wali Kelas</th>
-                                <th className="px-6 py-4 text-center">Jadwal</th>
-                                <th className="px-6 py-4 text-center">Realisasi JP</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                            {loading ? (
-                                <tr><td colSpan={6} className="px-6 py-10 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr>
-                            ) : filteredTeachers.length === 0 ? (
-                                <tr><td colSpan={6} className="px-6 py-10 text-center text-slate-400">Tidak ada data guru ditemukan.</td></tr>
-                            ) : (
-                                filteredTeachers.map(t => (
-                                    <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-800 dark:text-white">{t.full_name}</div>
-                                            <div className="text-xs text-slate-400 font-mono">{t.nip}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex px-3 py-1 rounded-full text-xs font-bold border ${t.statusColor} uppercase tracking-wide`}>
-                                                {t.statusKinerja}
-                                            </span>
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600 dark:text-slate-300">
-                                            {t.mengajar_mapel ? t.mengajar_mapel.split(',').map((m,i) => (
-                                                <span key={i} className="inline-block bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded text-[10px] mr-1 mb-1">{m.trim()}</span>
-                                            )) : '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            {t.wali_kelas ? <span className="bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300 px-2 py-1 rounded font-bold text-xs">{t.wali_kelas}</span> : '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <button 
-                                                onClick={() => handleViewSchedule(t)}
-                                                className="px-3 py-2 bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors flex items-center gap-1.5 mx-auto"
-                                                title="Lihat Jadwal"
-                                            >
-                                                <Calendar size={16} />
-                                                <span className="text-[10px] font-bold">Click Here</span>
-                                            </button>
-                                        </td>
-                                        <td className="px-6 py-4 text-center">
-                                            <div className="font-bold text-slate-700 dark:text-slate-200">
-                                                {t.actualJp} <span className="text-slate-400 font-normal">/ {t.targetJp}</span>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* MODAL JADWAL GURU */}
-            {showScheduleModal && selectedTeacherSchedule && (
-                <div className="fixed inset-0 z-50 flex justify-end items-stretch p-0 bg-slate-900/60 backdrop-blur-sm" onClick={() => setShowScheduleModal(false)}>
-                    <style>{`
-                        @keyframes slideInRight {
-                            from { transform: translateX(100%); }
-                            to { transform: translateX(0); }
-                        }
-                        .animate-slide-in-right {
-                            animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-                        }
-                    `}</style>
-                    <div className="bg-white dark:bg-slate-800 w-full max-w-md h-full shadow-2xl overflow-hidden flex flex-col animate-slide-in-right border-l border-slate-200 dark:border-slate-700" onClick={e => e.stopPropagation()}>
-                        <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
-                            <div>
-                                <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Jadwal Mengajar</h3>
-                                <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">{selectedTeacherSchedule.teacher.full_name}</p>
+            {/* Content */}
+            {loading ? (
+                <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-500" size={40}/></div>
+            ) : filteredTeachers.length === 0 ? (
+                <div className="text-center py-20 text-slate-400 italic">Tidak ada data guru ditemukan.</div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {filteredTeachers.map((teacher) => (
+                        <div key={teacher.id} className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col gap-4">
+                            <div className="flex items-center gap-3 border-b border-slate-100 pb-3">
+                                <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-lg">
+                                    {teacher.full_name?.charAt(0)}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <h3 className="font-bold text-slate-800 truncate" title={teacher.full_name}>{teacher.full_name}</h3>
+                                    <p className="text-xs text-slate-500 truncate">{teacher.mengajar_mapel || 'Guru Mapel'}</p>
+                                </div>
+                                <div className={`text-[10px] font-bold px-2 py-1 rounded border ${teacher.statusColor}`}>
+                                    {teacher.statusKinerja}
+                                </div>
                             </div>
-                            <button onClick={() => setShowScheduleModal(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors"><X size={24}/></button>
+                            
+                            <div className="grid grid-cols-2 gap-3 text-center">
+                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                    <span className="text-xs text-slate-400 font-bold uppercase block">Target JP</span>
+                                    <span className="text-xl font-extrabold text-slate-700">{teacher.targetJp}</span>
+                                </div>
+                                <div className="bg-slate-50 p-2 rounded-xl border border-slate-100">
+                                    <span className="text-xs text-slate-400 font-bold uppercase block">Realisasi</span>
+                                    <span className={`text-xl font-extrabold ${teacher.actualJp >= teacher.targetJp ? 'text-green-600' : 'text-orange-500'}`}>
+                                        {teacher.actualJp}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <button 
+                                onClick={() => handleViewSchedule(teacher)}
+                                className="w-full py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors mt-auto"
+                            >
+                                Lihat Jadwal
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {/* Schedule Modal - FIXED VIEWPORT (Z-9999) */}
+            {showScheduleModal && selectedTeacherSchedule && (
+                <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center p-4 sm:p-0 bg-black/50 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                    <div className="bg-white dark:bg-slate-800 w-full md:w-auto md:max-w-lg rounded-t-3xl md:rounded-2xl shadow-xl w-full flex flex-col max-h-[85vh] mb-0 md:mb-auto">
+                        <div className="bg-blue-600 p-4 flex justify-between items-center text-white flex-shrink-0">
+                            <h3 className="font-bold text-lg flex items-center gap-2">
+                                <Calendar size={20}/> Jadwal Mengajar: {selectedTeacherSchedule.teacher.full_name}
+                            </h3>
+                            <button onClick={() => setShowScheduleModal(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors">
+                                <X size={20}/>
+                            </button>
                         </div>
                         
-                        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 bg-slate-50 dark:bg-slate-900">
+                        <div className="p-6 overflow-y-auto custom-scrollbar bg-slate-50">
                             {selectedTeacherSchedule.schedules.length === 0 ? (
-                                <div className="text-center text-slate-400 py-10 italic">Belum ada jadwal untuk guru ini.</div>
+                                <div className="text-center py-10 text-slate-400">Belum ada jadwal yang diinput.</div>
                             ) : (
-                                <div className="space-y-4">
-                                    {[1,2,3,4,5,6].map(day => {
-                                        const dayScheds = selectedTeacherSchedule.schedules.filter(s => s.day_of_week === day);
-                                        if(dayScheds.length === 0) return null;
-                                        return (
-                                            <div key={day} className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                <h4 className="font-bold text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                                                    <Calendar size={16} className="text-blue-500"/>
-                                                    {dayName(day)}
-                                                </h4>
-                                                <div className="space-y-2">
-                                                    {dayScheds.map(sch => (
-                                                        <div key={sch.id} className="flex justify-between items-center bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-100 dark:border-slate-600">
-                                                            <div className="flex items-center gap-3">
-                                                                <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-1 rounded-md border border-blue-100 dark:border-blue-800">
-                                                                    Jam {sch.hour}
-                                                                </span>
-                                                                <div>
-                                                                    <div className="font-bold text-slate-800 dark:text-white text-sm">{sch.subject}</div>
-                                                                    <div className="text-xs text-slate-500 dark:text-slate-400">Kelas {sch.kelas}</div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                <div className="space-y-3">
+                                    {selectedTeacherSchedule.schedules.map((s) => (
+                                        <div key={s.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex justify-between items-center">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center font-bold">
+                                                    {s.kelas}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-slate-800">{s.subject}</p>
+                                                    <p className="text-xs text-slate-500 font-bold">{dayName(s.day_of_week)} • Jam {s.hour}</p>
                                                 </div>
                                             </div>
-                                        );
-                                    })}
+                                        </div>
+                                    ))}
                                 </div>
                             )}
                         </div>

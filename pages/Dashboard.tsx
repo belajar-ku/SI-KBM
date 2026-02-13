@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { 
   User, Bell, BookOpen, Clock, Stethoscope, CheckCircle2, XCircle, FileText, ClipboardList, 
-  CalendarDays, TrendingUp, Users, Edit2, Plus, X, Loader2, Save, Flag, Check, Minus, Calendar
+  CalendarDays, TrendingUp, Users, Edit2, Plus, X, Loader2, Save, Flag, Check, Minus, Calendar, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 import { Student, Profile } from '../types';
@@ -48,8 +48,6 @@ interface TeacherMatrixItem {
 
 const Dashboard: React.FC = () => {
   const { isAdmin, profile } = useAuth();
-  
-  // Logic Cek Kepala Sekolah
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin'; 
 
   const [stats, setStats] = useState<MonthlyStats>({ totalJp: 0, targetJp: 0, totalMeetings: 0, classProgress: {} });
@@ -58,17 +56,15 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filterDate, setFilterDate] = useState(getWIBISOString());
 
-  // MODAL STATE
-  const [showAbsenceModal, setShowAbsenceModal] = useState(false);
+  // ACCORDION FORM STATE (Replaced Modal)
+  const [showInputForm, setShowInputForm] = useState(false);
   const [modalStudents, setModalStudents] = useState<Student[]>([]);
   const [modalAttendance, setModalAttendance] = useState<Record<string, 'S' | 'I' | 'A' | 'D'>>({});
   
-  // MODAL STATE: Specific Edit
   const [showEditSpecificModal, setShowEditSpecificModal] = useState(false);
   const [editingCategory, setEditingCategory] = useState('');
   const [specificAbsenceData, setSpecificAbsenceData] = useState<EditingStudent[]>([]);
 
-  // HEADMASTER STATE (MATRIX)
   const [matrixData, setMatrixData] = useState<TeacherMatrixItem[]>([]);
   const [matrixDate, setMatrixDate] = useState(getWIBISOString());
 
@@ -103,7 +99,6 @@ const Dashboard: React.FC = () => {
               supabase.from('journals').select('*').gte('created_at', startOfDay).lte('created_at', endOfDay)
           ]);
 
-          // EXCLUDED NAMES (Updated with Dra.Laily)
           const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.', 'Dra.Laily Asriyah, M.Pd.I.'];
           const allTeachers = (profilesRes.data || []).filter(t => !excludedNames.includes(t.full_name));
           const todaysSchedules = schedulesRes.data || [];
@@ -111,13 +106,9 @@ const Dashboard: React.FC = () => {
 
           const matrix: TeacherMatrixItem[] = allTeachers.map(teacher => {
               const scheduleMap: Record<number, { className: string, isFilled: boolean, hasSchedule: boolean }> = {};
-              
-              // Initialize 1-8
               for(let i=1; i<=8; i++) {
                   scheduleMap[i] = { className: '-', isFilled: false, hasSchedule: false };
               }
-
-              // Fill Schedule
               const teacherSchedules = todaysSchedules.filter(s => s.teacher_id === teacher.id);
               teacherSchedules.forEach(s => {
                   const hours = s.hour.split(',').map((h: string) => parseInt(h.trim()));
@@ -125,8 +116,6 @@ const Dashboard: React.FC = () => {
                       if(h >= 1 && h <= 8) {
                           scheduleMap[h].hasSchedule = true;
                           scheduleMap[h].className = s.kelas;
-                          
-                          // Check Journal
                           const hasJournal = todaysJournals.some(j => 
                               j.teacher_id === teacher.id && 
                               j.kelas === s.kelas && 
@@ -137,12 +126,9 @@ const Dashboard: React.FC = () => {
                       }
                   });
               });
-
               return { teacher, scheduleMap };
           });
-
           setMatrixData(matrix);
-
       } catch (e) {
           console.error("Headmaster Matrix Error", e);
       } finally {
@@ -163,12 +149,7 @@ const Dashboard: React.FC = () => {
         const startOfDay = `${filterDate}T00:00:00+07:00`;
         const endOfDay = `${filterDate}T23:59:59+07:00`;
 
-        // 1. Fetch Journals Stats
-        const { data: journals } = await supabase
-            .from('journals')
-            .select('hours, kelas')
-            .eq('teacher_id', profile?.id)
-            .gte('created_at', firstDayStr);
+        const { data: journals } = await supabase.from('journals').select('hours, kelas').eq('teacher_id', profile?.id).gte('created_at', firstDayStr);
 
         let jp = 0;
         let meetings = 0;
@@ -183,16 +164,11 @@ const Dashboard: React.FC = () => {
             });
         }
 
-        // 1.5 Calculate TARGET JP
-        const { data: mySchedules } = await supabase
-            .from('schedules')
-            .select('day_of_week, hour')
-            .eq('teacher_id', profile?.id);
+        const { data: mySchedules } = await supabase.from('schedules').select('day_of_week, hour').eq('teacher_id', profile?.id);
 
         let targetJp = 0;
         if (mySchedules) {
             const dayCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
-            // Loop until TODAY
             for (let d = 1; d <= date.getDate(); d++) {
                 const tempDate = new Date(currentYear, currentMonth, d);
                 const jsDay = tempDate.getDay(); 
@@ -208,7 +184,6 @@ const Dashboard: React.FC = () => {
 
         setStats({ totalJp: jp, targetJp: targetJp, totalMeetings: meetings, classProgress: classMap });
 
-        // 2. KBM STATUS
         const dateObj = new Date(); 
         const jsDay = dateObj.getDay(); 
         const dbDay = jsDay === 0 ? 7 : jsDay; 
@@ -250,7 +225,6 @@ const Dashboard: React.FC = () => {
         }
         setKbmStatus(hoursList);
 
-        // 3. ABSENSI WALI KELAS
         if (profile?.wali_kelas) {
             const { data: students } = await supabase.from('students').select('*').eq('kelas', profile.wali_kelas).order('name');
             
@@ -323,25 +297,31 @@ const Dashboard: React.FC = () => {
     } catch (e) { console.error(e); } finally { setLoading(false); }
   };
 
-  // --- MODAL LOGIC (COMMON) ---
-  const handleOpenAbsenceModal = async () => {
-      setSavingAttendance(true); 
-      try {
-          const { data: students } = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).order('name');
-          setModalStudents(students || []);
+  // --- TOGGLE INPUT FORM (ACCORDION) ---
+  const toggleInputForm = async () => {
+      if (!showInputForm) {
+          // Open: Fetch Data
+          setSavingAttendance(true); 
+          try {
+              const { data: students } = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).order('name');
+              setModalStudents(students || []);
 
-          const { data: existing } = await supabase
-             .from('homeroom_attendance')
-             .select('student_id, status')
-             .eq('date', filterDate)
-             .in('student_id', (students || []).map(s => s.id));
-          
-          const attMap: Record<string, 'S'|'I'|'A'|'D'> = {};
-          existing?.forEach(log => { attMap[log.student_id] = log.status as any; });
-          setModalAttendance(attMap);
-          setShowAbsenceModal(true);
-      } catch(e) { console.error(e); }
-      finally { setSavingAttendance(false); }
+              const { data: existing } = await supabase
+                 .from('homeroom_attendance')
+                 .select('student_id, status')
+                 .eq('date', filterDate)
+                 .in('student_id', (students || []).map(s => s.id));
+              
+              const attMap: Record<string, 'S'|'I'|'A'|'D'> = {};
+              existing?.forEach(log => { attMap[log.student_id] = log.status as any; });
+              setModalAttendance(attMap);
+              setShowInputForm(true);
+          } catch(e) { console.error(e); }
+          finally { setSavingAttendance(false); }
+      } else {
+          // Close
+          setShowInputForm(false);
+      }
   };
 
   const handleSaveHomeroomAttendance = async () => {
@@ -363,7 +343,7 @@ const Dashboard: React.FC = () => {
               const { error } = await supabase.from('homeroom_attendance').insert(inserts);
               if (error) throw error;
           }
-          setShowAbsenceModal(false);
+          setShowInputForm(false); // Close accordion
           fetchDashboardData(); 
       } catch(e) { alert("Gagal menyimpan absensi: " + e); } finally { setSavingAttendance(false); }
   };
@@ -376,7 +356,6 @@ const Dashboard: React.FC = () => {
       });
   };
 
-  // --- SPECIFIC EDIT ---
   const handleEditSpecific = (categoryName: string, list: WaliKelasAbsence[]) => {
       const editList: EditingStudent[] = list.map(item => ({
           student_id: item.student_id,
@@ -435,10 +414,7 @@ const Dashboard: React.FC = () => {
                 <span className="text-[10px] font-extrabold uppercase tracking-wider">{title}</span>
                 <div className="ml-auto flex items-center gap-1">
                      <span className="text-[9px] font-bold bg-white dark:bg-slate-700 dark:text-white px-1.5 py-0.5 rounded-md border border-current opacity-80">{list.length}</span>
-                     <button 
-                        onClick={() => onEdit(title, list)} 
-                        className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors"
-                     >
+                     <button onClick={() => onEdit(title, list)} className="p-0.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded text-slate-400 dark:text-slate-500 hover:text-blue-500 dark:hover:text-blue-400 transition-colors">
                         <Edit2 size={12} />
                      </button>
                 </div>
@@ -458,7 +434,6 @@ const Dashboard: React.FC = () => {
       );
   };
 
-  // Performance Logic (Standard User)
   const currentMonthName = new Date().toLocaleDateString('id-ID', { month: 'long' });
   const percentage = stats.targetJp > 0 ? (stats.totalJp / stats.targetJp) * 100 : 0;
   let performanceStatus = "Di Bawah Ekspektasi";
@@ -466,8 +441,8 @@ const Dashboard: React.FC = () => {
   if (percentage > 85) { performanceStatus = "Di Atas Ekspektasi"; performanceColor = "text-emerald-200"; } 
   else if (percentage >= 70) { performanceStatus = "Sesuai Ekspektasi"; performanceColor = "text-blue-200"; }
 
-  // --- RENDER KEPALA SEKOLAH VIEW (MATRIX) ---
   if (isHeadmaster) {
+      // Headmaster view code
       return (
         <Layout>
             <div className="space-y-6 animate-fade-in">
@@ -493,7 +468,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
 
-                {/* MATRIX TABLE (REVERTED TO WHITE BG) */}
+                {/* MATRIX TABLE */}
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm text-left border-collapse">
@@ -545,18 +520,11 @@ const Dashboard: React.FC = () => {
                         </table>
                     </div>
                 </div>
-                
-                <div className="flex gap-6 text-xs font-bold text-slate-500 dark:text-slate-400 mt-2 pl-2">
-                    <div className="flex items-center gap-2"><span className="text-lg font-extrabold text-emerald-600 dark:text-emerald-400">7A</span> Sudah Mengisi</div>
-                    <div className="flex items-center gap-2"><span className="text-lg font-extrabold text-rose-600 dark:text-rose-400">7A</span> Belum Mengisi</div>
-                    <div className="flex items-center gap-2"><span className="text-lg text-slate-300">-</span> Tidak Ada Jadwal</div>
-                </div>
             </div>
         </Layout>
       );
   }
 
-  // --- VIEW GURU BIASA (ASLI) ---
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -586,18 +554,12 @@ const Dashboard: React.FC = () => {
                 {!isAdmin && (
                     <div className="w-full md:w-auto mt-4 md:mt-0">
                         <p className="text-xs font-bold text-blue-100 mb-2 opacity-90 text-center md:text-right">Kinerja Bulan {currentMonthName}</p>
-                        
-                        {/* KINERJA BULAN INI CONTAINER - UPDATED LAYOUT */}
                         <div className="bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md w-full overflow-hidden">
                             <div className="grid grid-cols-3 divide-x divide-white/20">
-                                
-                                {/* 1. Pertemuan */}
                                 <div className="p-3 py-4 flex flex-col items-center justify-center text-center">
                                     <span className="text-2xl md:text-3xl font-extrabold leading-none tracking-tight">{stats.totalMeetings}</span>
                                     <span className="text-[10px] md:text-xs font-bold text-blue-100/80 uppercase tracking-wider mt-1">Pertemuan</span>
                                 </div>
-
-                                {/* 2. Total JP */}
                                 <div className="p-3 py-4 flex flex-col items-center justify-center text-center">
                                     <div className="flex items-baseline gap-1">
                                         <span className="text-2xl md:text-3xl font-extrabold leading-none tracking-tight">{stats.totalJp}</span>
@@ -605,14 +567,11 @@ const Dashboard: React.FC = () => {
                                     </div>
                                     <span className="text-[10px] md:text-xs font-bold text-blue-100/80 uppercase tracking-wider mt-1">Total JP</span>
                                 </div>
-
-                                {/* 3. Status */}
                                 <div className="p-3 py-4 flex flex-col items-center justify-center text-center h-full">
                                     <span className={`text-xs md:text-sm font-extrabold leading-tight uppercase ${performanceColor}`}>
                                         {performanceStatus}
                                     </span>
                                 </div>
-
                             </div>
                         </div>
                     </div>
@@ -623,7 +582,7 @@ const Dashboard: React.FC = () => {
         {/* MAIN WIDGETS */}
         {!isAdmin && (
             <div className="flex flex-col gap-6">
-                {/* WALI KELAS ABSENCE WIDGET (REVERTED TO WHITE BG) */}
+                {/* WALI KELAS ABSENCE WIDGET */}
                 {profile?.wali_kelas && (
                     <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden group hover:border-blue-200 transition-colors">
                         <div className="absolute -top-6 -right-6 p-4 opacity-5 dark:opacity-10 pointer-events-none group-hover:opacity-10 transition-opacity rotate-12"><ClipboardList size={140} className="text-slate-800 dark:text-slate-100" /></div>
@@ -645,10 +604,15 @@ const Dashboard: React.FC = () => {
                                     </p>
                                     
                                     <button 
-                                        onClick={handleOpenAbsenceModal}
-                                        className="mt-3 w-full bg-blue-600 hover:bg-blue-700 text-white text-[10px] py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md shadow-blue-200 dark:shadow-none transition-all active:scale-95"
+                                        onClick={toggleInputForm}
+                                        className={`mt-3 w-full text-[10px] py-2 px-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-md shadow-blue-200 dark:shadow-none transition-all active:scale-95 ${
+                                            showInputForm 
+                                            ? 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-200'
+                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                        }`}
                                     >
-                                        <Plus size={12}/> Input Absensi
+                                        {showInputForm ? <ChevronUp size={12}/> : <Plus size={12}/>} 
+                                        {showInputForm ? 'Tutup Form' : 'Input Absensi'}
                                     </button>
                                 </div>
                             </div>
@@ -682,10 +646,73 @@ const Dashboard: React.FC = () => {
                                 )}
                             </div>
                         </div>
+
+                        {/* ACCORDION INPUT FORM (Replaces Modal) */}
+                        {showInputForm && (
+                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 animate-fade-in">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h4 className="font-bold text-slate-700 dark:text-white text-sm flex items-center gap-2">
+                                        <Edit2 size={14} /> Input Absensi: {formatDateIndo(filterDate)}
+                                    </h4>
+                                    <button 
+                                        onClick={() => setModalAttendance({})}
+                                        className="text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
+                                    >
+                                        Reset (Hadir Semua)
+                                    </button>
+                                </div>
+
+                                <div className="max-h-[400px] overflow-y-auto custom-scrollbar border border-slate-100 dark:border-slate-700 rounded-xl bg-white dark:bg-slate-800">
+                                    <div className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-700/80 backdrop-blur-sm border-b border-slate-100 dark:border-slate-600 px-4 py-2 flex items-center text-[10px] font-bold text-slate-500 dark:text-slate-300 uppercase tracking-wide">
+                                        <div className="flex-1">Nama Siswa</div>
+                                        <div className="flex gap-2">
+                                            <span className="w-8 text-center">S</span>
+                                            <span className="w-8 text-center">I</span>
+                                            <span className="w-8 text-center">D</span>
+                                        </div>
+                                    </div>
+                                    <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                                        {modalStudents.map(student => (
+                                            <div key={student.id} className="flex items-center justify-between px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
+                                                <div className="flex-1 pr-2">
+                                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors line-clamp-1">{student.name}</p>
+                                                </div>
+                                                <div className="flex gap-2">
+                                                    {['S', 'I', 'D'].map(status => (
+                                                        <button 
+                                                            key={status}
+                                                            onClick={() => toggleModalStatus(student.id, status as any)}
+                                                            className={`w-8 h-8 rounded-lg flex items-center justify-center border transition-all text-xs font-bold ${
+                                                                modalAttendance[student.id] === status
+                                                                ? (status === 'S' ? 'bg-yellow-500 border-yellow-600 text-white' : status === 'I' ? 'bg-blue-500 border-blue-600 text-white' : 'bg-purple-500 border-purple-600 text-white')
+                                                                : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'
+                                                            }`}
+                                                        >
+                                                            {status}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="mt-4 flex justify-end">
+                                    <button 
+                                        onClick={handleSaveHomeroomAttendance}
+                                        disabled={savingAttendance}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none disabled:opacity-50 transition-all text-xs"
+                                    >
+                                        {savingAttendance ? <Loader2 className="animate-spin" size={14}/> : <Save size={14} />} 
+                                        Simpan Data
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
 
-                {/* KBM STATUS TABLE (REVERTED TO WHITE BG) */}
+                {/* KBM STATUS TABLE */}
                 <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
                     <h3 className="font-extrabold text-slate-800 dark:text-white text-sm mb-4 uppercase tracking-wide flex items-center gap-2">
                         <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400"/>
@@ -729,7 +756,7 @@ const Dashboard: React.FC = () => {
                     </div>
                 </div>
                 
-                {/* CLASS PROGRESS WIDGET (REVERTED TO WHITE BG) */}
+                {/* CLASS PROGRESS WIDGET */}
                 <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
                     <div className="absolute -bottom-10 -right-6 p-4 opacity-5 pointer-events-none rotate-12"><BookOpen size={180} className="text-slate-900 dark:text-white" /></div>
                     <h3 className="relative z-10 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-6 flex items-center gap-2 tracking-wide"><TrendingUp size={16} className="text-blue-500"/> Distribusi Pertemuan Kelas (Bulanan)</h3>
@@ -756,87 +783,11 @@ const Dashboard: React.FC = () => {
             </div>
         )}
 
-        {/* ... MODALS EXISTING ... */}
-        {/* Code for modals remains unchanged but background reverts to white */}
-        {showAbsenceModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[90vh]">
-                    <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center sticky top-0 z-10">
-                        <div>
-                            <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Daftar Murid ({modalStudents.length})</h3>
-                            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Absensi Mutlak - {formatDateIndo(filterDate)}</p>
-                        </div>
-                        <button 
-                            onClick={() => { setModalAttendance({}); setShowAbsenceModal(false); }} 
-                            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-400 transition-colors"
-                        >
-                            <X size={24} />
-                        </button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-0">
-                         <div className="px-4 py-2 bg-slate-50 dark:bg-slate-700/30 border-b border-slate-100 dark:border-slate-700 flex justify-end">
-                              <button 
-                                onClick={() => setModalAttendance({})}
-                                className="text-[10px] font-bold text-slate-500 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
-                              >
-                                  Default: Hadir Semua
-                              </button>
-                         </div>
-
-                         <div className="divide-y divide-slate-100 dark:divide-slate-700">
-                             <div className="flex items-center px-6 py-2 bg-white dark:bg-slate-800 text-[10px] font-bold text-slate-400 uppercase tracking-wider sticky top-0 z-10">
-                                 <div className="flex-1">Nama</div>
-                                 <div className="flex gap-4">
-                                     <span className="w-6 text-center">S</span>
-                                     <span className="w-6 text-center">I</span>
-                                     <span className="w-6 text-center">A</span>
-                                     <span className="w-6 text-center">D</span>
-                                 </div>
-                             </div>
-
-                             {modalStudents.map(student => (
-                                 <div key={student.id} className="flex items-center justify-between px-6 py-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors group">
-                                     <div className="flex-1 pr-4">
-                                         <p className="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{student.name}</p>
-                                     </div>
-                                     <div className="flex gap-4">
-                                         {['S', 'I', 'A', 'D'].map(status => (
-                                             <button 
-                                                key={status}
-                                                onClick={() => toggleModalStatus(student.id, status as any)}
-                                                className={`w-6 h-6 rounded flex items-center justify-center border-2 transition-all ${
-                                                    modalAttendance[student.id] === status
-                                                    ? 'bg-slate-800 dark:bg-white border-slate-800 dark:border-white text-white dark:text-slate-900'
-                                                    : 'border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 text-transparent hover:border-slate-300 dark:hover:border-slate-500'
-                                                }`}
-                                             >
-                                             </button>
-                                         ))}
-                                     </div>
-                                 </div>
-                             ))}
-                         </div>
-                    </div>
-
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
-                        <button 
-                            onClick={handleSaveHomeroomAttendance}
-                            disabled={savingAttendance}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none disabled:opacity-50 transition-all"
-                        >
-                            {savingAttendance ? <Loader2 className="animate-spin" size={20}/> : <Save size={20} />} 
-                            Simpan Data Absensi
-                        </button>
-                    </div>
-                </div>
-            </div>
-        )}
-
+        {/* MODAL EDIT SPECIFIC - FIXED VIEWPORT */}
         {showEditSpecificModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh]">
-                    <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                <div className="bg-white dark:bg-slate-800 w-full md:w-full md:max-w-md rounded-t-3xl md:rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh] mb-0 md:mb-auto transition-transform transform scale-100">
+                    <div className="bg-white dark:bg-slate-800 px-6 py-5 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center flex-shrink-0">
                         <div>
                             <h3 className="font-extrabold text-slate-800 dark:text-white text-lg">Edit Data {editingCategory}</h3>
                             <p className="text-xs text-slate-500 dark:text-slate-400 font-medium mt-0.5">Ubah status / Tambah catatan</p>
@@ -849,7 +800,7 @@ const Dashboard: React.FC = () => {
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4">
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 bg-white dark:bg-slate-800">
                         {specificAbsenceData.map((item, idx) => (
                             <div key={idx} className="bg-slate-50 dark:bg-slate-700/30 rounded-2xl p-4 border border-slate-200 dark:border-slate-600">
                                 <p className="font-bold text-slate-800 dark:text-white mb-3 text-sm">{item.student_name}</p>
@@ -886,7 +837,7 @@ const Dashboard: React.FC = () => {
                         ))}
                     </div>
 
-                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <div className="p-4 border-t border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 flex-shrink-0 pb-8 md:pb-4">
                         <button 
                             onClick={handleSaveSpecific}
                             disabled={savingAttendance}

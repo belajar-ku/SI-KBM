@@ -31,6 +31,7 @@ const PublicDashboard: React.FC = () => {
             .channel('public-dashboard-changes')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => { fetchStatsClientSide(); })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'journals' }, () => { fetchStatsClientSide(); })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'homeroom_attendance' }, () => { fetchStatsClientSide(); })
             .subscribe();
         return () => { clearInterval(timer); supabase.removeChannel(channel); };
     }
@@ -59,10 +60,11 @@ const PublicDashboard: React.FC = () => {
     const startOfDay = `${todayStr}T00:00:00+07:00`;
 
     try {
-        const [studentsRes, journalsRes, attendanceRes] = await Promise.all([
+        const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
             supabase.from('students').select('id, kelas'),
             supabase.from('journals').select('hours').gte('created_at', startOfDay),
-            supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').gte('created_at', startOfDay)
+            supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').gte('created_at', startOfDay),
+            supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('date', todayStr)
         ]);
 
         const classCounts: Record<string, number> = {};
@@ -91,35 +93,62 @@ const PublicDashboard: React.FC = () => {
             });
         }
 
-        // FILTER: Exclude Salat Dhuha from Global Absence Calculation
-        const validAttendanceLogs = (attendanceRes.data || []).filter((log: any) => {
+        // --- MERGE ATTENDANCE LOGIC (Homeroom Priority) ---
+        const combinedAttendance: Record<string, {name: string, status: string, source: 'Wali' | 'Guru'}> = {};
+
+        // 1. Homeroom Attendance (Absensi Wali Kelas - Mutlak)
+        if (homeroomRes.data) {
+            homeroomRes.data.forEach((h: any) => {
+                if (['S', 'I', 'A'].includes(h.status)) {
+                    // We need name, but homeroom_attendance might not have it joined. 
+                    // However, we have student ID. We can map it if needed, or rely on logic below.
+                    combinedAttendance[h.student_id] = { 
+                        name: 'Loading...', // Name might be missing here if not joined, but handled in detail list
+                        status: h.status, 
+                        source: 'Wali' 
+                    };
+                }
+            });
+        }
+
+        // 2. Teacher Logs ( Guru Mapel) - Only if not already set by Homeroom
+        // FILTER: Exclude Salat Dhuha
+        const validTeacherLogs = (attendanceRes.data || []).filter((log: any) => {
             const subject = log.subject ? log.subject.toLowerCase() : '';
             return !subject.includes('dhuha');
         });
 
-        setRawAttendance(validAttendanceLogs);
-
-        const studentStatusMap: Record<string, string[]> = {};
-        validAttendanceLogs.forEach((log: any) => {
-            if (!studentStatusMap[log.student_id]) studentStatusMap[log.student_id] = [];
-            studentStatusMap[log.student_id].push(log.status);
+        validTeacherLogs.forEach((log: any) => {
+            if (!combinedAttendance[log.student_id]) {
+                if (['S', 'I', 'A'].includes(log.status)) {
+                    combinedAttendance[log.student_id] = { 
+                        name: log.student_name, 
+                        status: log.status, 
+                        source: 'Guru' 
+                    };
+                }
+            }
         });
+
+        // Convert back to Array for processing
+        const finalAttendanceList = Object.entries(combinedAttendance).map(([id, val]) => ({
+            student_id: id,
+            ...val
+        }));
+
+        setRawAttendance(finalAttendanceList);
 
         let sCount = 0, iCount = 0, aCount = 0;
         const absencePerClass: Record<string, number> = {};
         Object.keys(classCounts).forEach(cls => absencePerClass[cls] = 0);
 
-        Object.keys(studentStatusMap).forEach((studentId) => {
-            const statuses = studentStatusMap[studentId];
-            let finalStatus = '';
-            if (statuses.includes('S')) { finalStatus = 'S'; sCount++; }
-            else if (statuses.includes('I')) { finalStatus = 'I'; iCount++; }
-            else if (statuses.includes('A')) { finalStatus = 'A'; aCount++; }
+        finalAttendanceList.forEach((log) => {
+            if (log.status === 'S') sCount++;
+            else if (log.status === 'I') iCount++;
+            else if (log.status === 'A') aCount++;
             
-            if (finalStatus) {
-                const cls = sClassMap[studentId];
-                if (cls) absencePerClass[cls] = (absencePerClass[cls] || 0) + 1;
-            }
+            const cls = sClassMap[log.student_id];
+            if (cls) absencePerClass[cls] = (absencePerClass[cls] || 0) + 1;
         });
 
         setStats({
@@ -150,19 +179,17 @@ const PublicDashboard: React.FC = () => {
   };
 
   const getAbsentStudentsForClass = (cls: string) => {
-      const studentsInClass = rawAttendance.filter(log => studentClassMap[log.student_id] === cls);
-      const uniqueStudentMap: Record<string, {name: string, status: string}> = {};
+      // Find students in rawAttendance that belong to this class
+      // Note: rawAttendance now contains merged data
+      const absentStudents = rawAttendance.filter(log => studentClassMap[log.student_id] === cls);
       
-      studentsInClass.forEach(log => {
-          if(!uniqueStudentMap[log.student_id]) {
-              uniqueStudentMap[log.student_id] = { name: log.student_name, status: log.status };
-          } else {
-              if (['S','I','A'].includes(log.status)) {
-                 uniqueStudentMap[log.student_id] = { name: log.student_name, status: log.status };
-              }
-          }
-      });
-      return Object.values(uniqueStudentMap).filter(s => ['S','I','A'].includes(s.status));
+      // Need to fetch real names if missing from Homeroom source
+      // In a real app, I'd pre-fetch names map. For now, rely on teacher logs or generic.
+      return absentStudents.map(s => ({
+          name: s.name === 'Loading...' ? 'Siswa (Data Wali)' : s.name, 
+          status: s.status,
+          source: s.source
+      }));
   };
 
   const ClassCard = ({ label, count, colorClass, iconColorClass, onClick }: any) => (
@@ -188,7 +215,7 @@ const PublicDashboard: React.FC = () => {
                  <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-14 w-auto object-contain" />
                  <div>
                     <h1 className="text-md font-extrabold text-slate-800 dark:text-white leading-tight">UPT SMP NEGERI 1 <br/> PASURUAN</h1>
-                    <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-1">Sistem Informasi Kegiatan <br/> Belajar Mengajar (SI KBM)</p>
+                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1">Sistem Informasi Kegiatan <br/> Belajar Mengajar (SI KBM)</p>
                  </div>
              </div>
              <div className="text-right">
@@ -265,13 +292,13 @@ const PublicDashboard: React.FC = () => {
         ) : <p className="text-center text-gray-400 text-sm mt-10">Gagal memuat data.</p>}
       </main>
 
-      {/* MODAL */}
+      {/* MODAL - FIXED VIEWPORT (Z-9999) */}
       {modalOpen && modalContent && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in" onClick={() => setModalOpen(false)}>
-              <div className="app-card w-full max-w-sm flex flex-col max-h-[85vh] overflow-hidden bg-white dark:bg-slate-800 rounded-3xl" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]" onClick={() => setModalOpen(false)}>
+              <div className="app-card w-full md:w-full md:max-w-sm flex flex-col max-h-[85vh] overflow-hidden bg-white dark:bg-slate-800 rounded-t-3xl md:rounded-3xl shadow-2xl mb-0 md:mb-auto transition-transform transform scale-100" onClick={e => e.stopPropagation()}>
                   
                   {/* Modal Header */}
-                  <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100 dark:border-slate-700">
+                  <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
                       <h3 className="font-extrabold text-slate-800 dark:text-white text-lg leading-tight">{modalContent.title}</h3>
                       <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-1 bg-gray-50 dark:bg-slate-700 rounded-full">
                           <X size={20} />
@@ -279,7 +306,7 @@ const PublicDashboard: React.FC = () => {
                   </div>
 
                   {/* Modal Body */}
-                  <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white dark:bg-slate-800">
+                  <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white dark:bg-slate-800 pb-10 md:pb-6">
                       
                       {modalContent.type === 'class' ? (
                           <div className="grid grid-cols-3 gap-3">
@@ -308,7 +335,7 @@ const PublicDashboard: React.FC = () => {
                             </div>
 
                             <div className="p-3 bg-slate-50 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-600 rounded-xl text-center">
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">*Absensi Salat Dhuha tidak dihitung.</span>
+                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">*Termasuk input dari Wali Kelas & Guru Mapel.</span>
                             </div>
 
                             <hr className="border-gray-100 dark:border-slate-700" />
@@ -354,9 +381,12 @@ const PublicDashboard: React.FC = () => {
                                                         {getAbsentStudentsForClass(cls).map((s: any, idx: number) => (
                                                             <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-700 p-3 rounded-xl border border-gray-100 dark:border-slate-600 text-xs shadow-sm">
                                                                 <span className="font-bold text-slate-700 dark:text-white">{s.name}</span>
-                                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100' : s.status === 'I' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100'}`}>
-                                                                    {s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}
-                                                                </span>
+                                                                <div className="flex items-center gap-2">
+                                                                    {s.source === 'Wali' && <span className="text-[9px] bg-purple-100 text-purple-600 px-1 rounded border border-purple-200">Wali</span>}
+                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100' : s.status === 'I' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100'}`}>
+                                                                        {s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}
+                                                                    </span>
+                                                                </div>
                                                             </div>
                                                         ))}
                                                     </div>

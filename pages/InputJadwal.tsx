@@ -398,10 +398,10 @@ const InputJadwal: React.FC = () => {
             </div>
         </div>
 
-        {/* MODAL EDIT */}
+        {/* MODAL EDIT - Fixed Center Viewport */}
         {editingItem && (
-             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
+             <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full md:w-full md:max-w-md overflow-hidden transform transition-all scale-100 mb-0 md:mb-auto">
                     <div className="bg-purple-600 p-5 flex justify-between items-center text-white">
                         <h3 className="font-bold flex items-center gap-2 text-lg">
                             <Edit size={20} /> Edit Jadwal

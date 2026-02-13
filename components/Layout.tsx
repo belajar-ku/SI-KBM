@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext'; // Import Theme Context
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset } from 'lucide-react';
+import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset, ArrowUp, AlertCircle } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // CHANGED: Default collapsed is now true for all pages
@@ -17,6 +17,9 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const [semester, setSemester] = useState('...');
   const [academicYear, setAcademicYear] = useState('...');
   const [currentTime, setCurrentTime] = useState(new Date());
+  
+  // NEW: State for Scroll-to-Top Button
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Logic to identify Headmaster
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah';
@@ -42,6 +45,29 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // NEW: Scroll Event Listener
+  useEffect(() => {
+    const handleScroll = () => {
+        // Show button if scrolled down more than 300px
+        if (window.scrollY > 300) {
+            setShowScrollTop(true);
+        } else {
+            setShowScrollTop(false);
+        }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // NEW: Scroll to Top Function
+  const scrollToTop = () => {
+      window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+      });
+  };
 
   const handleLogoutClick = () => {
     setShowLogoutModal(true);
@@ -196,7 +222,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
 
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
-          {/* Mobile Header (Updated for Safe Area & Logo Aspect Ratio - Increased Padding) */}
+          {/* Mobile Header */}
           <div className="md:hidden sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+1.5rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
                  <div className="flex items-center gap-3">
@@ -228,10 +254,21 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
              </div>
           </div>
 
-          {/* ADDED page-enter CLASS HERE */}
+          {/* PAGE CONTENT */}
           <div className="p-4 md:p-8 max-w-[1920px] w-full mx-auto pb-28 md:pb-10 page-enter text-slate-800 dark:text-slate-100">
             {children}
           </div>
+
+          {/* SCROLL TO TOP BUTTON (FLOATING) */}
+          {showScrollTop && (
+              <button 
+                  onClick={scrollToTop}
+                  className="fixed bottom-24 md:bottom-10 right-6 z-40 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg transition-all animate-fade-in hover:scale-110"
+                  title="Kembali ke Atas"
+              >
+                  <ArrowUp size={24} />
+              </button>
+          )}
       </main>
 
       {/* --- MOBILE BOTTOM NAV (FLUTTER STYLE ANIMATED) --- */}
@@ -263,25 +300,32 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
            </div>
       )}
 
-      {/* LOGOUT MODAL - REVERTED TO CENTER */}
+      {/* LOGOUT MODAL - TOP POSITIONED (MODERN) */}
       {showLogoutModal && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 animate-fade-in">
-           <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-xl w-full max-w-xs p-6 transform scale-100 transition-all border border-slate-200 dark:border-slate-700">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white mb-2">Konfirmasi Keluar</h3>
-              <p className="text-gray-600 dark:text-gray-300 text-sm mb-6">
-                Apakah Anda yakin ingin mengakhiri sesi ini?
-              </p>
+        <div className="fixed inset-0 z-[9999] flex justify-center items-start pt-16 md:pt-10 p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]" onClick={() => setShowLogoutModal(false)}>
+           <div className="bg-white dark:bg-slate-800 w-full max-w-sm rounded-2xl shadow-2xl p-5 transform scale-100 transition-all border border-slate-100 dark:border-slate-600 relative overflow-hidden group" onClick={(e) => e.stopPropagation()}>
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-red-500"></div>
               
-              <div className="flex justify-end gap-3">
+              <div className="flex gap-4">
+                  <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded-full flex items-center justify-center flex-shrink-0">
+                      <LogOut size={24} className="translate-x-0.5"/>
+                  </div>
+                  <div>
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-white">Konfirmasi Keluar</h3>
+                      <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Yakin ingin mengakhiri sesi ini?</p>
+                  </div>
+              </div>
+
+              <div className="flex gap-3 mt-6 pl-16">
                   <button 
                     onClick={() => setShowLogoutModal(false)}
-                    className="px-4 py-2 rounded-lg text-gray-600 dark:text-gray-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                    className="flex-1 py-2 rounded-lg font-bold text-sm text-slate-600 dark:text-slate-300 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 transition-colors"
                   >
                     Batal
                   </button>
                   <button 
                     onClick={confirmLogout}
-                    className="px-4 py-2 rounded-lg bg-red-600 text-white font-bold text-sm shadow-sm hover:bg-red-700 transition-colors"
+                    className="flex-1 py-2 rounded-lg font-bold text-sm text-white bg-red-600 hover:bg-red-700 shadow-lg shadow-red-200 dark:shadow-none transition-colors"
                   >
                     Ya, Keluar
                   </button>

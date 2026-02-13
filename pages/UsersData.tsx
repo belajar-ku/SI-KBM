@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
@@ -448,10 +449,10 @@ const UsersData: React.FC = () => {
            )}
         </div>
 
-        {/* MODAL RESET PASSWORD */}
+        {/* MODAL RESET PASSWORD - FIXED VIEWPORT (Z-9999) */}
         {resetModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 mb-0 md:mb-auto">
                     <div className="bg-yellow-500 p-4 flex justify-between items-center text-white">
                         <h3 className="font-bold flex items-center gap-2">
                             <KeyRound size={20} /> Reset Password
@@ -461,7 +462,7 @@ const UsersData: React.FC = () => {
                         </button>
                     </div>
                     
-                    <div className="p-6 space-y-4">
+                    <div className="p-6 space-y-4 pb-10 md:pb-6">
                         <div className="text-center mb-2">
                             <div className="w-12 h-12 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-2">
                                 <RefreshCw size={24} />
@@ -513,10 +514,10 @@ const UsersData: React.FC = () => {
             </div>
         )}
 
-        {/* MODAL EDIT AKADEMIK (Existing) */}
+        {/* MODAL EDIT AKADEMIK - FIXED VIEWPORT (Z-9999) */}
         {editingUser && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100">
+            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 mb-0 md:mb-auto">
                     <div className="bg-blue-600 p-4 flex justify-between items-center text-white">
                         <h3 className="font-bold flex items-center gap-2">
                             <UserCog size={20} /> Edit Data Akademik
@@ -526,7 +527,7 @@ const UsersData: React.FC = () => {
                         </button>
                     </div>
                     
-                    <div className="p-6 space-y-5">
+                    <div className="p-6 space-y-5 pb-10 md:pb-6">
                         <div className="bg-blue-50 p-3 rounded-lg border border-blue-100 mb-4">
                             <p className="text-xs text-blue-600 font-bold uppercase">Mengedit User:</p>
                             <p className="font-bold text-gray-800">{editingUser.full_name}</p>
@@ -548,7 +549,7 @@ const UsersData: React.FC = () => {
                             </button>
                             
                             {isMapelDropdownOpen && (
-                                <div className="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto p-1 custom-scrollbar">
+                                <div className="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto p-1 custom-scrollbar bottom-10 md:bottom-auto">
                                     {subjectsList.length === 0 ? (
                                         <div className="p-3 text-center text-gray-400 text-xs">Belum ada data Master Mapel.</div>
                                     ) : (
@@ -604,11 +605,11 @@ const UsersData: React.FC = () => {
             </div>
         )}
 
-        {/* MODAL ADD USER (NEW) */}
+        {/* MODAL ADD USER - FIXED VIEWPORT (Z-9999) */}
         {isAddModalOpen && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh]">
-                    <div className="bg-green-600 p-4 flex justify-between items-center text-white">
+            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                <div className="bg-white rounded-t-3xl md:rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 flex flex-col max-h-[90vh] mb-0 md:mb-auto">
+                    <div className="bg-green-600 p-4 flex justify-between items-center text-white flex-shrink-0">
                         <h3 className="font-bold flex items-center gap-2">
                             <UserPlus size={20} /> Tambah User Manual
                         </h3>
@@ -617,7 +618,7 @@ const UsersData: React.FC = () => {
                         </button>
                     </div>
                     
-                    <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
+                    <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar pb-10 md:pb-6">
                         
                         {/* 1. CREDENTIALS */}
                         <div className="bg-green-50 p-4 rounded-xl border border-green-100 space-y-3">
@@ -642,20 +643,24 @@ const UsersData: React.FC = () => {
                                     <div className="relative">
                                         <Lock className="absolute left-3 top-2.5 text-gray-400" size={16} />
                                         <input 
+                                            type="text" 
                                             className="w-full pl-9 border border-gray-300 rounded-lg p-2 text-sm focus:ring-2 focus:ring-green-500" 
+                                            placeholder="Password"
                                             value={newUser.password}
                                             onChange={e => setNewUser({...newUser, password: e.target.value})}
                                         />
                                     </div>
+                                    <p className="text-[10px] text-gray-400 mt-1">Default: Spansa@1</p>
                                 </div>
                             </div>
+                            
                             <div>
                                 <label className="block text-xs font-bold text-gray-500 mb-1">Service Role Key (Wajib)</label>
                                 <div className="relative">
                                     <input 
                                         type={showServiceKey ? "text" : "password"}
-                                        className="w-full border border-orange-300 rounded-lg p-2 pr-10 text-xs font-mono focus:ring-2 focus:ring-orange-500 bg-white"
-                                        placeholder="Paste Supabase Service Role Key..."
+                                        className="w-full border border-green-300 rounded-lg p-2 pr-10 text-xs font-mono focus:ring-2 focus:ring-green-500 bg-white"
+                                        placeholder="Paste Service Role Key..."
                                         value={serviceKey}
                                         onChange={e => setServiceKey(e.target.value)}
                                     />
@@ -667,63 +672,68 @@ const UsersData: React.FC = () => {
                                         {showServiceKey ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </button>
                                 </div>
-                                <p className="text-[10px] text-orange-600 mt-1">* Diperlukan untuk membuat user di Supabase Auth.</p>
+                                <p className="text-[10px] text-green-600 mt-1">* Diperlukan untuk membuat user di Authentication Supabase.</p>
                             </div>
                         </div>
 
                         {/* 2. PROFILE DATA */}
-                        <div className="space-y-3">
+                        <div className="space-y-4">
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Nama Lengkap</label>
                                 <input 
-                                    className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500" 
-                                    placeholder="Contoh: Budi Santoso, S.Pd"
+                                    className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-green-500"
+                                    placeholder="Nama Guru..."
                                     value={newUser.fullName}
                                     onChange={e => setNewUser({...newUser, fullName: e.target.value})}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Role Aplikasi</label>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Role</label>
                                 <select 
-                                    className="w-full border border-gray-300 rounded-xl p-3 bg-white"
+                                    className="w-full border border-gray-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-green-500"
                                     value={newUser.role}
                                     onChange={e => setNewUser({...newUser, role: e.target.value})}
                                 >
-                                    <option value="user">User (Guru/Staf)</option>
-                                    <option value="admin">Administrator</option>
+                                    <option value="user">User (Guru)</option>
                                     <option value="operator">Operator</option>
+                                    <option value="admin">Administrator</option>
                                 </select>
                             </div>
 
-                            {/* MULTI SELECT MAPEL (REUSED LOGIC) */}
-                            <div className="relative" ref={dropdownRef}>
-                                <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran</label>
+                            {/* MULTI SELECT DROPDOWN FOR NEW USER */}
+                            <div className="relative">
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Mata Pelajaran (Multi-Select)</label>
+                                
                                 <button 
                                     onClick={() => setIsMapelDropdownOpen(!isMapelDropdownOpen)}
-                                    className="w-full text-left border border-gray-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-blue-500 flex justify-between items-center"
+                                    className="w-full text-left border border-gray-300 rounded-xl p-3 bg-white focus:ring-2 focus:ring-green-500 flex justify-between items-center"
                                 >
                                     <span className={`truncate ${!newUser.mapel ? 'text-gray-400' : 'text-gray-800'}`}>
-                                        {newUser.mapel || "-- Pilih Mapel --"}
+                                        {newUser.mapel || "-- Pilih Mata Pelajaran --"}
                                     </span>
                                     <ChevronDown size={16} className="text-gray-400" />
                                 </button>
                                 
                                 {isMapelDropdownOpen && (
-                                    <div className="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-40 overflow-y-auto p-1 custom-scrollbar">
-                                        {subjectsList.map((subj, idx) => {
-                                            const isSelected = newUser.mapel.includes(subj);
-                                            return (
-                                                <div 
-                                                    key={idx}
-                                                    onClick={() => toggleMapelSelection(subj, false)}
-                                                    className={`flex items-center justify-between p-2 rounded-lg cursor-pointer text-sm mb-1 transition-colors ${isSelected ? 'bg-blue-50 text-blue-700 font-bold' : 'hover:bg-gray-50 text-gray-700'}`}
-                                                >
-                                                    <span>{subj}</span>
-                                                    {isSelected && <Check size={16} className="text-blue-600"/>}
-                                                </div>
-                                            );
-                                        })}
+                                    <div className="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-xl shadow-xl max-h-60 overflow-y-auto p-1 custom-scrollbar bottom-10 md:bottom-auto">
+                                        {subjectsList.length === 0 ? (
+                                            <div className="p-3 text-center text-gray-400 text-xs">Belum ada data Master Mapel.</div>
+                                        ) : (
+                                            subjectsList.map((subj, idx) => {
+                                                const isSelected = newUser.mapel.includes(subj);
+                                                return (
+                                                    <div 
+                                                        key={idx}
+                                                        onClick={() => toggleMapelSelection(subj, false)}
+                                                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer text-sm mb-1 transition-colors ${isSelected ? 'bg-green-50 text-green-700 font-bold' : 'hover:bg-gray-50 text-gray-700'}`}
+                                                    >
+                                                        <span>{subj}</span>
+                                                        {isSelected && <Check size={16} className="text-green-600"/>}
+                                                    </div>
+                                                );
+                                            })
+                                        )}
                                     </div>
                                 )}
                             </div>
@@ -731,7 +741,7 @@ const UsersData: React.FC = () => {
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Wali Kelas</label>
                                 <select 
-                                    className="w-full border border-gray-300 rounded-xl p-3 bg-white"
+                                    className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-green-500 bg-white"
                                     value={newUser.waliKelas}
                                     onChange={e => setNewUser({...newUser, waliKelas: e.target.value})}
                                 >
@@ -743,25 +753,21 @@ const UsersData: React.FC = () => {
                             </div>
                         </div>
 
-                        <div className="pt-4 flex gap-3 border-t border-gray-100">
-                            <button 
-                                onClick={() => setIsAddModalOpen(false)}
-                                className="flex-1 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-xl transition-colors"
-                            >
-                                Batal
-                            </button>
-                            <button 
-                                onClick={handleCreateUser}
-                                disabled={saving}
-                                className="flex-1 bg-green-600 hover:bg-green-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50"
-                            >
-                                {saving ? <Loader2 className="animate-spin" size={18}/> : <Save size={18} />} Buat User
-                            </button>
-                        </div>
+                    </div>
+
+                    <div className="p-4 border-t border-gray-100 bg-gray-50 flex justify-end">
+                        <button 
+                            onClick={handleCreateUser}
+                            disabled={saving}
+                            className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 shadow-lg disabled:opacity-50 transition-all"
+                        >
+                            {saving ? <Loader2 className="animate-spin" /> : <UserPlus size={20} />} Tambah User
+                        </button>
                     </div>
                 </div>
             </div>
         )}
+
       </div>
     </Layout>
   );

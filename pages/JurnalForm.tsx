@@ -258,7 +258,7 @@ const JurnalForm: React.FC = () => {
       };
       loadStudentsAndStats();
     }
-  }, [formData.kelas, profile?.id]); // Note: Removed formData.subject dependency to avoid re-fetching list on subject change, only stats might need refresh but generally list is same.
+  }, [formData.kelas, profile?.id]); 
 
   const handleScheduleSelect = async (scheduleId: string) => {
       // Don't set global loading here to keep UI responsive, rely on specific loaders if needed
@@ -1181,10 +1181,10 @@ const JurnalForm: React.FC = () => {
             </>
         }
 
-        {/* MODAL 1: PILIH JENIS PENILAIAN */}
+        {/* MODAL 1: PILIH JENIS PENILAIAN - FIXED VIEWPORT (Z-9999) */}
         {showAssessmentModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 transition-all">
+            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden transform scale-100 transition-all mb-0 md:mb-auto">
                     <div className="bg-blue-600 p-6 flex justify-between items-center text-white">
                         <h3 className="font-bold text-lg flex items-center gap-2">
                             <ClipboardCheck size={24}/> Konfirmasi Penilaian
@@ -1192,7 +1192,7 @@ const JurnalForm: React.FC = () => {
                         <button onClick={() => setShowAssessmentModal(false)} className="hover:bg-white/20 p-1.5 rounded-full transition-colors"><X size={20}/></button>
                     </div>
 
-                    <div className="p-6 space-y-4 bg-slate-50">
+                    <div className="p-6 space-y-4 bg-slate-50 pb-10 md:pb-6">
                         <p className="text-slate-600 font-medium mb-2">Apakah ada penilaian pada jam ini?</p>
                         
                         <button 
@@ -1238,10 +1238,10 @@ const JurnalForm: React.FC = () => {
             </div>
         )}
 
-        {/* MODAL 2: CHECKLIST MURID */}
+        {/* MODAL 2: CHECKLIST MURID - FIXED VIEWPORT (Z-9999) */}
         {showStudentChecklistModal && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in">
-                <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[85vh]">
+            <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/50 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
+                <div className="bg-white rounded-t-3xl md:rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col max-h-[85vh] mb-0 md:mb-auto">
                     <div className="bg-purple-600 p-6 text-white">
                         <h3 className="font-bold text-xl mb-1">Daftar Murid</h3>
                         <p className="text-purple-100 text-xs">Centang yang <b>TIDAK</b> mengikuti penilaian.</p>
@@ -1283,7 +1283,7 @@ const JurnalForm: React.FC = () => {
                         )}
                     </div>
 
-                    <div className="p-4 border-t border-slate-200 bg-white flex gap-3">
+                    <div className="p-4 border-t border-slate-200 bg-white flex gap-3 pb-8 md:pb-4">
                         <button 
                             onClick={() => {
                                 setShowStudentChecklistModal(false);
@@ -1304,9 +1304,9 @@ const JurnalForm: React.FC = () => {
             </div>
         )}
 
-        {/* STATUS ALERT (Standard Toast) */}
+        {/* STATUS ALERT - FIXED VIEWPORT (Z-9999) */}
         {alertState.isOpen && (
-            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]">
                 <div className="bg-white rounded-3xl shadow-2xl p-8 w-full max-w-sm text-center transform scale-100">
                     <div className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm ${alertState.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'}`}>
                         {alertState.type === 'success' ? <CheckCircle2 size={40} /> : <XCircle size={40} />}
