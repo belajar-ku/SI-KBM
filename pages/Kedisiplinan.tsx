@@ -48,11 +48,19 @@ const Kedisiplinan: React.FC = () => {
 
   // --- INPUT FORM STATE (ACCORDION) ---
   const [showInputForm, setShowInputForm] = useState(false);
+  const [inputMode, setInputMode] = useState<'single' | 'mass'>('single'); // New State
+  
+  // Single Mode State
   const [students, setStudents] = useState<Student[]>([]); 
   const [disciplineTypes, setDisciplineTypes] = useState<string[]>([]);
   const [followUpTypes, setFollowUpTypes] = useState<string[]>([]);
   const [disciplineRows, setDisciplineRows] = useState<NoteItem[]>([]);
   const [inputClass, setInputClass] = useState(''); 
+
+  // Mass Mode State
+  const [massCommonData, setMassCommonData] = useState({ category: '', followUp: '', note: '' });
+  const [massRows, setMassRows] = useState<{ class: string; studentIds: string[] }[]>([{ class: '', studentIds: [] }]);
+  const [studentsCache, setStudentsCache] = useState<Record<string, Student[]>>({});
 
   useEffect(() => {
     fetchInitData();
@@ -63,9 +71,9 @@ const Kedisiplinan: React.FC = () => {
       fetchReportData();
   }, [selectedClass, startDate, endDate]); // Trigger on filter change
 
-  // Fetch Students for Input Modal when class changes
+  // Fetch Students for Input Modal when class changes (Single Mode)
   useEffect(() => {
-      if(inputClass) {
+      if(inputClass && inputMode === 'single') {
           const loadStudents = async () => {
               const { data } = await supabase.from('students').select('*').eq('kelas', inputClass).order('name');
               setStudents(data || []);
@@ -73,7 +81,7 @@ const Kedisiplinan: React.FC = () => {
           }
           loadStudents();
       }
-  }, [inputClass]);
+  }, [inputClass, inputMode]);
 
   const fetchInitData = async () => {
     try {
@@ -253,36 +261,95 @@ const Kedisiplinan: React.FC = () => {
       });
   };
 
+  // --- MASS INPUT LOGIC ---
+  const getStudentsForClass = async (className: string) => {
+      if (studentsCache[className]) return;
+      const { data } = await supabase.from('students').select('*').eq('kelas', className).order('name');
+      setStudentsCache(prev => ({ ...prev, [className]: data || [] }));
+  };
+
+  const addMassRow = () => setMassRows(prev => [...prev, { class: '', studentIds: [] }]);
+  const removeMassRow = (index: number) => setMassRows(prev => prev.filter((_, i) => i !== index));
+  const updateMassRow = async (index: number, field: 'class' | 'studentIds', value: any) => {
+      if (field === 'class') {
+          await getStudentsForClass(value);
+          setMassRows(prev => {
+              const list = [...prev];
+              list[index] = { ...list[index], class: value, studentIds: [] }; // Reset students on class change
+              return list;
+          });
+      } else {
+          setMassRows(prev => {
+              const list = [...prev];
+              list[index] = { ...list[index], studentIds: value };
+              return list;
+          });
+      }
+  };
+
   const handleSaveInput = async () => {
-      if (disciplineRows.length === 0 || !inputClass) return;
       if (!profile) return;
 
       try {
           const notesInserts: any[] = [];
-          disciplineRows.forEach(row => {
-              if (row.category && row.studentIds.length > 0) {
-                  row.studentIds.forEach(sid => {
-                      const sName = students.find(s => s.id === sid)?.name || 'Unknown';
-                      notesInserts.push({
-                          student_id: sid,
-                          student_name: sName,
-                          type: 'kedisiplinan',
-                          category: row.category,
-                          follow_up: row.followUp || '',
-                          note: row.note || `Laporan Manual oleh ${profile.full_name}`
+
+          if (inputMode === 'single') {
+              if (disciplineRows.length === 0 || !inputClass) return;
+              disciplineRows.forEach(row => {
+                  if (row.category && row.studentIds.length > 0) {
+                      row.studentIds.forEach(sid => {
+                          const sName = students.find(s => s.id === sid)?.name || 'Unknown';
+                          notesInserts.push({
+                              student_id: sid,
+                              student_name: sName,
+                              type: 'kedisiplinan',
+                              category: row.category,
+                              follow_up: row.followUp || '',
+                              note: row.note || `Laporan Manual oleh ${profile.full_name}`
+                          });
                       });
-                  });
+                  }
+              });
+          } else {
+              // Mass Mode
+              if (!massCommonData.category || massRows.length === 0) {
+                  alert("Mohon lengkapi Jenis Pelanggaran dan Data Murid.");
+                  return;
               }
-          });
+              
+              massRows.forEach(row => {
+                  if (row.class && row.studentIds.length > 0) {
+                      const classStudents = studentsCache[row.class] || [];
+                      row.studentIds.forEach(sid => {
+                          const sName = classStudents.find(s => s.id === sid)?.name || 'Unknown';
+                          notesInserts.push({
+                              student_id: sid,
+                              student_name: sName,
+                              type: 'kedisiplinan',
+                              category: massCommonData.category,
+                              follow_up: massCommonData.followUp || '',
+                              note: massCommonData.note || `Laporan Massal oleh ${profile.full_name}`
+                          });
+                      });
+                  }
+              });
+          }
 
           if (notesInserts.length > 0) {
               const { error } = await supabase.from('journal_notes').insert(notesInserts);
               if (error) throw error;
               alert("Data pelanggaran berhasil disimpan.");
               setShowInputForm(false);
+              
+              // Reset States
               setDisciplineRows([]);
               setInputClass('');
+              setMassCommonData({ category: '', followUp: '', note: '' });
+              setMassRows([{ class: '', studentIds: [] }]);
+              
               fetchReportData();
+          } else {
+              alert("Tidak ada data valid untuk disimpan.");
           }
       } catch (err: any) {
           alert("Gagal menyimpan: " + err.message);
@@ -353,59 +420,152 @@ const Kedisiplinan: React.FC = () => {
          {/* ACCORDION INPUT FORM */}
          {showInputForm && (
              <div className="bg-white rounded-3xl p-6 shadow-lg border border-orange-200 animate-fade-in transition-all">
-                  <div className="flex items-center gap-2 text-orange-600 font-bold mb-4 pb-2 border-b border-orange-100">
-                      <Gavel size={20}/>
-                      <h3>Form Input Pelanggaran</h3>
-                  </div>
-
-                  <div className="mb-4">
-                      <label className="block text-xs font-bold text-slate-500 mb-1">Pilih Kelas</label>
-                      <select className="w-full md:w-1/3 border p-2.5 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 font-bold text-slate-700" value={inputClass} onChange={e => setInputClass(e.target.value)}>
-                          <option value="">-- Pilih Kelas --</option>
-                          {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                      </select>
-                  </div>
-
-                  {inputClass && (
-                      <div className="space-y-4">
-                          {disciplineRows.map((row, idx) => (
-                              <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative space-y-3 shadow-sm">
-                                  <div className="flex flex-col md:flex-row gap-3">
-                                      <div className="w-full md:w-1/2">
-                                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
-                                          <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.category} onChange={e => updateRow(idx, 'category', e.target.value)}>
-                                              <option value="">- Pilih -</option>
-                                              {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                          </select>
-                                      </div>
-                                      <div className="w-full md:w-1/2">
-                                          <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
-                                          <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.followUp} onChange={e => updateRow(idx, 'followUp', e.target.value)}>
-                                              <option value="">- Pilih -</option>
-                                              {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                          </select>
-                                      </div>
-                                  </div>
-                                  <div>
-                                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan</label>
-                                      <input type="text" className="w-full p-2.5 border rounded-lg text-xs bg-white" placeholder="Detail kejadian..." value={row.note} onChange={e => updateRow(idx, 'note', e.target.value)}/>
-                                  </div>
-                                  <div>
-                                      <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
-                                      <MultiSelectDropdown options={students} selectedIds={row.studentIds} onChange={(ids: string[]) => updateRow(idx, 'studentIds', ids)} placeholder="Pilih Murid" />
-                                  </div>
-                                  <button onClick={() => removeRow(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
-                              </div>
-                          ))}
-                          <div className="flex gap-3 pt-2">
-                              <button onClick={addRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors border border-orange-200"><Plus size={14}/> Tambah Baris</button>
-                              <div className="flex-1"></div>
-                              <button onClick={handleSaveInput} className="bg-orange-600 hover:bg-orange-700 text-white px-6 py-2 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-200 transition-all active:scale-95 text-sm">
-                                  <Save size={16}/> Simpan Data
-                              </button>
-                          </div>
+                  <div className="flex items-center justify-between gap-2 text-orange-600 font-bold mb-4 pb-2 border-b border-orange-100">
+                      <div className="flex items-center gap-2">
+                        <Gavel size={20}/>
+                        <h3>Form Input Pelanggaran</h3>
                       </div>
+                      
+                      {/* MODE SWITCHER */}
+                      <div className="flex bg-slate-100 p-1 rounded-lg">
+                          <button 
+                            onClick={() => setInputMode('single')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${inputMode === 'single' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                            Per Kelas
+                          </button>
+                          <button 
+                            onClick={() => setInputMode('mass')}
+                            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${inputMode === 'mass' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                          >
+                            Input Massal
+                          </button>
+                      </div>
+                  </div>
+
+                  {/* SINGLE MODE FORM */}
+                  {inputMode === 'single' && (
+                    <>
+                        <div className="mb-4">
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Pilih Kelas</label>
+                            <select className="w-full md:w-1/3 border p-2.5 rounded-xl text-sm focus:ring-2 focus:ring-orange-500 font-bold text-slate-700" value={inputClass} onChange={e => setInputClass(e.target.value)}>
+                                <option value="">-- Pilih Kelas --</option>
+                                {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
+                        </div>
+
+                        {inputClass && (
+                            <div className="space-y-4">
+                                {disciplineRows.map((row, idx) => (
+                                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative space-y-3 shadow-sm">
+                                        <div className="flex flex-col md:flex-row gap-3">
+                                            <div className="w-full md:w-1/2">
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
+                                                <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.category} onChange={e => updateRow(idx, 'category', e.target.value)}>
+                                                    <option value="">- Pilih -</option>
+                                                    {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                                </select>
+                                            </div>
+                                            <div className="w-full md:w-1/2">
+                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
+                                                <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.followUp} onChange={e => updateRow(idx, 'followUp', e.target.value)}>
+                                                    <option value="">- Pilih -</option>
+                                                    {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan</label>
+                                            <input type="text" className="w-full p-2.5 border rounded-lg text-xs bg-white" placeholder="Detail kejadian..." value={row.note} onChange={e => updateRow(idx, 'note', e.target.value)}/>
+                                        </div>
+                                        <div>
+                                            <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
+                                            <MultiSelectDropdown options={students} selectedIds={row.studentIds} onChange={(ids: string[]) => updateRow(idx, 'studentIds', ids)} placeholder="Pilih Murid" />
+                                        </div>
+                                        <button onClick={() => removeRow(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                    </div>
+                                ))}
+                                <div className="flex gap-3 pt-2">
+                                    <button onClick={addRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors border border-orange-200"><Plus size={14}/> Tambah Baris</button>
+                                </div>
+                            </div>
+                        )}
+                    </>
                   )}
+
+                  {/* MASS MODE FORM */}
+                  {inputMode === 'mass' && (
+                    <div className="space-y-6">
+                        {/* Common Fields */}
+                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 space-y-3">
+                            <h4 className="text-sm font-bold text-orange-800 mb-2">Detail Pelanggaran (Berlaku untuk semua murid di bawah)</h4>
+                            <div className="flex flex-col md:flex-row gap-3">
+                                <div className="w-full md:w-1/2">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
+                                    <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={massCommonData.category} onChange={e => setMassCommonData({...massCommonData, category: e.target.value})}>
+                                        <option value="">- Pilih Jenis Pelanggaran -</option>
+                                        {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                                <div className="w-full md:w-1/2">
+                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
+                                    <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={massCommonData.followUp} onChange={e => setMassCommonData({...massCommonData, followUp: e.target.value})}>
+                                        <option value="">- Pilih Tindak Lanjut -</option>
+                                        {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan</label>
+                                <input type="text" className="w-full p-2.5 border rounded-lg text-xs bg-white" placeholder="Detail kejadian..." value={massCommonData.note} onChange={e => setMassCommonData({...massCommonData, note: e.target.value})}/>
+                            </div>
+                        </div>
+
+                        {/* Student Rows */}
+                        <div className="space-y-3">
+                            <label className="block text-xs font-bold text-slate-500">Daftar Murid Terlibat</label>
+                            {massRows.map((row, idx) => (
+                                <div key={idx} className="flex flex-col md:flex-row gap-3 items-start bg-white p-3 border rounded-xl shadow-sm relative pr-10">
+                                    <div className="w-full md:w-1/3">
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Pilih Kelas</label>
+                                        <select 
+                                            className="w-full p-2 border rounded-lg text-xs bg-slate-50 font-bold text-slate-700" 
+                                            value={row.class} 
+                                            onChange={e => updateMassRow(idx, 'class', e.target.value)}
+                                        >
+                                            <option value="">- Kelas -</option>
+                                            {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="w-full md:w-2/3">
+                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Murid</label>
+                                        <MultiSelectDropdown 
+                                            options={studentsCache[row.class] || []} 
+                                            selectedIds={row.studentIds} 
+                                            onChange={(ids: string[]) => updateMassRow(idx, 'studentIds', ids)} 
+                                            placeholder={row.class ? "Pilih Murid" : "Pilih Kelas Dulu"} 
+                                        />
+                                    </div>
+                                    {massRows.length > 1 && (
+                                        <button onClick={() => removeMassRow(idx)} className="absolute top-3 right-2 text-slate-300 hover:text-red-500 transition-colors">
+                                            <X size={16}/>
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                            <button onClick={addMassRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors border border-orange-200 border-dashed w-full justify-center">
+                                <Plus size={14}/> Tambah Baris Murid
+                            </button>
+                        </div>
+                    </div>
+                  )}
+
+                  {/* SAVE BUTTON (SHARED) */}
+                  <div className="mt-6 pt-4 border-t border-slate-100 flex justify-end">
+                      <button onClick={handleSaveInput} className="bg-orange-600 hover:bg-orange-700 text-white px-8 py-2.5 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-orange-200 transition-all active:scale-95 text-sm">
+                          <Save size={16}/> Simpan Data Pelanggaran
+                      </button>
+                  </div>
              </div>
          )}
 
