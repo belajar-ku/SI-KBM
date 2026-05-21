@@ -147,7 +147,8 @@ const RekapAbsensi: React.FC = () => {
             const a = studentLogs.filter(l => l.status === 'A').length;
             const d = studentLogs.filter(l => l.status === 'D').length;
             
-            const nonPresentCount = s + i + a; 
+            // Perubahan: Hanya Alpa ('A') yang dianggap tidak hadir untuk perhitungan persentase
+            const nonPresentCount = a; 
             const presentCount = Math.max(0, meetingsCount - nonPresentCount);
             const percentage = meetingsCount > 0 ? Math.round((presentCount / meetingsCount) * 100) : 100;
 
