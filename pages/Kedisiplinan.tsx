@@ -28,7 +28,7 @@ interface DisciplineData {
 }
 
 const Kedisiplinan: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(false);
   
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin';
@@ -75,7 +75,12 @@ const Kedisiplinan: React.FC = () => {
   useEffect(() => {
       if(inputClass && inputMode === 'single') {
           const loadStudents = async () => {
-              const { data } = await supabase.from('students').select('*').eq('kelas', inputClass).order('name');
+              let { data, error: errSt } = await supabase.from('students').select('*').eq('kelas', inputClass).eq('academic_year', academicYear || '2025/2026').order('name');
+              if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+                  const res = await supabase.from('students').select('*').eq('kelas', inputClass).order('name');
+                  if (academicYear === '2025/2026') data = res.data;
+                  else data = [];
+              }
               setStudents(data || []);
               if(disciplineRows.length === 0) addRow();
           }
@@ -86,7 +91,7 @@ const Kedisiplinan: React.FC = () => {
   const fetchInitData = async () => {
     try {
         const [classesRes, settingsRes] = await Promise.all([
-            supabase.from('students').select('kelas'),
+            supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026'),
             supabase.from('app_settings').select('*')
         ]);
 
@@ -114,7 +119,12 @@ const Kedisiplinan: React.FC = () => {
           let targetStudentIds: string[] = [];
 
           if (selectedClass) {
-              const { data } = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+              let { data, error: errSt } = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', academicYear || '2025/2026').order('name');
+              if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+                  const res = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+                  if (academicYear === '2025/2026') data = res.data;
+                  else data = [];
+              }
               if (data) {
                   targetStudents = data;
                   targetStudentIds = data.map(s => s.id);
@@ -136,7 +146,7 @@ const Kedisiplinan: React.FC = () => {
 
               if (targetStudentIds.length > 0) {
                   // Fetch only relevant students
-                  const { data } = await supabase.from('students').select('*').in('id', targetStudentIds).order('kelas').order('name');
+                  let { data, error: errSt } = await supabase.from('students').select('*').in('id', targetStudentIds).order('kelas').order('name');
                   if (data) targetStudents = data;
               }
           }
@@ -264,7 +274,12 @@ const Kedisiplinan: React.FC = () => {
   // --- MASS INPUT LOGIC ---
   const getStudentsForClass = async (className: string) => {
       if (studentsCache[className]) return;
-      const { data } = await supabase.from('students').select('*').eq('kelas', className).order('name');
+      let { data, error: errSt } = await supabase.from('students').select('*').eq('kelas', className).eq('academic_year', academicYear || '2025/2026').order('name');
+      if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+          const res = await supabase.from('students').select('*').eq('kelas', className).order('name');
+          if (academicYear === '2025/2026') data = res.data;
+          else data = [];
+      }
       setStudentsCache(prev => ({ ...prev, [className]: data || [] }));
   };
 
@@ -305,7 +320,11 @@ const Kedisiplinan: React.FC = () => {
                               type: 'kedisiplinan',
                               category: row.category,
                               follow_up: row.followUp || '',
-                              note: row.note || `Laporan Manual oleh ${profile.full_name}`
+                              note: row.note || `Laporan Manual oleh ${profile.full_name}`,
+                              academic_year: academicYear || '2025/2026',
+                              semester: semester || 'Ganjil',
+                              
+                              
                           });
                       });
                   }
@@ -328,7 +347,11 @@ const Kedisiplinan: React.FC = () => {
                               type: 'kedisiplinan',
                               category: massCommonData.category,
                               follow_up: massCommonData.followUp || '',
-                              note: massCommonData.note || `Laporan Massal oleh ${profile.full_name}`
+                              note: massCommonData.note || `Laporan Massal oleh ${profile.full_name}`,
+                              academic_year: academicYear || '2025/2026',
+                              semester: semester || 'Ganjil',
+                              
+                              
                           });
                       });
                   }

@@ -2,10 +2,12 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
+import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
 import { Search, GraduationCap, Edit, UserPlus, UserMinus, Trash2, Save, X, Loader2, Filter, ArrowRight } from 'lucide-react';
 
 const StudentsData: React.FC = () => {
+  const { academicYear } = useAuth();
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,7 +41,12 @@ const StudentsData: React.FC = () => {
   useEffect(() => {
     if (modalType === 'keluar' && mutasiKeluarData.kelas) {
         const fetchClassStudents = async () => {
-             const { data } = await supabase.from('students').select('*').eq('kelas', mutasiKeluarData.kelas).order('name');
+             let { data, error } = await supabase.from('students').select('*').eq('kelas', mutasiKeluarData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
+          if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
+              const res = await supabase.from('students').select('*').eq('kelas', mutasiKeluarData.kelas).order('name');
+              if (academicYear === '2025/2026') data = res.data;
+              else data = [];
+          }
              setStudentsForDropdown(data || []);
         };
         fetchClassStudents();
@@ -49,9 +56,23 @@ const StudentsData: React.FC = () => {
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('students').select('*');
+      let query = supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026');
       if (filterClass) query = query.eq('kelas', filterClass);
-      const { data, error } = await query.order('kelas', { ascending: true }).order('name', { ascending: true });
+      let { data, error } = await query.order('kelas', { ascending: true }).order('name', { ascending: true });
+      if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
+          // Fallback if column missing
+          let fallbackQuery = supabase.from('students').select('*');
+          if (filterClass) fallbackQuery = fallbackQuery.eq('kelas', filterClass);
+          const res = await fallbackQuery.order('kelas', { ascending: true }).order('name', { ascending: true });
+          
+          // Assume old data belongs to 2025/2026
+          if (academicYear === '2025/2026') {
+             data = res.data;
+          } else {
+             data = [];
+          }
+          error = res.error;
+      }
       if (error) throw error;
       setStudents(data || []);
     } catch (err: any) {
@@ -91,21 +112,28 @@ const StudentsData: React.FC = () => {
       }
       setSaving(true);
       try {
-          const payload = {
-              nisn: formData.nisn,
-              nis: formData.nis,
-              name: formData.name,
-              kelas: formData.kelas,
-              gender: formData.gender,
-              jenjang: formData.jenjang
-          };
+          const payload = { 
+                nisn: formData.nisn, 
+                nis: formData.nis, 
+                name: formData.name, 
+                kelas: formData.kelas,
+                gender: formData.gender,
+                jenjang: formData.jenjang,
+                academic_year: academicYear || '2025/2026'
+            };
 
           if (editingId) {
               const { error } = await supabase.from('students').update(payload).eq('id', editingId);
               if (error) throw error;
               setStudents(prev => prev.map(s => s.id === editingId ? { ...s, ...payload } as Student : s));
           } else {
-              const { data, error } = await supabase.from('students').insert(payload).select().single();
+              let { data, error } = await supabase.from('students').insert(payload).select().single();
+              if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
+                  const { academic_year, ...rest } = payload as any;
+                  const res = await supabase.from('students').insert(rest).select().single();
+                  data = res.data;
+                  error = res.error;
+              }
               if (error) throw error;
               if (data) setStudents(prev => [...prev, data].sort((a,b) => a.kelas.localeCompare(b.kelas) || a.name.localeCompare(b.name)));
           }

@@ -47,7 +47,7 @@ interface TeacherMatrixItem {
 }
 
 const Dashboard: React.FC = () => {
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, profile, academicYear, semester } = useAuth();
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin'; 
 
   const [stats, setStats] = useState<MonthlyStats>({ totalJp: 0, targetJp: 0, totalMeetings: 0, classProgress: {} });
@@ -95,7 +95,14 @@ const Dashboard: React.FC = () => {
 
           const [profilesRes, schedulesRes, journalsRes] = await Promise.all([
               supabase.from('profiles').select('*').neq('role', 'operator').order('full_name'),
-              supabase.from('schedules').select('*').eq('day_of_week', dbDay),
+              supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').then(async (res) => {
+                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
+                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
+                      if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
+                      return { data: [], error: null };
+                  }
+                  return res;
+              }),
               supabase.from('journals').select('*').gte('created_at', startOfDay).lte('created_at', endOfDay)
           ]);
 
@@ -164,7 +171,12 @@ const Dashboard: React.FC = () => {
             });
         }
 
-        const { data: mySchedules } = await supabase.from('schedules').select('day_of_week, hour').eq('teacher_id', profile?.id);
+        let { data: mySchedules, error: mySchedError } = await supabase.from('schedules').select('day_of_week, hour').eq('teacher_id', profile?.id).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil');
+        if (mySchedError && (mySchedError.code === '42703' || mySchedError.message?.includes('academic_year'))) {
+            const fallback = await supabase.from('schedules').select('day_of_week, hour').eq('teacher_id', profile?.id);
+            if (academicYear === '2025/2026' && semester === 'Genap') mySchedules = fallback.data;
+            else mySchedules = [];
+        }
 
         let targetJp = 0;
         if (mySchedules) {
@@ -191,7 +203,14 @@ const Dashboard: React.FC = () => {
         const todayEnd = `${todayStr}T23:59:59+07:00`;
 
         const [todaySchedRes, todayJournalRes] = await Promise.all([
-            supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay),
+            supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').then(async (res) => {
+                if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
+                    const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay);
+                    if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
+                    return { data: [], error: null };
+                }
+                return res;
+            }),
             supabase.from('journals').select('*').eq('teacher_id', profile?.id).gte('created_at', todayStart).lte('created_at', todayEnd)
         ]);
 
@@ -226,7 +245,12 @@ const Dashboard: React.FC = () => {
         setKbmStatus(hoursList);
 
         if (profile?.wali_kelas) {
-            const { data: students } = await supabase.from('students').select('*').eq('kelas', profile.wali_kelas).order('name');
+            let { data: students, error: errSt } = await supabase.from('students').select('*').eq('kelas', profile.wali_kelas).eq('academic_year', academicYear || '2025/2026').order('name');
+            if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+                const res = await supabase.from('students').select('*').eq('kelas', profile.wali_kelas).order('name');
+                if (academicYear === '2025/2026') students = res.data;
+                else students = [];
+            }
             
             if (students && students.length > 0) {
                 const studentIds = students.map(s => s.id);
@@ -303,7 +327,12 @@ const Dashboard: React.FC = () => {
           // Open: Fetch Data
           setSavingAttendance(true); 
           try {
-              const { data: students } = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).order('name');
+              let { data: students, error: errSt } = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).eq('academic_year', academicYear || '2025/2026').order('name');
+              if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+                  const res = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).order('name');
+                  if (academicYear === '2025/2026') students = res.data;
+                  else students = [];
+              }
               setModalStudents(students || []);
 
               const { data: existing } = await supabase
@@ -336,7 +365,9 @@ const Dashboard: React.FC = () => {
               kelas: profile.wali_kelas,
               student_id: studentId,
               status: status,
-              created_by: profile.id
+              created_by: profile.id,
+              
+              
           }));
 
           if (inserts.length > 0) {
@@ -388,7 +419,9 @@ const Dashboard: React.FC = () => {
                       kelas: profile.wali_kelas,
                       student_id: item.student_id,
                       status: item.newStatus,
-                      created_by: profile.id
+                      created_by: profile.id,
+                      
+                      
                   };
                   const { error } = await supabase.from('homeroom_attendance').upsert(payload, { onConflict: 'date, student_id' });
                   if (error) console.error("Failed update", error);

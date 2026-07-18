@@ -16,6 +16,7 @@ import StudentsData from './pages/StudentsData';
 import ProfilePage from './pages/ProfilePage';
 import MySchedule from './pages/MySchedule';
 import SettingsPage from './pages/SettingsPage';
+import Penyimpanan from './pages/Penyimpanan';
 import RekapAbsensi from './pages/RekapAbsensi';
 import LaporanJurnal from './pages/LaporanJurnal';
 import Kedisiplinan from './pages/Kedisiplinan';
@@ -167,6 +168,11 @@ const App: React.FC = () => {
                </AdminRoute>
             } />
 
+             <Route path="/penyimpanan" element={
+               <AdminRoute>
+                 <Penyimpanan />
+               </AdminRoute>
+             } />
              <Route path="/settings" element={
                <AdminRoute>
                   <SettingsPage />

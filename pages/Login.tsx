@@ -13,7 +13,7 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, academicYear, semester } = useAuth();
   const navigate = useNavigate();
 
   const handleRoleSelect = (role: 'guru' | 'operator' | 'admin') => {

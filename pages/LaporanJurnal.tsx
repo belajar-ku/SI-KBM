@@ -21,7 +21,7 @@ interface JournalReportItem {
 }
 
 const LaporanJurnal: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(false);
   const [journals, setJournals] = useState<JournalReportItem[]>([]);
   

@@ -1,4 +1,3 @@
-
 export interface Profile {
   id: string;
   nip: string;
@@ -7,7 +6,7 @@ export interface Profile {
   mengajar_mapel?: string;
   wali_kelas?: string;
   avatar_url?: string;
-  password_info?: string; // Kolom untuk menyimpan password (admin only)
+  password_info?: string;
 }
 
 export interface TeacherData {
@@ -24,13 +23,16 @@ export interface Student {
   nis?: string;
   name: string;
   kelas: string;
+  academic_year?: string;
   gender?: 'L' | 'P';
   jenjang?: string;
 }
 
 export interface Schedule {
+  academic_year?: string;
+  semester?: string;
   id: string;
-  day_of_week: number; // 1=Senin, etc.
+  day_of_week: number;
   hour: string;
   kelas: string;
   subject: string;
@@ -39,17 +41,19 @@ export interface Schedule {
 }
 
 export interface Journal {
+  academic_year?: string;
+  semester?: string;
   id: string;
   created_at: string;
   teacher_id: string;
   kelas: string;
   subject: string;
-  hours: string; // "1, 2"
+  hours: string;
   material: string;
   cleanliness: 'mengarahkan_piket' | 'sudah_bersih';
   validation: 'izin_tugas' | 'hadir_kbm' | 'inval';
   inval_teacher_name?: string;
-  notes?: string; // New: Catatan KBM
+  notes?: string;
   teacher?: Profile;
 }
 
@@ -58,20 +62,20 @@ export interface AttendanceRecord {
   journal_id: string;
   student_name: string;
   status: 'S' | 'I' | 'A' | 'D';
-  teacher_name?: string; // New
-  subject?: string; // New
+  teacher_name?: string;
+  subject?: string;
 }
 
 export interface PublicStats {
   count7: number;
   count8: number;
   count9: number;
-  classDetails: Record<string, number>; // New: {'7A': 32, '7B': 30}
+  classDetails: Record<string, number>;
   totalJpRequired: number;
   completedJp: number;
-  absenceCount: number; // Total S+I+A hari ini
-  absenceDetails: { S: number; I: number; A: number }; // Rincian Global
-  absencePerClass: Record<string, number>; // New: {'7A': 1, '7B': 0} (Jumlah yg tidak hadir)
+  absenceCount: number;
+  absenceDetails: { S: number; I: number; A: number };
+  absencePerClass: Record<string, number>;
   unfilledKbm: { guru: string; kelas: string; jam: string }[];
 }
 
@@ -84,5 +88,5 @@ export interface AppSetting {
 export interface NonEffectiveDay {
   date: string;
   reason: string;
-  hours: string; // "Full Day" or "1-4"
+  hours: string;
 }

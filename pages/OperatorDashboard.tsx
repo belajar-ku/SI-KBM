@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { Profile } from '../types';
 import { getWIBISOString, formatDateIndo } from '../utils/dateUtils';
@@ -27,6 +28,7 @@ interface DashboardStats {
 }
 
 const OperatorDashboard: React.FC = () => {
+  const { academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   
@@ -99,10 +101,22 @@ const OperatorDashboard: React.FC = () => {
           const activeProfiles = currentProfiles || profilesRef.current;
 
           const [schedulesRes, journalsRes, attendanceRes, studentsRes, homeroomRes] = await Promise.all([
-              supabase.from('schedules').select('*').eq('day_of_week', dbDay),
+              supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').then(async (res) => {
+                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
+                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
+                      if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
+                      return { data: [], error: null };
+                  }
+                  return res;
+              }),
               supabase.from('journals').select('teacher_id, kelas, subject, hours, cleanliness').gte('created_at', startOfDay).lte('created_at', endOfDay),
               supabase.from('attendance_logs').select('student_id, student_name, status, created_at').gte('created_at', startOfDay).lte('created_at', endOfDay).neq('status', 'D'),
-              supabase.from('students').select('id, kelas, name'),
+              supabase.from('students').select('id, kelas, name').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
+                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
+                      return supabase.from('students').select('id, kelas, name');
+                  }
+                  return res;
+              }),
               supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('date', filterDate)
           ]);
 

@@ -35,7 +35,8 @@ create trigger on_auth_user_created
 -- 2. TABEL SISWA
 create table if not exists public.students (
   id uuid default gen_random_uuid() primary key,
-  nisn text unique not null,
+  academic_year text default '2025/2026',
+  nisn text not null,
   nis text,
   name text not null,
   kelas text not null,
@@ -46,6 +47,8 @@ create table if not exists public.students (
 
 -- 3. TABEL JADWAL (SCHEDULES)
 create table if not exists public.schedules (
+  academic_year text default '2025/2026',
+  semester text default 'Genap',
   id uuid default gen_random_uuid() primary key,
   day_of_week int not null,
   hour text not null,
@@ -58,6 +61,8 @@ create table if not exists public.schedules (
 
 -- 4. TABEL JURNAL (JOURNALS)
 create table if not exists public.journals (
+  academic_year text default '2025/2026',
+  semester text default 'Genap',
   id uuid default gen_random_uuid() primary key,
   teacher_id uuid references public.profiles(id),
   kelas text not null,
@@ -74,6 +79,8 @@ create table if not exists public.journals (
 
 -- 5. TABEL ATTENDANCE LOGS (INPUT DARI GURU MAPEL)
 create table if not exists public.attendance_logs (
+  academic_year text default '2025/2026',
+  semester text default 'Genap',
   id uuid default gen_random_uuid() primary key,
   journal_id uuid references public.journals(id) on delete cascade,
   student_id uuid references public.students(id),
@@ -86,6 +93,8 @@ create table if not exists public.attendance_logs (
 
 -- 6. TABEL JOURNAL NOTES (UNTUK CATATAN MURID)
 create table if not exists public.journal_notes (
+  academic_year text default '2025/2026',
+  semester text default 'Genap',
   id uuid default gen_random_uuid() primary key,
   journal_id uuid references public.journals(id) on delete cascade, 
   student_id uuid references public.students(id),
@@ -108,6 +117,8 @@ end $$;
 
 -- 7. TABEL HOMEROOM ATTENDANCE (ABSENSI HARIAN WALI KELAS - MUTLAK)
 create table if not exists public.homeroom_attendance (
+  academic_year text default '2025/2026',
+  semester text default 'Genap',
   id uuid default gen_random_uuid() primary key,
   date date not null,
   kelas text not null,
@@ -138,7 +149,7 @@ create table if not exists public.app_settings (
 -- SEED SETTINGS DEFAULT
 insert into public.app_settings (key, value, description)
 values 
-  ('academic_year', '2024/2025', 'Tahun Ajaran Aktif'),
+  ('academic_year', '2025/2026', 'Tahun Ajaran Aktif'),
   ('semester', 'Genap', 'Semester Aktif'),
   ('headmaster', 'Nama Kepala Sekolah', 'Kepala Sekolah'),
   ('non_effective_days', '[]', 'Hari Libur'),
@@ -238,3 +249,52 @@ create policy "Avatar Public Read" on storage.objects for select using ( bucket_
 
 drop policy if exists "Avatar Upload" on storage.objects;
 create policy "Avatar Upload" on storage.objects for insert with check ( bucket_id = 'avatars' and auth.role() = 'authenticated' );
+
+
+-- MIGRATION: Tambahkan academic_year ke tabel-tabel utama
+do $$
+begin
+  if not exists (select 1 from information_schema.columns where table_name = 'schedules' and column_name = 'academic_year') then
+    alter table public.schedules add column academic_year text default '2025/2026';
+    alter table public.schedules add column semester text default 'Genap';
+    
+    alter table public.journals add column academic_year text default '2025/2026';
+    alter table public.journals add column semester text default 'Genap';
+    
+    alter table public.homeroom_attendance add column academic_year text default '2025/2026';
+    alter table public.homeroom_attendance add column semester text default 'Genap';
+    
+    alter table public.journal_notes add column academic_year text default '2025/2026';
+    alter table public.journal_notes add column semester text default 'Genap';
+
+    alter table public.attendance_logs add column academic_year text default '2025/2026';
+    alter table public.attendance_logs add column semester text default 'Genap';
+  end if;
+end $$;
+
+
+-- MIGRATE EXISTING TABLES: Add academic_year to students if it doesn't exist
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE public.students ADD COLUMN academic_year text DEFAULT '2025/2026';
+  EXCEPTION
+    WHEN duplicate_column THEN null;
+  END;
+  -- also drop unique constraint on nisn if it exists, to allow same nisn in different academic_year
+  BEGIN
+    ALTER TABLE public.students DROP CONSTRAINT IF EXISTS students_nisn_key;
+  EXCEPTION
+    WHEN others THEN null;
+  END;
+END $$;
+
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE public.students ADD CONSTRAINT students_academic_year_nisn_key UNIQUE (academic_year, nisn);
+  EXCEPTION
+    WHEN duplicate_table THEN null;
+    WHEN duplicate_object THEN null;
+  END;
+END $$;

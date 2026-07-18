@@ -6,7 +6,7 @@ import { supabase } from '../services/supabase';
 import { User, Camera, Save, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 
 const ProfilePage: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{type: 'success' | 'error', text: string} | null>(null);
   

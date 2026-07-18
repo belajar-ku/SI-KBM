@@ -27,7 +27,7 @@ const smartTitleCase = (str: string) => {
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -117,7 +117,14 @@ const JurnalForm: React.FC = () => {
         const todayStr = getWIBISOString();
 
         const [schedulesRes, settingsRes] = await Promise.all([
-             supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).order('hour'),
+             supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').order('hour').then(async (res) => {
+                 if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year') || res.error.message?.includes('semester'))) {
+                     const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).order('hour');
+                     if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
+                     return { data: [], error: null };
+                 }
+                 return res;
+             }),
              supabase.from('app_settings').select('*')
         ]);
 
@@ -143,7 +150,12 @@ const JurnalForm: React.FC = () => {
         setLastMaterials(materialMap);
 
         if (schedules && schedules.length > 0) { setTodaySchedules(schedules); setInputMode('auto'); } else { setInputMode('manual'); }
-        const { data: studentData } = await supabase.from('students').select('kelas');
+        let { data: studentData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
+        if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+            const res = await supabase.from('students').select('kelas');
+            if (academicYear === '2025/2026') studentData = res.data;
+            else studentData = [];
+        }
         if (studentData) { const unique = Array.from(new Set(studentData.map((s: any) => s.kelas))).sort() as string[]; setAllClasses(unique); }
     } catch (err) { console.error(err); } finally { setInitLoading(false); }
   };
@@ -152,13 +164,25 @@ const JurnalForm: React.FC = () => {
     if (formData.kelas && profile) {
       const loadStudentsAndStats = async () => {
         setLoading(true); 
-        const { data: studentsData } = await supabase.from('students').select('id, name').eq('kelas', formData.kelas).order('name');
+        let { data: studentsData, error: errSt2 } = await supabase.from('students').select('id, name').eq('kelas', formData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
+        if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
+            const res = await supabase.from('students').select('id, name').eq('kelas', formData.kelas).order('name');
+            if (academicYear === '2025/2026') studentsData = res.data;
+            else studentsData = [];
+        }
         if (studentsData) {
             setStudents(studentsData as Student[]);
             setLoading(false); 
             const studentIds = studentsData.map(s => s.id);
             if (studentIds.length > 0) {
-                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
+                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
+                let { data: recentAtt, error: recError } = await query;
+                if (recError && (recError.code === '42703' || recError.message?.includes('academic_year') || recError.message?.includes('semester'))) {
+                    const fallbackQuery = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
+                    const res = await fallbackQuery;
+                    recentAtt = res.data;
+                    recError = res.error;
+                }
                 if (editJournalId) { query = query.neq('journal_id', editJournalId); }
                 if (formData.subject) { query = query.eq('journals.subject', formData.subject); }
                 const { data: logs } = await query;
@@ -219,14 +243,35 @@ const JurnalForm: React.FC = () => {
       const validationStatus = formData.isConfirmed ? 'hadir_kbm' : 'inval'; 
       const missingNames = students.filter(s => missingIds.includes(s.id)).map(s => s.name);
       const payload = { hours: formData.hours.join(','), material: formData.material, cleanliness: formData.cleanliness, validation: validationStatus, notes: formData.notes, assessment_type: type, assessment_missing_students: JSON.stringify(missingNames) };
-      if (editJournalId) { const { error } = await supabase.from('journals').update(payload).eq('id', editJournalId); if (error) throw error; await supabase.from('attendance_logs').delete().eq('journal_id', editJournalId); await supabase.from('journal_notes').delete().eq('journal_id', editJournalId); } else { const { data: journal, error: journalError } = await supabase.from('journals').insert({ teacher_id: profile.id, kelas: formData.kelas, subject: formData.subject, ...payload }).select().single(); if (journalError) throw journalError; finalJournalId = journal.id; }
+      if (editJournalId) { const { error } = await supabase.from('journals').update(payload).eq('id', editJournalId); if (error) throw error; await supabase.from('attendance_logs').delete().eq('journal_id', editJournalId); await supabase.from('journal_notes').delete().eq('journal_id', editJournalId); } else { let { data: journal, error: journalError } = await supabase.from('journals').insert({ teacher_id: profile.id, kelas: formData.kelas, subject: formData.subject, ...payload, academic_year: academicYear || '2025/2026', semester: semester || 'Ganjil' }).select().single();
+        if (journalError && (journalError.code === '42703' || journalError.message?.includes('academic_year') || journalError.message?.includes('semester'))) {
+            const fallbackRes = await supabase.from('journals').insert({ teacher_id: profile.id, kelas: formData.kelas, subject: formData.subject, ...payload }).select().single();
+            journal = fallbackRes.data;
+            journalError = fallbackRes.error;
+        } if (journalError) throw journalError; finalJournalId = journal.id; }
       if (finalJournalId) {
-          const attendanceInserts = Object.entries(formData.attendance).map(([studentId, status]) => { const studentName = students.find(s => s.id === studentId)?.name || 'Unknown'; return { journal_id: finalJournalId, student_id: studentId, student_name: studentName, status: status, teacher_name: profile.full_name, subject: formData.subject }; });
-          if (attendanceInserts.length > 0) { const { error: attError } = await supabase.from('attendance_logs').insert(attendanceInserts); if (attError) throw attError; }
+          const attendanceInserts = Object.entries(formData.attendance).map(([studentId, status]) => { const studentName = students.find(s => s.id === studentId)?.name || 'Unknown'; return { journal_id: finalJournalId, student_id: studentId, student_name: studentName, status: status, teacher_name: profile.full_name, subject: formData.subject, academic_year: academicYear || '2025/2026', semester: semester || 'Ganjil' }; });
+          if (attendanceInserts.length > 0) { let { error: attError } = await supabase.from('attendance_logs').insert(attendanceInserts);
+          if (attError && (attError.code === '42703' || attError.message?.includes('academic_year') || attError.message?.includes('semester'))) {
+              const fallbackAtts = attendanceInserts.map(a => {
+                  const { academic_year, semester, ...rest } = a as any;
+                  return rest;
+              });
+              const fallbackRes = await supabase.from('attendance_logs').insert(fallbackAtts);
+              attError = fallbackRes.error;
+          } if (attError) throw attError; }
           const notesInserts: any[] = [];
-          notesData.discipline.forEach(row => { if (row.category && row.studentIds.length > 0) { row.studentIds.forEach(sid => { const sName = students.find(s => s.id === sid)?.name || 'Unknown'; notesInserts.push({ journal_id: finalJournalId, student_id: sid, student_name: sName, type: 'kedisiplinan', category: row.category, follow_up: row.followUp || '', note: row.note || '' }); }); } });
-          notesData.activity.forEach(row => { if (row.category && row.studentIds.length > 0) { row.studentIds.forEach(sid => { const sName = students.find(s => s.id === sid)?.name || 'Unknown'; notesInserts.push({ journal_id: finalJournalId, student_id: sid, student_name: sName, type: 'keaktifan', category: row.category, follow_up: '', note: row.note || '' }); }); } });
-          if (notesInserts.length > 0) { const { error: noteError } = await supabase.from('journal_notes').insert(notesInserts); if (noteError) throw noteError; }
+          notesData.discipline.forEach(row => { if (row.category && row.studentIds.length > 0) { row.studentIds.forEach(sid => { const sName = students.find(s => s.id === sid)?.name || 'Unknown'; notesInserts.push({ journal_id: finalJournalId, student_id: sid, student_name: sName, type: 'kedisiplinan', category: row.category, follow_up: row.followUp || '', note: row.note || '', academic_year: academicYear || '2025/2026', semester: semester || 'Ganjil' }); }); } });
+          notesData.activity.forEach(row => { if (row.category && row.studentIds.length > 0) { row.studentIds.forEach(sid => { const sName = students.find(s => s.id === sid)?.name || 'Unknown'; notesInserts.push({ journal_id: finalJournalId, student_id: sid, student_name: sName, type: 'keaktifan', category: row.category, follow_up: '', note: row.note || '', academic_year: academicYear || '2025/2026', semester: semester || 'Ganjil' }); }); } });
+          if (notesInserts.length > 0) { let { error: noteError } = await supabase.from('journal_notes').insert(notesInserts);
+          if (noteError && (noteError.code === '42703' || noteError.message?.includes('academic_year') || noteError.message?.includes('semester'))) {
+              const fallbackNotes = notesInserts.map(n => {
+                  const { academic_year, semester, ...rest } = n as any;
+                  return rest;
+              });
+              const fallbackRes = await supabase.from('journal_notes').insert(fallbackNotes);
+              noteError = fallbackRes.error;
+          } if (noteError) throw noteError; }
       }
       setAlertState({ isOpen: true, type: 'success', title: editJournalId ? 'Berhasil Diperbarui!' : 'Berhasil Disimpan!', message: 'Data jurnal pembelajaran dan penilaian telah tersimpan.' });
     } catch (err: any) { console.error("Submit Error:", err); setAlertState({ isOpen: true, type: 'error', title: 'Gagal Menyimpan', message: err.message || 'Terjadi kesalahan sistem.' }); } finally { setLoading(false); }

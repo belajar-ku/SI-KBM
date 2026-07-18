@@ -11,7 +11,7 @@ import {
 
 const AppsMenu: React.FC = () => {
   const navigate = useNavigate();
-  const { isAdmin, profile } = useAuth();
+  const { isAdmin, profile, academicYear, semester } = useAuth();
 
   // Logic to identify Dhuha Teacher
   const isDhuhaTeacher = profile?.mengajar_mapel?.toLowerCase().includes('dhuha');

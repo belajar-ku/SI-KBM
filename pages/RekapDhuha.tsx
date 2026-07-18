@@ -20,7 +20,7 @@ interface DhuhaSummary {
 }
 
 const RekapDhuha: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(false);
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
@@ -59,7 +59,12 @@ const RekapDhuha: React.FC = () => {
       const newSettings: any = {};
       settingsData?.forEach(item => newSettings[item.key] = item.value);
       setSettings(prev => ({ ...prev, ...newSettings }));
-      const { data: studentsData } = await supabase.from('students').select('kelas');
+      let { data: studentsData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', settings.academic_year || '2025/2026');
+      if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+          const res = await supabase.from('students').select('kelas');
+          if (settings.academic_year === '2025/2026' || !settings.academic_year) studentsData = res.data;
+          else studentsData = [];
+      }
       if (studentsData) {
         const uniqueClasses = Array.from(new Set(studentsData.map((s:any) => s.kelas))).sort();
         setClasses(uniqueClasses as string[]);
@@ -70,7 +75,12 @@ const RekapDhuha: React.FC = () => {
   const fetchReportData = async () => {
     setLoading(true);
     try {
-        const { data: students } = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+        let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', settings.academic_year || '2025/2026').order('name');
+        if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
+            const res = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+            if (settings.academic_year === '2025/2026' || !settings.academic_year) students = res.data;
+            else students = [];
+        }
         if (!students) throw new Error("Tidak ada siswa");
         const start = `${startDate}T00:00:00+07:00`;
         const end = `${endDate}T23:59:59+07:00`;

@@ -8,7 +8,7 @@ import { Calendar, Clock, BookOpen, Loader2, CalendarDays, Download, ImageIcon }
 import html2canvas from 'html2canvas';
 
 const MySchedule: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);

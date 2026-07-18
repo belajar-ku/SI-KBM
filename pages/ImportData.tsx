@@ -1,11 +1,13 @@
 
 import React, { useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { Upload, FileText, CheckCircle, AlertCircle, Download, Users, Calendar, GraduationCap, X, KeyRound, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 
 const ImportData: React.FC = () => {
+  const { academicYear, semester } = useAuth();
   const [activeTab, setActiveTab] = useState<'students' | 'teachers' | 'schedules'>('teachers');
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
@@ -143,6 +145,7 @@ const ImportData: React.FC = () => {
     try {
         if (activeTab === 'students') {
             const studentsToInsert = previewData.map((row: any) => ({
+                academic_year: academicYear || '2025/2026',
                 nisn: String(row['NISN'] || row['nisn']),
                 nis: String(row['NIS'] || row['nis']),
                 name: row['Nama Lengkap'] || row['nama'] || row['Nama'],
@@ -152,7 +155,16 @@ const ImportData: React.FC = () => {
             })).filter(s => s.nisn && s.name && s.kelas);
 
             if (studentsToInsert.length > 0) {
-                const { error } = await supabase.from('students').upsert(studentsToInsert, { onConflict: 'nisn' });
+                let { error } = await supabase.from('students').upsert(studentsToInsert, { onConflict: 'academic_year, nisn' });
+                if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
+                    // Fallback to inserting without academic_year
+                    const fallbackData = studentsToInsert.map(s => {
+                        const { academic_year, ...rest } = s;
+                        return rest;
+                    });
+                    const res = await supabase.from('students').upsert(fallbackData, { onConflict: 'nisn' });
+                    error = res.error;
+                }
                 if (error) throw error;
                 successCount = studentsToInsert.length;
             }
@@ -276,7 +288,9 @@ const ImportData: React.FC = () => {
                         kelas: kelas,
                         subject: mapel,
                         teacher_nip: nip,
-                        teacher_id: teacherId
+                        teacher_id: teacherId,
+                        
+                        
                     });
                 }
             }

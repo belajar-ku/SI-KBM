@@ -18,7 +18,7 @@ interface AttendanceSummary {
 }
 
 const RekapAbsensi: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(false);
   
   // Dropdown Data

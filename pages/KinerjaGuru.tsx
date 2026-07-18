@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { Activity, Calendar, Search, Loader2, X } from 'lucide-react';
 import { Profile, Schedule } from '../types';
@@ -13,6 +14,7 @@ interface TeacherPerformanceData extends Profile {
 }
 
 const KinerjaGuru: React.FC = () => {
+  const { academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(true);
   const [teachersData, setTeachersData] = useState<TeacherPerformanceData[]>([]);
   const [filteredTeachers, setFilteredTeachers] = useState<TeacherPerformanceData[]>([]);
@@ -50,7 +52,14 @@ const KinerjaGuru: React.FC = () => {
 
           const [profilesRes, schedulesRes, journalsRes] = await Promise.all([
               supabase.from('profiles').select('*').neq('role', 'operator').order('full_name'),
-              supabase.from('schedules').select('*'),
+              supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').then(async (res) => {
+                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
+                      const fallback = await supabase.from('schedules').select('*');
+                      if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
+                      return { data: [], error: null };
+                  }
+                  return res;
+              }),
               supabase.from('journals').select('teacher_id, hours').gte('created_at', firstDayStr).lte('created_at', endDayStr)
           ]);
 
@@ -93,7 +102,12 @@ const KinerjaGuru: React.FC = () => {
   const handleViewSchedule = async (teacher: Profile) => {
       setLoading(true);
       try {
-          const { data } = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).order('day_of_week').order('hour');
+          let { data, error } = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').order('day_of_week').order('hour');
+          if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
+              const res = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).order('day_of_week').order('hour');
+              if (academicYear === '2025/2026' && semester === 'Genap') data = res.data;
+              else data = [];
+          }
           setSelectedTeacherSchedule({ teacher, schedules: data || [] });
           setShowScheduleModal(true);
       } catch(e) { console.error(e); } finally { setLoading(false); }

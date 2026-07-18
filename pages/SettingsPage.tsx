@@ -13,6 +13,7 @@ const SettingsPage: React.FC = () => {
     headmaster_nip: ''
   });
   const [nonEffectiveDays, setNonEffectiveDays] = useState<NonEffectiveDay[]>([]);
+  const [availableYears, setAvailableYears] = useState<string[]>(['2025/2026']);
   const [teachers, setTeachers] = useState<Profile[]>([]); // List Guru for Dropdown
   
   // Master Lists
@@ -234,12 +235,14 @@ const SettingsPage: React.FC = () => {
                     <div className="space-y-4">
                         <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">Tahun Ajaran</label>
+                            
                             <input 
                                 className="w-full border rounded-lg p-3 font-medium" 
                                 value={settings['academic_year'] || ''}
                                 onChange={e => setSettings({...settings, academic_year: e.target.value})}
                                 placeholder="Contoh: 2024/2025"
                             />
+    
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">Semester</label>

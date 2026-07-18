@@ -1,10 +1,12 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Layout } from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { Upload, FileText, CheckCircle, AlertCircle, Download, BookOpen, X, Loader2, Database, HelpCircle } from 'lucide-react';
 
 const InputManual: React.FC = () => {
+  const { academicYear, semester } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -114,7 +116,12 @@ const InputManual: React.FC = () => {
 
       try {
           // 1. Pre-fetch ALL Students to minimize DB calls inside loop
-          const { data: allStudents } = await supabase.from('students').select('id, name, kelas');
+          let { data: allStudents, error: errSt } = await supabase.from('students').select('id, name, kelas').eq('academic_year', academicYear || '2025/2026');
+          if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+              const res = await supabase.from('students').select('id, name, kelas');
+              if (academicYear === '2025/2026') allStudents = res.data;
+              else allStudents = [];
+          }
           const studentLookup: Record<string, string> = {}; // "nama|kelas" -> id
           allStudents?.forEach(s => {
               const key = `${s.name.trim().toLowerCase()}|${s.kelas.trim().toLowerCase()}`;
@@ -186,7 +193,11 @@ const InputManual: React.FC = () => {
                       material: meta.material,
                       cleanliness: 'sudah_bersih',
                       validation: 'hadir_kbm',
-                      created_at: `${meta.date}T07:00:00+07:00`
+                      created_at: `${meta.date}T07:00:00+07:00`,
+                      academic_year: academicYear || '2025/2026',
+                      semester: semester || 'Ganjil',
+                      
+                      
                   }).select('id').single();
 
                   if (jError) {
@@ -226,7 +237,11 @@ const InputManual: React.FC = () => {
                           status: status,
                           teacher_name: meta.teacherName,
                           subject: meta.subject,
-                          created_at: `${meta.date}T07:00:00+07:00`
+                          created_at: `${meta.date}T07:00:00+07:00`,
+                      academic_year: academicYear || '2025/2026',
+                      semester: semester || 'Ganjil',
+                          
+                          
                       });
                   }
 
@@ -241,7 +256,11 @@ const InputManual: React.FC = () => {
                           category: violation,
                           follow_up: row['Tindak Lanjut'] || '',
                           note: row['Catatan'] || 'Import Manual',
-                          created_at: `${meta.date}T07:00:00+07:00`
+                          created_at: `${meta.date}T07:00:00+07:00`,
+                      academic_year: academicYear || '2025/2026',
+                      semester: semester || 'Ganjil',
+                          
+                          
                       });
                   }
               }

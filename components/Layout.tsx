@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext'; // Import Theme Context
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset, ArrowUp, AlertCircle } from 'lucide-react';
+import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset, ArrowUp, AlertCircle, Settings, Database, Users, GraduationCap, Upload, Edit3, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 // CHANGED: Default collapsed is now true for all pages
@@ -148,7 +148,24 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
             <div className="flex-1 space-y-1 p-3 overflow-y-auto">
                 {!collapsed && <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Menu Utama</div>}
                 
-                {isOperator ? (
+                
+                {isAdmin ? (
+                    <>
+                        <NavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
+                        <NavItem path="/operator-dashboard" label="Monitor KBM" icon={MonitorPlay} />
+                        <NavItem path="/penyimpanan" label="Buat T.A" icon={Database} />
+                        <NavItem path="/settings" label="Pengaturan" icon={Settings} />
+                        <div className="pt-4 pb-1">
+                            {!collapsed && <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Data Master</div>}
+                        </div>
+                        <NavItem path="/users" label="Data Akun" icon={Users} />
+                        <NavItem path="/students" label="Data Siswa" icon={GraduationCap} />
+                        <NavItem path="/import-data" label="Import Data" icon={Upload} />
+                        <NavItem path="/input-manual" label="Input Manual" icon={Edit3} />
+                        <NavItem path="/input-jadwal" label="Input Jadwal" icon={Calendar} />
+                        <NavItem path="/profile" label="Profil Saya" icon={User} />
+                    </>
+                ) : isOperator ? (
                     <>
                         <NavItem path="/operator-dashboard" label="Dashboard KBM" icon={MonitorPlay} />
                         <NavItem path="/profile" label="Profil Saya" icon={User} />
@@ -254,6 +271,22 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
              </div>
           </div>
 
+          {/* DESKTOP TOP BAR */}
+          <div className="hidden md:flex justify-between items-center sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-8 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+              <div className="flex items-center gap-3 text-sm font-bold">
+                  <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800/50 shadow-sm">
+                      <span className="text-blue-400 dark:text-blue-500">T.A:</span> {academicYear}
+                  </div>
+                  <div className="flex items-center gap-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 px-3 py-1.5 rounded-xl border border-purple-100 dark:border-purple-800/50 shadow-sm">
+                      <span className="text-purple-400 dark:text-purple-500">Semester:</span> {semester}
+                  </div>
+              </div>
+              <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400">
+                  <span>{formattedDate}</span>
+                  <span className="font-mono text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">{formattedTime} WIB</span>
+              </div>
+          </div>
+
           {/* PAGE CONTENT */}
           <div className="p-4 md:p-8 max-w-[1920px] w-full mx-auto pb-28 md:pb-10 page-enter text-slate-800 dark:text-slate-100">
             {children}
@@ -272,7 +305,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       </main>
 
       {/* --- MOBILE BOTTOM NAV (FLUTTER STYLE ANIMATED) --- */}
-      {showNav && !isOperator && (
+      {showNav && !isOperator && !isAdmin && (
         <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
             <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2 max-w-[95vw]">
                 <BottomNavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
@@ -290,8 +323,20 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
         </div>
       )}
 
+      
+      {/* Mobile Nav for Admin */}
+      {showNav && isAdmin && (
+           <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
+                <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2">
+                    <BottomNavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
+                    <BottomNavItem path="/penyimpanan" label="Buat T.A" icon={Database} />
+                    <BottomNavItem path="/settings" label="Pengaturan" icon={Settings} />
+                    <BottomNavItem path="/profile" label="Profil" icon={User} />
+                </nav>
+           </div>
+      )}
       {/* Mobile Nav for Operator */}
-      {showNav && isOperator && (
+      {showNav && isOperator && !isAdmin && (
            <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
                 <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2">
                     <BottomNavItem path="/operator-dashboard" label="Monitor" icon={MonitorPlay} />

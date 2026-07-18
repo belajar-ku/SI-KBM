@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { CalendarPlus, Save, CheckCircle, AlertCircle, Loader2, User, Plus, Trash2, BookOpen, Clock, Edit, X, Database, ListChecks } from 'lucide-react';
 import { Profile, Schedule } from '../types';
@@ -14,6 +15,7 @@ interface ScheduleQueueItem {
 }
 
 const InputJadwal: React.FC = () => {
+  const { academicYear, semester } = useAuth();
   const [teachers, setTeachers] = useState<Profile[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<Profile | null>(null);
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
@@ -49,7 +51,26 @@ const InputJadwal: React.FC = () => {
   const fetchTeacherSchedules = async (teacherId: string) => {
       setLoadingDb(true);
       try {
-          const { data, error } = await supabase.from('schedules').select('*').eq('teacher_id', teacherId).order('day_of_week').order('hour');
+          
+          let data = null;
+          let error = null;
+          try {
+              const res = await supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('teacher_id', teacherId).order('day_of_week').order('hour');
+              data = res.data;
+              error = res.error;
+              if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester'))) {
+                  // Fallback if column doesn't exist yet
+                  const fallbackRes = await supabase.from('schedules').select('*').eq('teacher_id', teacherId).order('day_of_week').order('hour');
+                  if (academicYear === '2025/2026' && semester === 'Genap') {
+                      data = fallbackRes.data;
+                  } else {
+                      data = [];
+                  }
+                  error = fallbackRes.error;
+                  if (!error) console.warn("Kolom academic_year/semester belum ada di tabel schedules. Silakan jalankan SUPABASE_SETUP.sql");
+              }
+          } catch(e) { error = e; }
+          
           if (error) throw error;
           setDbSchedules(data || []);
       } catch (err) { console.error("Gagal load jadwal database", err); } finally { setLoadingDb(false); }
@@ -115,9 +136,21 @@ const InputJadwal: React.FC = () => {
             kelas: item.kelas,
             subject: item.mapel,
             teacher_nip: selectedTeacher.nip,
-            teacher_id: selectedTeacher.id
+            teacher_id: selectedTeacher.id,
+            academic_year: academicYear || '2025/2026',
+            semester: semester || 'Ganjil'
         }));
-        const { error } = await supabase.from('schedules').insert(payloads);
+        let { error } = await supabase.from('schedules').insert(payloads);
+        if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester'))) {
+            // Fallback without academic_year and semester
+            const fallbackPayloads = payloads.map(p => {
+                const { academic_year, semester, ...rest } = p;
+                return rest;
+            });
+            const fallbackRes = await supabase.from('schedules').insert(fallbackPayloads);
+            error = fallbackRes.error;
+            if (!error) console.warn("Kolom academic_year/semester belum ada di tabel schedules. Data disimpan tanpa tahun ajaran.");
+        }
         if (error) throw error;
         setStatus({ type: 'success', msg: `Berhasil menyimpan ${scheduleQueue.length} jadwal baru!` });
         setScheduleQueue([]); 

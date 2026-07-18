@@ -1,12 +1,14 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { PublicStats } from '../types';
 import { LogIn, Loader2, BookOpen, AlertCircle, X, School, ChevronDown, ChevronRight, Bookmark } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo, formatTimeIndo } from '../utils/dateUtils';
 
 const PublicDashboard: React.FC = () => {
+  const { academicYear, semester } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,7 +63,12 @@ const PublicDashboard: React.FC = () => {
 
     try {
         const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
-            supabase.from('students').select('id, kelas'),
+            supabase.from('students').select('id, kelas').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
+                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
+                      return supabase.from('students').select('id, kelas');
+                  }
+                  return res;
+              }),
             supabase.from('journals').select('hours').gte('created_at', startOfDay),
             supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').gte('created_at', startOfDay),
             supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('date', todayStr)

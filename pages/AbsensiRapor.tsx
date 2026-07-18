@@ -22,7 +22,7 @@ interface ReportStudent extends Student {
 }
 
 const AbsensiRapor: React.FC = () => {
-  const { profile } = useAuth();
+  const { profile, academicYear, semester } = useAuth();
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<ReportStudent[]>([]);
   
@@ -71,7 +71,12 @@ const AbsensiRapor: React.FC = () => {
         settingsData?.forEach(item => newSettings[item.key] = item.value);
         setSettings(prev => ({ ...prev, ...newSettings }));
 
-        const { data } = await supabase.from('students').select('kelas');
+        let { data, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', settings.academic_year || '2025/2026');
+        if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+            const res = await supabase.from('students').select('kelas');
+            if (settings.academic_year === '2025/2026' || !settings.academic_year) data = res.data;
+            else data = [];
+        }
         if(data) {
             const unique = Array.from(new Set(data.map((s:any) => s.kelas))).sort();
             setClasses(unique as string[]);
@@ -89,7 +94,12 @@ const AbsensiRapor: React.FC = () => {
           const start = `${startDate}T00:00:00+07:00`;
           const end = `${endDate}T23:59:59+07:00`;
 
-          const { data: students } = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+          let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', settings.academic_year || '2025/2026').order('name');
+          if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
+              const res = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+              if (settings.academic_year === '2025/2026' || !settings.academic_year) students = res.data;
+              else students = [];
+          }
           
           if(!students || students.length === 0) {
               setReportData([]); setLoading(false); return;
