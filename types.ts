@@ -7,6 +7,7 @@ export interface Profile {
   wali_kelas?: string;
   avatar_url?: string;
   password_info?: string;
+  is_active?: boolean;
 }
 
 export interface TeacherData {

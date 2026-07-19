@@ -105,20 +105,27 @@ const UsersData: React.FC = () => {
     if (!editingUser) return;
     setSaving(true);
     try {
-      const { error: profileError } = await supabase.from('profiles').update({
-          mengajar_mapel: editFormData.mengajar_mapel,
+      let finalMapel = editFormData.mengajar_mapel;
+      if (editFormData.wali_kelas && editFormData.wali_kelas.trim() !== '') {
+        const mapels = finalMapel ? finalMapel.split(',').map(m => m.trim()) : [];
+        if (!mapels.includes('Sabtu bersama Wali Kelas')) {
+           mapels.push('Sabtu bersama Wali Kelas');
+           finalMapel = mapels.join(', ');
+        }
+      }
+      const payload = {
+          mengajar_mapel: finalMapel,
           wali_kelas: editFormData.wali_kelas
-        }).eq('id', editingUser.id);
+      };
+
+      const { error: profileError } = await supabase.from('profiles').update(payload).eq('id', editingUser.id);
       if (profileError) throw profileError;
 
       if (editingUser.nip) {
-         await supabase.from('tabel_guru').update({
-             mapel: editFormData.mengajar_mapel,
-             wali_kelas: editFormData.wali_kelas
-           }).eq('nip', editingUser.nip);
+         await supabase.from('tabel_guru').update({ mapel: finalMapel, wali_kelas: editFormData.wali_kelas }).eq('nip', editingUser.nip);
       }
 
-      setProfiles(prev => prev.map(p => p.id === editingUser.id ? { ...p, mengajar_mapel: editFormData.mengajar_mapel, wali_kelas: editFormData.wali_kelas } : p));
+      setProfiles(prev => prev.map(p => p.id === editingUser.id ? { ...p, mengajar_mapel: finalMapel, wali_kelas: editFormData.wali_kelas } : p));
       setEditingUser(null);
     } catch (err: any) { alert('Gagal menyimpan data: ' + err.message); } finally { setSaving(false); }
   };
@@ -126,9 +133,17 @@ const UsersData: React.FC = () => {
   const handleCreateUser = async () => {
       if (!newUser.nip || !newUser.fullName || !newUser.password) { alert("NIP, Nama Lengkap, dan Password wajib diisi."); return; }
       if (!serviceKey) { alert("Service Role Key wajib diisi untuk membuat akun Login."); return; }
-
       setSaving(true);
       try {
+          let finalMapelNew = newUser.mapel;
+          if (newUser.waliKelas && newUser.waliKelas.trim() !== '') {
+              const mapelsNew = finalMapelNew ? finalMapelNew.split(',').map(m => m.trim()) : [];
+              if (!mapelsNew.includes('Sabtu bersama Wali Kelas')) {
+                 mapelsNew.push('Sabtu bersama Wali Kelas');
+                 finalMapelNew = mapelsNew.join(', ');
+              }
+          }
+
           const SUPABASE_URL = 'https://aobgqejpjomgwxiosgin.supabase.co'; 
           const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
@@ -146,11 +161,11 @@ const UsersData: React.FC = () => {
 
           const { error: profileError } = await supabase.from('profiles').insert({
               id: userId, nip: newUser.nip, full_name: newUser.fullName, role: newUser.role,
-              mengajar_mapel: newUser.mapel, wali_kelas: newUser.waliKelas, password_info: newUser.password
+              mengajar_mapel: typeof finalMapelNew !== 'undefined' ? finalMapelNew : newUser.mapel, wali_kelas: newUser.waliKelas, password_info: newUser.password
           });
           if (profileError) throw new Error("Gagal membuat Profile: " + profileError.message);
 
-          await supabase.from('tabel_guru').upsert({ nip: newUser.nip, nama_lengkap: newUser.fullName, mapel: newUser.mapel, wali_kelas: newUser.waliKelas });
+          await supabase.from('tabel_guru').upsert({ nip: newUser.nip, nama_lengkap: newUser.fullName, mapel: typeof finalMapelNew !== 'undefined' ? finalMapelNew : newUser.mapel, wali_kelas: newUser.waliKelas });
 
           alert("User berhasil ditambahkan!");
           setIsAddModalOpen(false);
@@ -179,6 +194,22 @@ const UsersData: React.FC = () => {
       } catch(e: any) { alert(e.message); } finally { setSaving(false); }
   };
 
+    const toggleActiveStatus = async (user: Profile) => {
+      const newStatus = user.is_active === false ? true : false;
+      try {
+          const { error } = await supabase.from('profiles').update({ is_active: newStatus }).eq('id', user.id);
+          if (error) {
+              if (error.code === '42703' || error.message?.includes('is_active')) {
+                  alert("Kolom 'is_active' belum ada di database. Silakan jalankan perintah SQL ini di Supabase SQL Editor:\n\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;");
+              } else {
+                  throw error;
+              }
+              return;
+          }
+          setProfiles(prev => prev.map(p => p.id === user.id ? { ...p, is_active: newStatus } : p));
+      } catch(e: any) { alert("Gagal update status: " + e.message); }
+  };
+  
   const toggleMapelSelection = (subject: string, isEditMode: boolean) => {
       let currentString = isEditMode ? editFormData.mengajar_mapel : newUser.mapel;
       let currentSelection = currentString ? currentString.split(',').map(s => s.trim()) : [];
@@ -217,11 +248,12 @@ const UsersData: React.FC = () => {
                    <th className="px-6 py-4">Role</th>
                    <th className="px-6 py-4">Mapel (Profil)</th>
                    <th className="px-6 py-4">Wali Kelas</th>
+                   <th className="px-6 py-4">Status</th>
                    <th className="px-6 py-4 text-center">Aksi</th>
                  </tr>
                </thead>
                <tbody className="divide-y divide-gray-100">
-                 {loading ? <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Memuat data profiles...</td></tr> : filteredProfiles.length === 0 ? <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">Tidak ada data user ditemukan.</td></tr> : (
+                 {loading ? <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">Memuat data profiles...</td></tr> : filteredProfiles.length === 0 ? <tr><td colSpan={7} className="px-6 py-8 text-center text-gray-500">Tidak ada data user ditemukan.</td></tr> : (
                    filteredProfiles.map((p) => (
                      <tr key={p.id} className="hover:bg-blue-50/50 transition-colors group">
                        <td className="px-6 py-3"><div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-gray-200 overflow-hidden flex-shrink-0">{p.avatar_url ? <img src={p.avatar_url} alt="" className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs font-bold">{p.full_name?.charAt(0)}</div>}</div><div><div className="font-bold text-gray-800">{p.full_name}</div><div className="text-xs text-gray-500 font-mono">{p.nip}</div></div></div></td>

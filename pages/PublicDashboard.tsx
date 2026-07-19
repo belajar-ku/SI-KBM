@@ -548,7 +548,7 @@ const PublicDashboard: React.FC = () => {
 
                           <form onSubmit={handleLoginSubmit} className="space-y-5">
                             <div>
-                              <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">User ID (NIP)</label>
+                              <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">User ID (NIP/NIPPPK)</label>
                               <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                                   <User className="h-5 w-5 text-gray-400" />
