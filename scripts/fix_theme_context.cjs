@@ -1,4 +1,8 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+const fs = require('fs');
+const path = require('path');
+
+const file = path.join(__dirname, '../contexts/ThemeContext.tsx');
+const newContent = `import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'light';
 
@@ -38,3 +42,7 @@ export const useTheme = () => {
   }
   return context;
 };
+`;
+
+fs.writeFileSync(file, newContent);
+console.log('Fixed ThemeContext');
