@@ -1,4 +1,3 @@
-
 -- ==========================================
 -- SETUP DATABASE LENGKAP (SI KBM)
 -- Jalankan script ini di SQL Editor Supabase

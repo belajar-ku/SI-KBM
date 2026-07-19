@@ -85,7 +85,13 @@ const UsersData: React.FC = () => {
       ]);
       if (profilesRes.data) setProfiles(profilesRes.data);
       if (settingsRes.data?.value) {
-          try { setSubjectsList(JSON.parse(settingsRes.data.value)); } catch(e) { console.error("Parse subjects error", e); }
+          try { 
+            let parsed = JSON.parse(settingsRes.data.value);
+            if (!parsed.includes('Sabtu bersama Wali Kelas')) {
+                parsed.push('Sabtu bersama Wali Kelas');
+            }
+            setSubjectsList(parsed); 
+        } catch(e) { console.error("Parse subjects error", e); }
       }
     } catch (err: any) { alert('Gagal mengambil data user: ' + err.message); } finally { setLoading(false); }
   };
@@ -194,23 +200,7 @@ const UsersData: React.FC = () => {
       } catch(e: any) { alert(e.message); } finally { setSaving(false); }
   };
 
-    const toggleActiveStatus = async (user: Profile) => {
-      const newStatus = user.is_active === false ? true : false;
-      try {
-          const { error } = await supabase.from('profiles').update({ is_active: newStatus }).eq('id', user.id);
-          if (error) {
-              if (error.code === '42703' || error.message?.includes('is_active')) {
-                  alert("Kolom 'is_active' belum ada di database. Silakan jalankan perintah SQL ini di Supabase SQL Editor:\n\nALTER TABLE profiles ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;");
-              } else {
-                  throw error;
-              }
-              return;
-          }
-          setProfiles(prev => prev.map(p => p.id === user.id ? { ...p, is_active: newStatus } : p));
-      } catch(e: any) { alert("Gagal update status: " + e.message); }
-  };
-  
-  const toggleMapelSelection = (subject: string, isEditMode: boolean) => {
+    const toggleMapelSelection = (subject: string, isEditMode: boolean) => {
       let currentString = isEditMode ? editFormData.mengajar_mapel : newUser.mapel;
       let currentSelection = currentString ? currentString.split(',').map(s => s.trim()) : [];
       if (currentSelection.includes(subject)) currentSelection = currentSelection.filter(s => s !== subject); else currentSelection.push(subject);
@@ -248,7 +238,7 @@ const UsersData: React.FC = () => {
                    <th className="px-6 py-4">Role</th>
                    <th className="px-6 py-4">Mapel (Profil)</th>
                    <th className="px-6 py-4">Wali Kelas</th>
-                   <th className="px-6 py-4">Status</th>
+                   
                    <th className="px-6 py-4 text-center">Aksi</th>
                  </tr>
                </thead>
@@ -261,6 +251,7 @@ const UsersData: React.FC = () => {
                        <td className="px-6 py-3">{p.role === 'admin' ? <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded-lg text-xs font-bold"><Shield size={12} /> Admin</span> : <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded-lg text-xs font-bold">User</span>}</td>
                        <td className="px-6 py-3 text-gray-600 max-w-xs truncate" title={p.mengajar_mapel}>{p.mengajar_mapel ? <div className="flex flex-wrap gap-1">{p.mengajar_mapel.split(',').map((m, i) => <span key={i} className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold border border-blue-100">{m.trim()}</span>)}</div> : <span className="text-gray-300 italic">Belum diisi</span>}</td>
                        <td className="px-6 py-3">{p.wali_kelas ? <span className="inline-flex items-center gap-1 bg-orange-100 text-orange-700 px-2 py-1 rounded-lg text-xs font-bold"><GraduationCap size={12} /> {p.wali_kelas}</span> : <span className="text-gray-300">-</span>}</td>
+                       
                        <td className="px-6 py-3 text-center"><div className="flex justify-center gap-2"><button onClick={() => handleOpenReset(p)} className="p-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 transition-colors border border-yellow-100" title="Reset Password"><KeyRound size={16} /></button><button onClick={() => handleEditClick(p)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors border border-blue-100" title="Edit Data Akademik"><Edit size={16} /></button></div></td>
                      </tr>
                    ))
@@ -327,7 +318,18 @@ const UsersData: React.FC = () => {
                         </div>
                         <div>
                             <label className="block text-sm font-bold text-gray-700 mb-1">Wali Kelas</label>
-                            <select className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" value={editFormData.wali_kelas} onChange={e => setEditFormData({...editFormData, wali_kelas: e.target.value})}>
+                            <select className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white" value={editFormData.wali_kelas} onChange={e => {
+    const val = e.target.value;
+    let newMapel = editFormData.mengajar_mapel;
+    if (val) {
+        const mapels = newMapel ? newMapel.split(',').map(m => m.trim()) : [];
+        if (!mapels.includes('Sabtu bersama Wali Kelas')) {
+            mapels.push('Sabtu bersama Wali Kelas');
+            newMapel = mapels.join(', ');
+        }
+    }
+    setEditFormData({...editFormData, wali_kelas: val, mengajar_mapel: newMapel});
+}}>
                                 <option value="">-- Bukan Wali Kelas --</option>
                                 {availableClasses.map(k => <option key={k} value={k}>{k}</option>)}
                             </select>
@@ -385,7 +387,18 @@ const UsersData: React.FC = () => {
                             </div>
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Wali Kelas</label>
-                                <select className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-green-500 bg-white" value={newUser.waliKelas} onChange={e => setNewUser({...newUser, waliKelas: e.target.value})}><option value="">-- Bukan Wali Kelas --</option>{availableClasses.map(k => <option key={k} value={k}>{k}</option>)}</select>
+                                <select className="w-full border border-gray-300 rounded-xl p-3 focus:ring-2 focus:ring-green-500 bg-white" value={newUser.waliKelas} onChange={e => {
+    const val = e.target.value;
+    let newMapel = newUser.mapel;
+    if (val) {
+        const mapels = newMapel ? newMapel.split(',').map(m => m.trim()) : [];
+        if (!mapels.includes('Sabtu bersama Wali Kelas')) {
+            mapels.push('Sabtu bersama Wali Kelas');
+            newMapel = mapels.join(', ');
+        }
+    }
+    setNewUser({...newUser, waliKelas: val, mapel: newMapel});
+}}><option value="">-- Bukan Wali Kelas --</option>{availableClasses.map(k => <option key={k} value={k}>{k}</option>)}</select>
                             </div>
                         </div>
                     </div>

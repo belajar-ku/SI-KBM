@@ -143,7 +143,13 @@ const Dashboard: React.FC = () => {
               });
               return { teacher, scheduleMap };
           });
-          setMatrixData(matrix);
+          
+          // Filter matrix: hanya tampilkan guru yang memiliki jadwal di hari ini
+          const filteredMatrix = matrix.filter(item => 
+              Object.values(item.scheduleMap).some(slot => slot.hasSchedule)
+          );
+          
+          setMatrixData(filteredMatrix);
       } catch (e) {
           console.error("Headmaster Matrix Error", e);
       } finally {
