@@ -49,6 +49,7 @@ create table if not exists public.students (
 create table if not exists public.schedules (
   academic_year text default '2025/2026',
   semester text default 'Genap',
+  schedule_version text default 'Utama',
   id uuid default gen_random_uuid() primary key,
   day_of_week int not null,
   hour text not null,
@@ -63,6 +64,7 @@ create table if not exists public.schedules (
 create table if not exists public.journals (
   academic_year text default '2025/2026',
   semester text default 'Genap',
+  schedule_version text default 'Utama',
   id uuid default gen_random_uuid() primary key,
   teacher_id uuid references public.profiles(id),
   kelas text not null,
@@ -81,6 +83,7 @@ create table if not exists public.journals (
 create table if not exists public.attendance_logs (
   academic_year text default '2025/2026',
   semester text default 'Genap',
+  schedule_version text default 'Utama',
   id uuid default gen_random_uuid() primary key,
   journal_id uuid references public.journals(id) on delete cascade,
   student_id uuid references public.students(id),
@@ -95,6 +98,7 @@ create table if not exists public.attendance_logs (
 create table if not exists public.journal_notes (
   academic_year text default '2025/2026',
   semester text default 'Genap',
+  schedule_version text default 'Utama',
   id uuid default gen_random_uuid() primary key,
   journal_id uuid references public.journals(id) on delete cascade, 
   student_id uuid references public.students(id),
@@ -119,6 +123,7 @@ end $$;
 create table if not exists public.homeroom_attendance (
   academic_year text default '2025/2026',
   semester text default 'Genap',
+  schedule_version text default 'Utama',
   id uuid default gen_random_uuid() primary key,
   date date not null,
   kelas text not null,
@@ -151,6 +156,7 @@ insert into public.app_settings (key, value, description)
 values 
   ('academic_year', '2025/2026', 'Tahun Ajaran Aktif'),
   ('semester', 'Genap', 'Semester Aktif'),
+  ('active_schedule_version', 'Utama', 'Versi Jadwal Aktif'),
   ('headmaster', 'Nama Kepala Sekolah', 'Kepala Sekolah'),
   ('non_effective_days', '[]', 'Hari Libur'),
   ('subjects_list', '["Matematika","Bahasa Indonesia","IPA","IPS","PKn","Bahasa Inggris","PJOK","Seni Budaya","Prakarya","PAI","PAK"]', 'Master Mapel'),
@@ -241,6 +247,31 @@ create policy "Read tabel_guru" on public.tabel_guru for select to authenticated
 drop policy if exists "Read settings" on public.app_settings;
 create policy "Read settings" on public.app_settings for select to authenticated, anon using (true);
 
+
+-- ADMIN POLICIES FOR STUDENTS
+drop policy if exists "Admins manage students" on public.students;
+create policy "Admins manage students" on public.students for all to authenticated using (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
+-- ADMIN POLICIES FOR SCHEDULES
+drop policy if exists "Admins manage schedules" on public.schedules;
+create policy "Admins manage schedules" on public.schedules for all to authenticated using (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
+-- ADMIN POLICIES FOR SETTINGS
+drop policy if exists "Admins manage settings" on public.app_settings;
+create policy "Admins manage settings" on public.app_settings for all to authenticated using (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
+-- ADMIN POLICIES FOR GURU
+drop policy if exists "Admins manage tabel_guru" on public.tabel_guru;
+create policy "Admins manage tabel_guru" on public.tabel_guru for all to authenticated using (
+  exists (select 1 from public.profiles where id = auth.uid() and role = 'admin')
+);
+
 -- STORAGE BUCKETS
 insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true) on conflict (id) do nothing;
 
@@ -257,6 +288,7 @@ begin
   if not exists (select 1 from information_schema.columns where table_name = 'schedules' and column_name = 'academic_year') then
     alter table public.schedules add column academic_year text default '2025/2026';
     alter table public.schedules add column semester text default 'Genap';
+    alter table public.schedules add column schedule_version text default 'Utama';
     
     alter table public.journals add column academic_year text default '2025/2026';
     alter table public.journals add column semester text default 'Genap';
@@ -281,6 +313,7 @@ BEGIN
   EXCEPTION
     WHEN duplicate_column THEN null;
   END;
+  
   -- also drop unique constraint on nisn if it exists, to allow same nisn in different academic_year
   BEGIN
     ALTER TABLE public.students DROP CONSTRAINT IF EXISTS students_nisn_key;
@@ -291,10 +324,9 @@ END $$;
 
 DO $$
 BEGIN
-  BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'students_academic_year_nisn_key'
+  ) THEN
     ALTER TABLE public.students ADD CONSTRAINT students_academic_year_nisn_key UNIQUE (academic_year, nisn);
-  EXCEPTION
-    WHEN duplicate_table THEN null;
-    WHEN duplicate_object THEN null;
-  END;
+  END IF;
 END $$;

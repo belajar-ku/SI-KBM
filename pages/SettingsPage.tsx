@@ -237,23 +237,24 @@ const SettingsPage: React.FC = () => {
                             <label className="block text-xs font-bold text-gray-500 mb-1">Tahun Ajaran</label>
                             
                             <input 
-                                className="w-full border rounded-lg p-3 font-medium" 
+                                className="w-full border rounded-lg p-3 font-medium bg-gray-100 text-gray-500 cursor-not-allowed" 
                                 value={settings['academic_year'] || ''}
-                                onChange={e => setSettings({...settings, academic_year: e.target.value})}
-                                placeholder="Contoh: 2024/2025"
+                                readOnly
                             />
+                            <p className="text-[10px] text-gray-400 mt-1">* Diatur dari menu Penyimpanan</p>
     
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-gray-500 mb-1">Semester</label>
                             <select 
-                                className="w-full border rounded-lg p-3 bg-white"
+                                className="w-full border rounded-lg p-3 bg-gray-100 text-gray-500 cursor-not-allowed"
                                 value={settings['semester'] || 'Ganjil'}
-                                onChange={e => setSettings({...settings, semester: e.target.value})}
+                                disabled
                             >
                                 <option value="Ganjil">Ganjil</option>
                                 <option value="Genap">Genap</option>
                             </select>
+                            <p className="text-[10px] text-gray-400 mt-1">* Diatur dari menu Penyimpanan</p>
                         </div>
                         
                         <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">

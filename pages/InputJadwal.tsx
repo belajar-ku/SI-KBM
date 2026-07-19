@@ -15,7 +15,7 @@ interface ScheduleQueueItem {
 }
 
 const InputJadwal: React.FC = () => {
-  const { academicYear, semester } = useAuth();
+  const { academicYear, semester , activeScheduleVersion } = useAuth();
   const [teachers, setTeachers] = useState<Profile[]>([]);
   const [selectedTeacher, setSelectedTeacher] = useState<Profile | null>(null);
   const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
@@ -24,11 +24,17 @@ const InputJadwal: React.FC = () => {
   const [status, setStatus] = useState<{type: 'success' | 'error', msg: string} | null>(null);
 
   const [scheduleQueue, setScheduleQueue] = useState<ScheduleQueueItem[]>([]);
+  const [workingVersion, setWorkingVersion] = useState(activeScheduleVersion || 'Utama');
+  const [availableVersions, setAvailableVersions] = useState<string[]>(['Utama']);
   const [dbSchedules, setDbSchedules] = useState<Schedule[]>([]);
   const [loadingDb, setLoadingDb] = useState(false);
 
   const [editingItem, setEditingItem] = useState<Schedule | null>(null);
   const [editFormData, setEditFormData] = useState({ hari: '', kelas: '', jam: [] as string[], mapel: '' });
+
+  
+  const [showNewVersionModal, setShowNewVersionModal] = useState(false);
+  const [newVersionName, setNewVersionName] = useState('');
 
   const [formData, setFormData] = useState({
     hari: 'Senin',
@@ -38,6 +44,49 @@ const InputJadwal: React.FC = () => {
   });
 
   useEffect(() => { fetchTeachers(); }, []);
+
+  useEffect(() => {
+     if (activeScheduleVersion && !workingVersion) setWorkingVersion(activeScheduleVersion);
+  }, [activeScheduleVersion]);
+
+  useEffect(() => {
+     const fetchVersions = async () => {
+         const { data } = await supabase.from('schedules').select('schedule_version').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil');
+         if (data) {
+             const versions = Array.from(new Set(data.map(d => d.schedule_version).filter(Boolean)));
+             if (versions.length > 0) {
+                 if (!versions.includes(workingVersion)) versions.push(workingVersion);
+                 setAvailableVersions(versions);
+             } else {
+                 setAvailableVersions([workingVersion]);
+             }
+         }
+     };
+     fetchVersions();
+  }, [academicYear, semester, workingVersion]);
+
+  useEffect(() => {
+      if (selectedTeacher) {
+          fetchTeacherSchedules(selectedTeacher.id);
+      }
+  }, [workingVersion]);
+
+  
+  const handleCreateNewVersion = () => {
+      if (!newVersionName.trim()) {
+          alert("Nama versi tidak boleh kosong!");
+          return;
+      }
+      
+      const vName = newVersionName.trim();
+      setAvailableVersions(prev => Array.from(new Set([...prev, vName])));
+      setWorkingVersion(vName);
+      setNewVersionName('');
+      setShowNewVersionModal(false);
+      alert(`Berhasil membuat versi jadwal baru: ${vName}. Silakan tambahkan jadwal.`);
+  };
+
+
 
   const fetchTeachers = async () => {
     setLoading(true);
@@ -55,10 +104,10 @@ const InputJadwal: React.FC = () => {
           let data = null;
           let error = null;
           try {
-              const res = await supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('teacher_id', teacherId).order('day_of_week').order('hour');
+              const res = await supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', workingVersion || 'Utama').eq('teacher_id', teacherId).order('day_of_week').order('hour');
               data = res.data;
               error = res.error;
-              if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester'))) {
+              if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester') || error.message?.includes('schedule_version') || error.message?.includes('schema cache'))) {
                   // Fallback if column doesn't exist yet
                   const fallbackRes = await supabase.from('schedules').select('*').eq('teacher_id', teacherId).order('day_of_week').order('hour');
                   if (academicYear === '2025/2026' && semester === 'Genap') {
@@ -138,13 +187,14 @@ const InputJadwal: React.FC = () => {
             teacher_nip: selectedTeacher.nip,
             teacher_id: selectedTeacher.id,
             academic_year: academicYear || '2025/2026',
-            semester: semester || 'Ganjil'
+            semester: semester || 'Ganjil',
+            schedule_version: workingVersion || 'Utama'
         }));
         let { error } = await supabase.from('schedules').insert(payloads);
-        if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester'))) {
+        if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester') || error.message?.includes('schedule_version') || error.message?.includes('schema cache'))) {
             // Fallback without academic_year and semester
             const fallbackPayloads = payloads.map(p => {
-                const { academic_year, semester, ...rest } = p;
+                const { academic_year, semester, schedule_version, ...rest } = p as any;
                 return rest;
             });
             const fallbackRes = await supabase.from('schedules').insert(fallbackPayloads);
@@ -207,15 +257,39 @@ const InputJadwal: React.FC = () => {
   return (
     <Layout>
       <div className="max-w-6xl mx-auto space-y-6">
-        <div className="flex items-center gap-3">
-            <div className="bg-purple-100 p-3 rounded-2xl text-purple-600">
-                <CalendarPlus size={28} />
+        
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div className="flex items-center gap-3">
+                <div className="bg-purple-100 p-3 rounded-2xl text-purple-600">
+                    <CalendarPlus size={28} />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800">Jadwal Pelajaran</h2>
+                    <p className="text-slate-500 text-sm">Input dan kelola jadwal mengajar.</p>
+                </div>
             </div>
-            <div>
-                <h2 className="text-2xl font-bold text-slate-800">Jadwal Pelajaran</h2>
-                <p className="text-slate-500 text-sm">Input dan kelola jadwal mengajar.</p>
+            
+            <div className="flex items-center gap-3 bg-white p-2 rounded-2xl border border-slate-200 shadow-sm">
+                <div className="px-3">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase">Edit Versi Jadwal</label>
+                    <select 
+                        className="text-sm font-bold text-purple-700 bg-transparent outline-none cursor-pointer"
+                        value={workingVersion}
+                        onChange={(e) => setWorkingVersion(e.target.value)}
+                    >
+                        {availableVersions.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                </div>
+                <div className="w-px h-8 bg-slate-200"></div>
+                <button 
+                    onClick={() => setShowNewVersionModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-xl text-sm font-bold transition-colors"
+                >
+                    <Plus size={16} /> Buat Jadwal Baru
+                </button>
             </div>
         </div>
+
 
         <div className="grid lg:grid-cols-3 gap-6 items-start">
             
@@ -291,6 +365,51 @@ const InputJadwal: React.FC = () => {
             </div>
         )}
       </div>
+    
+            {showNewVersionModal && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                    <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-xl border border-slate-100">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold text-slate-800">Konfirmasi Jadwal Baru</h3>
+                            <button onClick={() => setShowNewVersionModal(false)} className="text-slate-400 hover:text-red-500 transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-bold text-slate-600 mb-1">Tahun Ajaran</label>
+                                <input type="text" className="w-full border rounded-xl p-3 bg-gray-100 text-slate-500 font-medium" value={academicYear || '2025/2026'} disabled />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-600 mb-1">Semester</label>
+                                <input type="text" className="w-full border rounded-xl p-3 bg-gray-100 text-slate-500 font-medium" value={semester || 'Ganjil'} disabled />
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-slate-600 mb-1">Nama Versi Jadwal Baru</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full border rounded-xl p-3 bg-white focus:ring-2 focus:ring-purple-500 outline-none font-medium text-slate-800" 
+                                    value={newVersionName}
+                                    onChange={(e) => setNewVersionName(e.target.value)}
+                                    placeholder="Contoh: Jadwal UTS, Revisi 2"
+                                    autoFocus
+                                />
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end gap-3 mt-8">
+                            <button onClick={() => setShowNewVersionModal(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
+                                Batal
+                            </button>
+                            <button onClick={handleCreateNewVersion} className="px-5 py-2.5 rounded-xl font-bold text-white bg-purple-600 hover:bg-purple-700 transition-colors">
+                                Buat Jadwal Baru
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
     </Layout>
   );
 };

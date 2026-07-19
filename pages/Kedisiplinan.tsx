@@ -28,7 +28,7 @@ interface DisciplineData {
 }
 
 const Kedisiplinan: React.FC = () => {
-  const { profile, academicYear, semester } = useAuth();
+  const { profile, academicYear, semester , semesterStart, semesterEnd } = useAuth();
   const [loading, setLoading] = useState(false);
   
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin';
@@ -75,9 +75,9 @@ const Kedisiplinan: React.FC = () => {
   useEffect(() => {
       if(inputClass && inputMode === 'single') {
           const loadStudents = async () => {
-              let { data, error: errSt } = await supabase.from('students').select('*').eq('kelas', inputClass).eq('academic_year', academicYear || '2025/2026').order('name');
+              let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', inputClass).eq('academic_year', academicYear || '2025/2026').order('name');
               if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-                  const res = await supabase.from('students').select('*').eq('kelas', inputClass).order('name');
+                  const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', inputClass).order('name');
                   if (academicYear === '2025/2026') data = res.data;
                   else data = [];
               }
@@ -119,9 +119,9 @@ const Kedisiplinan: React.FC = () => {
           let targetStudentIds: string[] = [];
 
           if (selectedClass) {
-              let { data, error: errSt } = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', academicYear || '2025/2026').order('name');
+              let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).eq('academic_year', academicYear || '2025/2026').order('name');
               if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-                  const res = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+                  const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
                   if (academicYear === '2025/2026') data = res.data;
                   else data = [];
               }
@@ -132,9 +132,9 @@ const Kedisiplinan: React.FC = () => {
           } else {
               // ALL CLASSES: Scan Logs First to find relevant IDs
               const [hRes, tRes, vRes] = await Promise.all([
-                  supabase.from('homeroom_attendance').select('student_id').gte('date', startDate).lte('date', endDate).in('status', ['A']), // Only care about Alpa for query optimization
-                  supabase.from('attendance_logs').select('student_id').gte('created_at', start).lte('created_at', end).in('status', ['A']),
-                  supabase.from('journal_notes').select('student_id').eq('type', 'kedisiplinan').gte('created_at', start).lte('created_at', end)
+                  supabase.from('homeroom_attendance').select('student_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').gte('date', startDate).lte('date', endDate).in('status', ['A']), // Only care about Alpa for query optimization
+                  supabase.from('attendance_logs').select('student_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', start).lte('created_at', end).in('status', ['A']),
+                  supabase.from('journal_notes').select('student_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('type', 'kedisiplinan').gte('created_at', start).lte('created_at', end)
               ]);
 
               const ids = new Set<string>();
@@ -146,7 +146,7 @@ const Kedisiplinan: React.FC = () => {
 
               if (targetStudentIds.length > 0) {
                   // Fetch only relevant students
-                  let { data, error: errSt } = await supabase.from('students').select('*').in('id', targetStudentIds).order('kelas').order('name');
+                  let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').in('id', targetStudentIds).order('kelas').order('name');
                   if (data) targetStudents = data;
               }
           }
@@ -160,11 +160,11 @@ const Kedisiplinan: React.FC = () => {
           // 2. DATA ALPA (Logic Rapor: Aggregasi Wali Kelas & Guru Mapel)
           // Fetch data only for target IDs to be efficient
           const [hLogsRes, tLogsRes, violationNotesRes] = await Promise.all([
-              supabase.from('homeroom_attendance').select('student_id, date, status')
+              supabase.from('homeroom_attendance').select('student_id, date, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01')
                 .in('student_id', targetStudentIds).gte('date', startDate).lte('date', endDate),
-              supabase.from('attendance_logs').select('student_id, created_at, status')
+              supabase.from('attendance_logs').select('student_id, created_at, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00')
                 .in('student_id', targetStudentIds).in('status', ['S', 'I', 'A']).gte('created_at', start).lte('created_at', end),
-              supabase.from('journal_notes').select('id, student_id, category, note, created_at, journal_id')
+              supabase.from('journal_notes').select('id, student_id, category, note, created_at, journal_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00')
                 .in('student_id', targetStudentIds).eq('type', 'kedisiplinan').gte('created_at', start).lte('created_at', end)
           ]);
 
@@ -274,9 +274,9 @@ const Kedisiplinan: React.FC = () => {
   // --- MASS INPUT LOGIC ---
   const getStudentsForClass = async (className: string) => {
       if (studentsCache[className]) return;
-      let { data, error: errSt } = await supabase.from('students').select('*').eq('kelas', className).eq('academic_year', academicYear || '2025/2026').order('name');
+      let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', className).eq('academic_year', academicYear || '2025/2026').order('name');
       if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-          const res = await supabase.from('students').select('*').eq('kelas', className).order('name');
+          const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', className).order('name');
           if (academicYear === '2025/2026') data = res.data;
           else data = [];
       }

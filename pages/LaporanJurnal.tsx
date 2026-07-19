@@ -21,7 +21,7 @@ interface JournalReportItem {
 }
 
 const LaporanJurnal: React.FC = () => {
-  const { profile, academicYear, semester } = useAuth();
+  const { profile, academicYear, semester , semesterStart, semesterEnd } = useAuth();
   const [loading, setLoading] = useState(false);
   const [journals, setJournals] = useState<JournalReportItem[]>([]);
   
@@ -49,7 +49,7 @@ const LaporanJurnal: React.FC = () => {
         settingsData?.forEach(item => newSettings[item.key] = item.value);
         setSettings(prev => ({ ...prev, ...newSettings }));
 
-        const { data: journalData, error } = await supabase
+        let query = supabase
             .from('journals')
             .select(`
                 id,
@@ -65,7 +65,13 @@ const LaporanJurnal: React.FC = () => {
                 )
             `)
             .eq('teacher_id', profile?.id)
-            .order('created_at', { ascending: false });
+            .eq('academic_year', academicYear || '2025/2026')
+            .eq('semester', semester || 'Ganjil');
+
+        if (semesterStart) query = query.gte('created_at', `${semesterStart}T00:00:00+07:00`);
+        if (semesterEnd) query = query.lte('created_at', `${semesterEnd}T23:59:59+07:00`);
+
+        const { data: journalData, error } = await query.order('created_at', { ascending: false });
 
         if (error) throw error;
         setJournals((journalData as any[]) || []);

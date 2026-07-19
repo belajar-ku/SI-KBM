@@ -6,7 +6,7 @@ import { supabase } from '../services/supabase';
 import { Upload, FileText, CheckCircle, AlertCircle, Download, BookOpen, X, Loader2, Database, HelpCircle } from 'lucide-react';
 
 const InputManual: React.FC = () => {
-  const { academicYear, semester } = useAuth();
+  const { academicYear, semester , semesterStart, semesterEnd } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -118,7 +118,7 @@ const InputManual: React.FC = () => {
           // 1. Pre-fetch ALL Students to minimize DB calls inside loop
           let { data: allStudents, error: errSt } = await supabase.from('students').select('id, name, kelas').eq('academic_year', academicYear || '2025/2026');
           if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-              const res = await supabase.from('students').select('id, name, kelas');
+              const res = await supabase.from('students').select('id, name, kelas').eq('academic_year', academicYear || '2025/2026');
               if (academicYear === '2025/2026') allStudents = res.data;
               else allStudents = [];
           }

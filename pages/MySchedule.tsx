@@ -8,7 +8,7 @@ import { Calendar, Clock, BookOpen, Loader2, CalendarDays, Download, ImageIcon }
 import html2canvas from 'html2canvas';
 
 const MySchedule: React.FC = () => {
-  const { profile, academicYear, semester } = useAuth();
+  const { profile, academicYear, semester , activeScheduleVersion } = useAuth();
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [downloading, setDownloading] = useState(false);
@@ -45,6 +45,9 @@ const MySchedule: React.FC = () => {
         .from('schedules')
         .select('*')
         .eq('teacher_id', profile?.id)
+        .eq('academic_year', academicYear || '2025/2026')
+        .eq('semester', semester || 'Ganjil')
+        .eq('schedule_version', activeScheduleVersion || 'Utama')
         .order('day_of_week')
         .order('hour'); 
 

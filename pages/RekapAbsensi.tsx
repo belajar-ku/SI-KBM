@@ -18,7 +18,7 @@ interface AttendanceSummary {
 }
 
 const RekapAbsensi: React.FC = () => {
-  const { profile, academicYear, semester } = useAuth();
+  const { profile, academicYear, semester , semesterStart, semesterEnd } = useAuth();
   const [loading, setLoading] = useState(false);
   
   // Dropdown Data
@@ -125,7 +125,11 @@ const RekapAbsensi: React.FC = () => {
             .select('id')
             .eq('teacher_id', profile.id)
             .eq('kelas', selectedClass)
-            .eq('subject', selectedSubject);
+            .eq('subject', selectedSubject)
+            .eq('academic_year', academicYear || '2025/2026')
+            .eq('semester', semester || 'Ganjil')
+            .gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00')
+            .lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00');
         
         const journalIds = journals?.map(j => j.id) || [];
         const meetingsCount = journalIds.length;

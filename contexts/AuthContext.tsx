@@ -14,6 +14,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   academicYear: string;
   semester: string;
+  semesterStart: string;
+  semesterEnd: string;
+  activeScheduleVersion: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,16 +27,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [academicYear, setAcademicYear] = useState<string>('2025/2026');
   const [semester, setSemester] = useState<string>('Genap');
+  const [semesterStart, setSemesterStart] = useState<string>('');
+  const [semesterEnd, setSemesterEnd] = useState<string>('');
+  const [activeScheduleVersion, setActiveScheduleVersion] = useState<string>('Utama');
 
   useEffect(() => {
     const fetchSettings = async () => {
       try {
         if (!isSupabaseConfigured) return;
-        const { data } = await supabase.from('app_settings').select('key, value').in('key', ['academic_year', 'semester']);
+        const { data } = await supabase.from('app_settings').select('key, value').in('key', ['academic_year', 'semester', 'active_schedule_version']);
         if (data) {
            data.forEach(item => {
                if (item.key === 'academic_year' && item.value) setAcademicYear(item.value);
                if (item.key === 'semester' && item.value) setSemester(item.value);
+               if (item.key === 'active_schedule_version' && item.value) setActiveScheduleVersion(item.value);
            });
         }
       } catch (e) {
@@ -142,7 +149,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isAdmin: profile?.role === 'admin',
       isOperator: profile?.role === 'operator',
       academicYear,
-      semester
+        semester,
+        semesterStart,
+        semesterEnd,
+        activeScheduleVersion
     }}>
       {children}
     </AuthContext.Provider>

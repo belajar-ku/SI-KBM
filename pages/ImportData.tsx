@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
@@ -7,7 +7,7 @@ import { createClient } from '@supabase/supabase-js';
 import { Upload, FileText, CheckCircle, AlertCircle, Download, Users, Calendar, GraduationCap, X, KeyRound, ShieldAlert, Eye, EyeOff } from 'lucide-react';
 
 const ImportData: React.FC = () => {
-  const { academicYear, semester } = useAuth();
+  const { academicYear, semester, activeScheduleVersion } = useAuth();
   const [activeTab, setActiveTab] = useState<'students' | 'teachers' | 'schedules'>('teachers');
   const [file, setFile] = useState<File | null>(null);
   const [previewData, setPreviewData] = useState<any[]>([]);
@@ -16,10 +16,29 @@ const ImportData: React.FC = () => {
   
   // State khusus untuk pembuatan akun (Default true agar user sadar fitur ini)
   const [createAccounts, setCreateAccounts] = useState(true);
+  const [targetYear, setTargetYear] = useState(academicYear || '2025/2026');
+  const [availableYears, setAvailableYears] = useState<string[]>([]);
   const [serviceRoleKey, setServiceRoleKey] = useState('');
   const [showKey, setShowKey] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (academicYear && !targetYear) setTargetYear(academicYear);
+    
+    const fetchYears = async () => {
+        const { data } = await supabase.from('app_settings').select('value').eq('key', 'available_years').single();
+        if (data?.value) {
+            try {
+                setAvailableYears(JSON.parse(data.value));
+            } catch(e) {
+                setAvailableYears([data.value]);
+            }
+        }
+    };
+    fetchYears();
+  }, [academicYear]);
+
 
   // Helper: Konversi Nama Hari ke Angka
   const getDayNumber = (dayName: string): number => {
@@ -145,7 +164,7 @@ const ImportData: React.FC = () => {
     try {
         if (activeTab === 'students') {
             const studentsToInsert = previewData.map((row: any) => ({
-                academic_year: academicYear || '2025/2026',
+                academic_year: targetYear || academicYear || '2025/2026',
                 nisn: String(row['NISN'] || row['nisn']),
                 nis: String(row['NIS'] || row['nis']),
                 name: row['Nama Lengkap'] || row['nama'] || row['Nama'],
@@ -155,18 +174,32 @@ const ImportData: React.FC = () => {
             })).filter(s => s.nisn && s.name && s.kelas);
 
             if (studentsToInsert.length > 0) {
-                let { error } = await supabase.from('students').upsert(studentsToInsert, { onConflict: 'academic_year, nisn' });
-                if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
-                    // Fallback to inserting without academic_year
-                    const fallbackData = studentsToInsert.map(s => {
-                        const { academic_year, ...rest } = s;
-                        return rest;
-                    });
-                    const res = await supabase.from('students').upsert(fallbackData, { onConflict: 'nisn' });
-                    error = res.error;
+                
+            const target = targetYear || academicYear || '2025/2026';
+            const { data: existing } = await supabase.from('students').select('id, nisn').eq('academic_year', target);
+            const existingMap = new Map((existing || []).map(s => [s.nisn, s.id]));
+
+            const toInsert = [];
+            const toUpdate = [];
+
+            for (const s of studentsToInsert) {
+                if (existingMap.has(s.nisn)) {
+                    toUpdate.push({ ...s, id: existingMap.get(s.nisn) });
+                } else {
+                    toInsert.push(s);
                 }
-                if (error) throw error;
-                successCount = studentsToInsert.length;
+            }
+
+            if (toInsert.length > 0) {
+                const { error: insErr } = await supabase.from('students').insert(toInsert);
+                if (insErr) throw insErr;
+            }
+            if (toUpdate.length > 0) {
+                const { error: updErr } = await supabase.from('students').upsert(toUpdate);
+                if (updErr) throw updErr;
+            }
+            successCount = studentsToInsert.length;
+
             }
 
         } else if (activeTab === 'teachers') {
@@ -289,6 +322,9 @@ const ImportData: React.FC = () => {
                         subject: mapel,
                         teacher_nip: nip,
                         teacher_id: teacherId,
+                        academic_year: targetYear || academicYear || '2025/2026',
+                        semester: semester || 'Ganjil',
+                        schedule_version: activeScheduleVersion || 'Utama',
                         
                         
                     });
@@ -363,9 +399,23 @@ const ImportData: React.FC = () => {
             </div>
 
             <div className="p-8">
+                
+                        {activeTab !== 'teachers' && (
+                            <div className="mb-6 bg-blue-50 border border-blue-200 p-4 rounded-xl">
+                                <label className="block text-xs font-bold text-blue-800 mb-2">Tahun Ajaran Tujuan Data (Penting):</label>
+                                <select 
+                                    className="w-full border border-blue-300 rounded-lg p-2 text-sm bg-white focus:ring-2 focus:ring-blue-500"
+                                    value={targetYear}
+                                    onChange={(e) => setTargetYear(e.target.value)}
+                                >
+                                    {availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                                    {availableYears.length === 0 && <option value={academicYear || '2025/2026'}>{academicYear || '2025/2026'}</option>}
+                                </select>
+                            </div>
+                        )}
+
                 {/* OPSI BUAT AKUN GURU (DITARUH SEBELUM UPLOAD FILE AGAR TERLIHAT) */}
-                {activeTab === 'teachers' && (
-                    <div className="mb-6 bg-orange-50 border border-orange-200 p-4 rounded-xl space-y-3">
+                {activeTab === 'teachers' && (<div className="mb-6 bg-orange-50 border border-orange-200 p-4 rounded-xl space-y-3">
                         <div className="flex items-center gap-2">
                             <input 
                                 type="checkbox" 

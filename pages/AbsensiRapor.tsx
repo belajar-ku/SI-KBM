@@ -22,7 +22,7 @@ interface ReportStudent extends Student {
 }
 
 const AbsensiRapor: React.FC = () => {
-  const { profile, academicYear, semester } = useAuth();
+  const { profile, academicYear, semester , semesterStart, semesterEnd } = useAuth();
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState<ReportStudent[]>([]);
   
@@ -71,9 +71,9 @@ const AbsensiRapor: React.FC = () => {
         settingsData?.forEach(item => newSettings[item.key] = item.value);
         setSettings(prev => ({ ...prev, ...newSettings }));
 
-        let { data, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', settings.academic_year || '2025/2026');
+        let { data, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', settings.academic_year || '2025/2026').eq('academic_year', academicYear || '2025/2026');
         if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-            const res = await supabase.from('students').select('kelas');
+            const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
             if (settings.academic_year === '2025/2026' || !settings.academic_year) data = res.data;
             else data = [];
         }
@@ -94,9 +94,9 @@ const AbsensiRapor: React.FC = () => {
           const start = `${startDate}T00:00:00+07:00`;
           const end = `${endDate}T23:59:59+07:00`;
 
-          let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', settings.academic_year || '2025/2026').order('name');
+          let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).eq('academic_year', settings.academic_year || '2025/2026').order('name');
           if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
-              const res = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
+              const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
               if (settings.academic_year === '2025/2026' || !settings.academic_year) students = res.data;
               else students = [];
           }
@@ -107,8 +107,8 @@ const AbsensiRapor: React.FC = () => {
 
           const studentIds = students.map(s => s.id);
 
-          const { data: hLogs } = await supabase.from('homeroom_attendance').select('student_id, date, status').in('student_id', studentIds).gte('date', startDate).lte('date', endDate);
-          const { data: tLogs } = await supabase.from('attendance_logs').select('student_id, created_at, status').in('student_id', studentIds).gte('created_at', start).lte('created_at', end).neq('status', 'D');
+          const { data: hLogs } = await supabase.from('homeroom_attendance').select('student_id, date, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').in('student_id', studentIds).gte('date', startDate).lte('date', endDate);
+          const { data: tLogs } = await supabase.from('attendance_logs').select('student_id, created_at, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').in('student_id', studentIds).gte('created_at', start).lte('created_at', end).neq('status', 'D');
 
           const processedStudents: ReportStudent[] = students.map(student => {
               let s_total = 0, i_total = 0, a_total = 0, d_total = 0;

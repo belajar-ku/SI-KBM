@@ -8,7 +8,7 @@ import { LogIn, Loader2, BookOpen, AlertCircle, X, School, ChevronDown, ChevronR
 import { getWIBDate, getWIBISOString, formatDateIndo, formatTimeIndo } from '../utils/dateUtils';
 
 const PublicDashboard: React.FC = () => {
-  const { academicYear, semester } = useAuth();
+  const { academicYear, semester , semesterStart, semesterEnd } = useAuth();
   const navigate = useNavigate();
   const [stats, setStats] = useState<PublicStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -65,13 +65,13 @@ const PublicDashboard: React.FC = () => {
         const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
             supabase.from('students').select('id, kelas').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
-                      return supabase.from('students').select('id, kelas');
+                      return supabase.from('students').select('id, kelas').eq('academic_year', academicYear || '2025/2026');
                   }
                   return res;
               }),
-            supabase.from('journals').select('hours').gte('created_at', startOfDay),
-            supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').gte('created_at', startOfDay),
-            supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('date', todayStr)
+            supabase.from('journals').select('hours').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
+            supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
+            supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').eq('date', todayStr)
         ]);
 
         const classCounts: Record<string, number> = {};

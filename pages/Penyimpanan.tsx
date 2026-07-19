@@ -8,7 +8,13 @@ const Penyimpanan: React.FC = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     const [activeYear, setActiveYear] = useState('');
+    const [academicYearStart, setAcademicYearStart] = useState('');
+    const [academicYearEnd, setAcademicYearEnd] = useState('');
     const [activeSemester, setActiveSemester] = useState('');
+    const [semesterStart, setSemesterStart] = useState('');
+    const [semesterEnd, setSemesterEnd] = useState('');
+    const [activeScheduleVersion, setActiveScheduleVersion] = useState('');
+    const [availableScheduleVersions, setAvailableScheduleVersions] = useState<string[]>(['Utama']);
     const [availableYears, setAvailableYears] = useState<string[]>([]);
     
     useEffect(() => {
@@ -35,6 +41,16 @@ const Penyimpanan: React.FC = () => {
                 if (semData?.value) {
                     setActiveSemester(semData.value);
                 }
+
+                const { data: ayStart } = await supabase.from('app_settings').select('value').eq('key', 'academic_year_start').single();
+                if (ayStart?.value) setAcademicYearStart(ayStart.value);
+                const { data: ayEnd } = await supabase.from('app_settings').select('value').eq('key', 'academic_year_end').single();
+                if (ayEnd?.value) setAcademicYearEnd(ayEnd.value);
+                const { data: semStart } = await supabase.from('app_settings').select('value').eq('key', 'semester_start').single();
+                if (semStart?.value) setSemesterStart(semStart.value);
+                const { data: semEnd } = await supabase.from('app_settings').select('value').eq('key', 'semester_end').single();
+                if (semEnd?.value) setSemesterEnd(semEnd.value);
+    
             } catch(e) {
                 console.error("Error fetching settings:", e);
             }
@@ -94,6 +110,45 @@ const Penyimpanan: React.FC = () => {
         } catch (e: any) {
             console.error("Error setting active year:", e);
             setMessage({ type: 'error', text: 'Gagal mengubah Tahun Ajaran aktif.' });
+        }
+    };
+
+    
+    
+    const handleSaveAcademicYearDates = async () => {
+        try {
+            await supabase.from('app_settings').upsert([
+                { key: 'academic_year_start', value: academicYearStart },
+                { key: 'academic_year_end', value: academicYearEnd }
+            ], { onConflict: 'key' });
+            setMessage({ type: 'success', text: 'Masa berlaku Tahun Ajaran berhasil disimpan.' });
+        } catch (e: any) {
+            setMessage({ type: 'error', text: 'Gagal menyimpan masa berlaku.' });
+        }
+    };
+    
+
+    const handleSaveSemesterDates = async () => {
+        try {
+            await supabase.from('app_settings').upsert([
+                { key: 'semester_start', value: semesterStart },
+                { key: 'semester_end', value: semesterEnd }
+            ], { onConflict: 'key' });
+            setMessage({ type: 'success', text: 'Masa berlaku Semester berhasil disimpan.' });
+        } catch (e: any) {
+            setMessage({ type: 'error', text: 'Gagal menyimpan masa berlaku.' });
+        }
+    };
+    
+    const handleSetActiveScheduleVersion = async (val: string) => {
+        try {
+            const { error } = await supabase.from('app_settings').upsert({ key: 'active_schedule_version', value: val });
+            if (error) throw error;
+            setActiveScheduleVersion(val);
+            setMessage({ type: 'success', text: 'Versi Jadwal Aktif diperbarui!' });
+            setTimeout(() => window.location.reload(), 1000);
+        } catch (err: any) {
+            setMessage({ type: 'error', text: 'Gagal update versi jadwal: ' + err.message });
         }
     };
 
@@ -159,11 +214,13 @@ const Penyimpanan: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* Section: Tahun Ajaran Aktif */}
+                        
+                                                {/* Section: Tahun Ajaran Aktif */}
                         <div className="space-y-4 pt-4 border-t border-gray-100">
                             <h3 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
                                 <Database size={18} className="text-gray-500"/> Tahun Ajaran Aktif
                             </h3>
+                            
                             <div>
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Pilih Tahun Ajaran Aktif</label>
                                 <select 
@@ -177,8 +234,31 @@ const Penyimpanan: React.FC = () => {
                                     ))}
                                 </select>
                             </div>
+
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Berlaku dari tanggal</label>
+                                    <input 
+                                        type="date"
+                                        className="w-full border rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
+                                        value={academicYearStart}
+                                        onChange={(e) => setAcademicYearStart(e.target.value)}
+                                        onBlur={handleSaveAcademicYearDates}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Sampai tanggal</label>
+                                    <input 
+                                        type="date"
+                                        className="w-full border rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
+                                        value={academicYearEnd}
+                                        onChange={(e) => setAcademicYearEnd(e.target.value)}
+                                        onBlur={handleSaveAcademicYearDates}
+                                    />
+                                </div>
+                            </div>
                             
-                            <div className="pt-2">
+                            <div className="pt-4">
                                 <label className="block text-sm font-bold text-gray-700 mb-1">Pilih Semester Aktif</label>
                                 <select 
                                     className="w-full border rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
@@ -190,9 +270,61 @@ const Penyimpanan: React.FC = () => {
                                     <option value="Genap">Genap</option>
                                 </select>
                             </div>
+
+                            <div className="grid grid-cols-2 gap-4 mt-2">
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Berlaku mulai tanggal</label>
+                                    <input 
+                                        type="date"
+                                        className="w-full border rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
+                                        value={semesterStart}
+                                        onChange={(e) => setSemesterStart(e.target.value)}
+                                        onBlur={handleSaveSemesterDates}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Sampai Tanggal</label>
+                                    <input 
+                                        type="date"
+                                        className="w-full border rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
+                                        value={semesterEnd}
+                                        onChange={(e) => setSemesterEnd(e.target.value)}
+                                        onBlur={handleSaveSemesterDates}
+                                    />
+                                </div>
+                            </div>
                         </div>
+
+                        
+                        {/* Section: Versi Jadwal Aktif */}
+                        <div className="space-y-4 pt-4 border-t border-gray-100">
+                            <h3 className="font-bold text-gray-800 border-b pb-2 flex items-center gap-2">
+                                <Calendar size={18} className="text-gray-500"/> Versi Jadwal Aktif
+                            </h3>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">Versi Jadwal (misal: Utama, Ramadhan)</label>
+                                <div className="flex gap-2">
+                                    
+                                    <select 
+                                        className="flex-1 border rounded-xl p-3 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all font-medium"
+                                        value={activeScheduleVersion}
+                                        onChange={(e) => setActiveScheduleVersion(e.target.value)}
+                                    >
+                                        {availableScheduleVersions.map(v => <option key={v} value={v}>{v}</option>)}
+                                        {!availableScheduleVersions.includes(activeScheduleVersion) && activeScheduleVersion && <option value={activeScheduleVersion}>{activeScheduleVersion}</option>}
+                                    </select>
+                                    <button 
+                                        onClick={() => handleSetActiveScheduleVersion(activeScheduleVersion)}
+                                        className="px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-colors"
+                                    >
+                                        Simpan
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+
                     </div>
-                    
                     <div className="mt-8 text-xs text-gray-500 bg-gray-50 p-4 rounded-xl">
                         <strong>Catatan:</strong> "Tambah Tahun Ajaran Baru" digunakan untuk mendaftarkan tahun ajaran ke sistem. Sedangkan "Tahun Ajaran Aktif" digunakan untuk mengatur tahun ajaran default yang digunakan saat ini.
                     </div>

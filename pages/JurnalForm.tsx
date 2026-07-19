@@ -27,7 +27,7 @@ const smartTitleCase = (str: string) => {
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
-  const { profile, academicYear, semester } = useAuth();
+  const { profile, academicYear, semester , activeScheduleVersion , semesterStart, semesterEnd } = useAuth();
   
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -92,11 +92,11 @@ const JurnalForm: React.FC = () => {
           const fetchPreviousAttendance = async () => {
               try {
                   const todayStr = getWIBISOString();
-                  const { data: journals } = await supabase.from('journals').select('id').eq('kelas', formData.kelas).eq('subject', formData.subject).lt('created_at', `${todayStr}T00:00:00+07:00`).order('created_at', { ascending: false }).limit(1);
+                  const { data: journals } = await supabase.from('journals').select('id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('kelas', formData.kelas).eq('subject', formData.subject).lt('created_at', `${todayStr}T00:00:00+07:00`).order('created_at', { ascending: false }).limit(1);
                   if (journals && journals.length > 0) {
                       const lastJid = journals[0].id;
                       setHasPrevMeeting(true);
-                      const { data: logs } = await supabase.from('attendance_logs').select('student_id, status').eq('journal_id', lastJid);
+                      const { data: logs } = await supabase.from('attendance_logs').select('student_id, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('journal_id', lastJid);
                       const map: Record<string, string> = {};
                       if (logs) logs.forEach(l => map[l.student_id] = l.status);
                       setPrevMeetingStats(map);
@@ -117,7 +117,7 @@ const JurnalForm: React.FC = () => {
         const todayStr = getWIBISOString();
 
         const [schedulesRes, settingsRes] = await Promise.all([
-             supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').order('hour').then(async (res) => {
+             supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').order('hour').then(async (res) => {
                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year') || res.error.message?.includes('semester'))) {
                      const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).order('hour');
                      if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
@@ -141,10 +141,10 @@ const JurnalForm: React.FC = () => {
         const startOfDay = `${todayStr}T00:00:00+07:00`;
         const endOfDay = `${todayStr}T23:59:59+07:00`;
 
-        const { data: journals } = await supabase.from('journals').select('*').eq('teacher_id', profile.id).gte('created_at', startOfDay).lte('created_at', endOfDay);
+        const { data: journals } = await supabase.from('journals').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile.id).gte('created_at', startOfDay).lte('created_at', endOfDay);
         if (journals) setExistingJournals(journals);
         
-        const { data: historyJournals } = await supabase.from('journals').select('kelas, subject, material').eq('teacher_id', profile.id).lt('created_at', startOfDay).order('created_at', { ascending: false }).limit(50);
+        const { data: historyJournals } = await supabase.from('journals').select('kelas, subject, material').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile.id).lt('created_at', startOfDay).order('created_at', { ascending: false }).limit(50);
         const materialMap: Record<string, string> = {};
         if (historyJournals) { historyJournals.forEach(j => { const key = `${j.kelas}-${j.subject}`; if (!materialMap[key]) materialMap[key] = j.material; }); }
         setLastMaterials(materialMap);
@@ -152,7 +152,7 @@ const JurnalForm: React.FC = () => {
         if (schedules && schedules.length > 0) { setTodaySchedules(schedules); setInputMode('auto'); } else { setInputMode('manual'); }
         let { data: studentData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
         if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-            const res = await supabase.from('students').select('kelas');
+            const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
             if (academicYear === '2025/2026') studentData = res.data;
             else studentData = [];
         }
@@ -164,9 +164,9 @@ const JurnalForm: React.FC = () => {
     if (formData.kelas && profile) {
       const loadStudentsAndStats = async () => {
         setLoading(true); 
-        let { data: studentsData, error: errSt2 } = await supabase.from('students').select('id, name').eq('kelas', formData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
+        let { data: studentsData, error: errSt2 } = await supabase.from('students').select('id, name').eq('academic_year', academicYear || '2025/2026').eq('kelas', formData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
         if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
-            const res = await supabase.from('students').select('id, name').eq('kelas', formData.kelas).order('name');
+            const res = await supabase.from('students').select('id, name').eq('academic_year', academicYear || '2025/2026').eq('kelas', formData.kelas).order('name');
             if (academicYear === '2025/2026') studentsData = res.data;
             else studentsData = [];
         }
@@ -175,7 +175,7 @@ const JurnalForm: React.FC = () => {
             setLoading(false); 
             const studentIds = studentsData.map(s => s.id);
             if (studentIds.length > 0) {
-                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
+                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('schedule_version', activeScheduleVersion || 'Utama').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
                 let { data: recentAtt, error: recError } = await query;
                 if (recError && (recError.code === '42703' || recError.message?.includes('academic_year') || recError.message?.includes('semester'))) {
                     const fallbackQuery = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
@@ -202,7 +202,7 @@ const JurnalForm: React.FC = () => {
       const existing = existingJournals.find(j => j.kelas === selectedSchedule.kelas && j.subject === selectedSchedule.subject);
       if (existing) {
           setEditJournalId(existing.id);
-          const [logsRes, notesRes] = await Promise.all([ supabase.from('attendance_logs').select('student_id, status').eq('journal_id', existing.id), supabase.from('journal_notes').select('*').eq('journal_id', existing.id) ]);
+          const [logsRes, notesRes] = await Promise.all([ supabase.from('attendance_logs').select('student_id, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('journal_id', existing.id), supabase.from('journal_notes').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('journal_id', existing.id) ]);
           const attendanceMap: Record<string, 'S'|'I'|'A'|'D'> = {};
           if (logsRes.data) logsRes.data.forEach(l => { attendanceMap[l.student_id] = l.status as any; });
           const loadedNotes = { discipline: [] as NoteItem[], activity: [] as NoteItem[] };
@@ -219,7 +219,7 @@ const JurnalForm: React.FC = () => {
           let hoursParsed: string[] = []; if (selectedSchedule.hour.includes(',')) hoursParsed = selectedSchedule.hour.split(',').map(s => s.trim()); else hoursParsed = [selectedSchedule.hour];
           const isDhuhaSched = isSpecialSubjectDhuha(selectedSchedule.subject); const defaultMaterial = isDhuhaSched ? 'Salat Dhuha' : '';
           const todayStr = getWIBISOString();
-          supabase.from('homeroom_attendance').select('student_id, status').eq('date', todayStr).eq('kelas', selectedSchedule.kelas).then(({data}) => { if (data && data.length > 0) { const initialAttendance: Record<string, any> = {}; data.forEach(r => { if (['S', 'I', 'A', 'D'].includes(r.status)) { initialAttendance[r.student_id] = r.status; } }); setFormData(prev => ({...prev, attendance: initialAttendance})); } });
+          supabase.from('homeroom_attendance').select('student_id, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').eq('date', todayStr).eq('kelas', selectedSchedule.kelas).then(({data}) => { if (data && data.length > 0) { const initialAttendance: Record<string, any> = {}; data.forEach(r => { if (['S', 'I', 'A', 'D'].includes(r.status)) { initialAttendance[r.student_id] = r.status; } }); setFormData(prev => ({...prev, attendance: initialAttendance})); } });
           setFormData({ kelas: selectedSchedule.kelas, subject: selectedSchedule.subject, hours: hoursParsed, material: defaultMaterial, attendance: {}, cleanliness: '', validation: '', notes: '', isConfirmed: false });
       }
   };

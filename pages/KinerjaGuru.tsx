@@ -14,7 +14,7 @@ interface TeacherPerformanceData extends Profile {
 }
 
 const KinerjaGuru: React.FC = () => {
-  const { academicYear, semester } = useAuth();
+  const { academicYear, semester , activeScheduleVersion , semesterStart, semesterEnd } = useAuth();
   const [loading, setLoading] = useState(true);
   const [teachersData, setTeachersData] = useState<TeacherPerformanceData[]>([]);
   const [filteredTeachers, setFilteredTeachers] = useState<TeacherPerformanceData[]>([]);
@@ -52,7 +52,7 @@ const KinerjaGuru: React.FC = () => {
 
           const [profilesRes, schedulesRes, journalsRes] = await Promise.all([
               supabase.from('profiles').select('*').neq('role', 'operator').order('full_name'),
-              supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').then(async (res) => {
+              supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                       const fallback = await supabase.from('schedules').select('*');
                       if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
@@ -60,7 +60,7 @@ const KinerjaGuru: React.FC = () => {
                   }
                   return res;
               }),
-              supabase.from('journals').select('teacher_id, hours').gte('created_at', firstDayStr).lte('created_at', endDayStr)
+              supabase.from('journals').select('teacher_id, hours').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', firstDayStr).lte('created_at', endDayStr)
           ]);
 
           const excludedNames = ['Guru Baru', 'Agung Budiartati, M.Pd.', 'Dra.Laily Asriyah, M.Pd.I.'];
@@ -102,7 +102,7 @@ const KinerjaGuru: React.FC = () => {
   const handleViewSchedule = async (teacher: Profile) => {
       setLoading(true);
       try {
-          let { data, error } = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').order('day_of_week').order('hour');
+          let { data, error } = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').order('day_of_week').order('hour');
           if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
               const res = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).order('day_of_week').order('hour');
               if (academicYear === '2025/2026' && semester === 'Genap') data = res.data;
