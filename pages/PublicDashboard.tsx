@@ -38,7 +38,7 @@ const PublicDashboard: React.FC = () => {
         return () => { clearInterval(timer); supabase.removeChannel(channel); };
     }
     return () => clearInterval(timer);
-  }, []);
+  }, [academicYear, semester, semesterStart, semesterEnd]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -239,6 +239,11 @@ const PublicDashboard: React.FC = () => {
         ) : stats ? (
           <>
             {/* ROW 1 */}
+            <div className="flex justify-center mb-4">
+                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 px-6 py-2 rounded-full shadow-sm text-sm font-bold text-slate-700 dark:text-slate-300">
+                    Tahun Ajaran: {academicYear} | Semester: {semester}
+                </div>
+            </div>
             <div className="grid grid-cols-3 gap-3">
                <ClassCard label="Kelas 7" count={stats.count7} colorClass="text-blue-600 dark:text-blue-400" iconColorClass="text-blue-400 dark:text-blue-500" onClick={() => handleClassClick('7')} />
                <ClassCard label="Kelas 8" count={stats.count8} colorClass="text-emerald-500 dark:text-emerald-400" iconColorClass="text-emerald-400 dark:text-emerald-500" onClick={() => handleClassClick('8')} />

@@ -80,7 +80,7 @@ const Dashboard: React.FC = () => {
     } else {
         setLoading(false);
     }
-  }, [profile, filterDate, matrixDate]); 
+  }, [profile, filterDate, matrixDate, academicYear, semester, activeScheduleVersion, semesterStart, semesterEnd]); 
 
   // --- LOGIC KEPALA SEKOLAH (MATRIX SCHEDULE) ---
   const fetchHeadmasterMatrix = async () => {

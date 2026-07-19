@@ -69,11 +69,18 @@ const Login: React.FC = () => {
 
       {viewMode === 'selection' ? (
           <div className="w-full max-w-lg grid gap-4 animate-fade-in">
+              
+              <div className="flex justify-center mb-6">
+                  <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 px-6 py-2 rounded-full shadow-sm text-sm font-bold text-slate-700 dark:text-slate-300">
+                      Tahun Ajaran: {academicYear} | Semester: {semester}
+                  </div>
+              </div>
               <p className="text-center text-slate-500 dark:text-slate-400 font-bold text-sm mb-2 uppercase tracking-widest">Masuk Sebagai</p>
+
               
               <button 
                 onClick={() => handleRoleSelect('guru')}
-                className="bg-white dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-slate-700 border-2 border-white dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-500/50 p-5 rounded-2xl shadow-sm hover:shadow-md flex items-center gap-5 transition-all group"
+                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md hover:bg-blue-50 dark:hover:bg-slate-700 border-2 border-white dark:border-slate-700 hover:border-blue-200 dark:hover:border-blue-500/50 p-5 rounded-2xl shadow-sm hover:shadow-md flex items-center gap-5 transition-all group"
               >
                   <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                       <GraduationCap size={32} />
@@ -89,7 +96,7 @@ const Login: React.FC = () => {
 
               <button 
                 onClick={() => handleRoleSelect('operator')}
-                className="bg-white dark:bg-slate-800 hover:bg-orange-50 dark:hover:bg-slate-700 border-2 border-white dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-500/50 p-5 rounded-2xl shadow-sm hover:shadow-md flex items-center gap-5 transition-all group"
+                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md hover:bg-orange-50 dark:hover:bg-slate-700 border-2 border-white dark:border-slate-700 hover:border-orange-200 dark:hover:border-orange-500/50 p-5 rounded-2xl shadow-sm hover:shadow-md flex items-center gap-5 transition-all group"
               >
                   <div className="w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                       <MonitorPlay size={32} />
@@ -105,7 +112,7 @@ const Login: React.FC = () => {
 
               <button 
                 onClick={() => handleRoleSelect('admin')}
-                className="bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 border-2 border-white dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-500 p-5 rounded-2xl shadow-sm hover:shadow-md flex items-center gap-5 transition-all group"
+                className="bg-white/70 dark:bg-slate-800/70 backdrop-blur-md hover:bg-slate-50 dark:hover:bg-slate-700 border-2 border-white dark:border-slate-700 hover:border-slate-300 dark:hover:border-slate-500 p-5 rounded-2xl shadow-sm hover:shadow-md flex items-center gap-5 transition-all group"
               >
                   <div className="w-16 h-16 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                       <Shield size={32} />
@@ -120,7 +127,7 @@ const Login: React.FC = () => {
               </button>
           </div>
       ) : (
-          <main className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden relative animate-fade-in transition-colors">
+          <main className="w-full max-w-sm bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl rounded-[2rem] shadow-xl border border-slate-200 dark:border-slate-700 overflow-hidden relative animate-fade-in transition-colors">
             
             <div className="p-8">
               <button 

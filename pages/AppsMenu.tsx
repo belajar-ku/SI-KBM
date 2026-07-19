@@ -19,10 +19,10 @@ const AppsMenu: React.FC = () => {
   const AppCard = ({ label, subLabel, icon: Icon, path, gradientClass }: any) => (
     <button
       onClick={() => navigate(path)}
-      className="bg-white dark:bg-slate-800 rounded-[2rem] p-6 flex flex-col items-center justify-center gap-5 shadow-sm border border-slate-100 dark:border-slate-700 hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-500/30 hover:-translate-y-1.5 transition-all duration-300 w-full h-52 group relative overflow-hidden"
+      className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-[2rem] p-6 flex flex-col items-center justify-center gap-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/50 dark:border-slate-700/50 hover:shadow-xl hover:border-white/80 dark:hover:border-slate-600 hover:-translate-y-1.5 transition-all duration-300 w-full h-52 group relative overflow-hidden"
     >
       {/* 3D ICON CONTAINER */}
-      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white shadow-[0_12px_25px_-8px_rgba(0,0,0,0.3)] border-t border-white/40 relative z-10 transform transition-transform duration-500 group-hover:scale-110 group-hover:rotate-3 ${gradientClass}`}>
+      <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-${gradientClass.split('-')[gradientClass.split('-').length-1]}/30 border-t border-white/40 relative z-10 transform transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 ${gradientClass}`}>
          <div className="absolute inset-0 rounded-3xl bg-gradient-to-b from-white/20 to-transparent opacity-50 pointer-events-none"></div>
          <Icon size={36} strokeWidth={1.8} className="drop-shadow-md" />
       </div>
