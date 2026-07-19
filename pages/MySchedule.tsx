@@ -39,9 +39,9 @@ const MySchedule: React.FC = () => {
       } catch (e) { console.error(e); }
   };
 
-  const fetchSchedule = async () => {
+    const fetchSchedule = async () => {
     try {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('schedules')
         .select('*')
         .eq('teacher_id', profile?.id)
@@ -49,9 +49,20 @@ const MySchedule: React.FC = () => {
         .eq('semester', semester || 'Ganjil')
         .eq('schedule_version', activeScheduleVersion || 'Utama')
         .order('day_of_week')
-        .order('hour'); 
+        .order('hour');
+        
+      if (error && (error.code === '42703' || error.message?.includes('schedule_version') || error.message?.includes('academic_year'))) {
+          const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile?.id).order('day_of_week').order('hour');
+          if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
+              data = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+          } else {
+              data = fallback.data;
+          }
+          error = fallback.error;
+      }
 
       if (error) throw error;
+      console.log('fetchSchedule result:', { data, profile_id: profile?.id, academicYear, semester, activeScheduleVersion });
       if (data) setSchedules(data);
     } catch (err) {
       console.error(err);

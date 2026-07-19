@@ -70,10 +70,21 @@ const RekapAbsensi: React.FC = () => {
       // 2. Fetch Guru Schedules
       if (!profile) return;
       
-      const { data: schedules } = await supabase
+      let { data: schedules, error: schedError } = await supabase
         .from('schedules')
-        .select('kelas, subject')
-        .eq('teacher_id', profile.id);
+        .select('kelas, subject, academic_year, semester')
+        .eq('teacher_id', profile.id)
+        .eq('academic_year', academicYear || '2025/2026')
+        .eq('semester', semester || 'Ganjil');
+        
+      if (schedError && (schedError.code === '42703' || schedError.message?.includes('academic_year'))) {
+          const fallback = await supabase.from('schedules').select('kelas, subject, academic_year, semester').eq('teacher_id', profile.id);
+          if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
+              schedules = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+          } else {
+              schedules = fallback.data;
+          }
+      }
 
       if (schedules) {
         // FILTER: Exclude 'Salat Dhuha' from this report because it has its own dedicated menu.

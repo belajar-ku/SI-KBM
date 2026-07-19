@@ -110,11 +110,13 @@ const InputJadwal: React.FC = () => {
               if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester') || error.message?.includes('schedule_version') || error.message?.includes('schema cache'))) {
                   // Fallback if column doesn't exist yet
                   const fallbackRes = await supabase.from('schedules').select('*').eq('teacher_id', teacherId).order('day_of_week').order('hour');
+                  console.log('Fallback Res:', fallbackRes);
                   if (fallbackRes.data && fallbackRes.data.length > 0 && fallbackRes.data[0].academic_year !== undefined) {
                       data = fallbackRes.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
                   } else {
                       data = fallbackRes.data || [];
                   }
+                  console.log('Filtered data:', data);
                   error = fallbackRes.error;
                   if (!error) console.warn("Kolom academic_year/semester belum ada di tabel schedules. Silakan jalankan SUPABASE_SETUP.sql");
               }
