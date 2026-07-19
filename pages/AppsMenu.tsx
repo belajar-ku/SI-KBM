@@ -4,9 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { 
-  NotebookPen, FileText, ClipboardList, Siren, QrCode, CalendarClock, 
-  Database, UserCog, CalendarRange, GraduationCap, Settings, BookX,
-  Keyboard, Sunset
+  BookOpenText, TrendingUp, UserCheck, ShieldAlert, ScanLine, Compass, Database, UserCog, CalendarRange, GraduationCap, Settings, UserMinus, Keyboard, Sun
 } from 'lucide-react';
 
 const AppsMenu: React.FC = () => {
@@ -92,14 +90,14 @@ const AppsMenu: React.FC = () => {
                     <AppCard 
                         label="Isi Jurnal" 
                         subLabel="Input KBM Harian"
-                        icon={NotebookPen} 
+                        icon={BookOpenText} 
                         path="/jurnal" 
                         gradientClass="bg-gradient-to-br from-blue-500 to-blue-700" 
                     />
                     <AppCard 
                         label="Jadwalku" 
                         subLabel="Jadwal Mengajar"
-                        icon={CalendarClock} 
+                        icon={Compass} 
                         path="/jadwal" 
                         gradientClass="bg-gradient-to-br from-indigo-400 to-indigo-600" 
                     />
@@ -107,7 +105,7 @@ const AppsMenu: React.FC = () => {
                       <AppCard 
                           label="Presensi Dhuha" 
                           subLabel="Rekap Kehadiran"
-                          icon={Sunset} 
+                          icon={Sun} 
                           path="/rekap-dhuha" 
                           gradientClass="bg-gradient-to-br from-purple-500 to-purple-700" 
                       />
@@ -115,35 +113,35 @@ const AppsMenu: React.FC = () => {
                     <AppCard 
                         label="Kehadiran" 
                         subLabel="Rekap Absensi Mapel"
-                        icon={ClipboardList} 
+                        icon={UserCheck} 
                         path="/rekap-absensi" 
                         gradientClass="bg-gradient-to-br from-emerald-400 to-green-600" 
                     />
                      <AppCard 
                         label="Ketidakhadiran" 
                         subLabel="Untuk Rapor"
-                        icon={BookX} 
+                        icon={UserMinus} 
                         path="/absensi-rapor" 
                         gradientClass="bg-gradient-to-br from-red-400 to-rose-600" 
                     />
                     <AppCard 
                         label="Laporan" 
                         subLabel="Cetak Jurnal"
-                        icon={FileText} 
+                        icon={TrendingUp} 
                         path="/laporan" 
                         gradientClass="bg-gradient-to-br from-amber-400 to-orange-500" 
                     />
                     <AppCard 
                         label="Pelanggaran" 
                         subLabel="Temuan di Luar KBM"
-                        icon={Siren} 
+                        icon={ShieldAlert} 
                         path="/kedisiplinan" 
                         gradientClass="bg-gradient-to-br from-orange-500 to-red-600" 
                     />
                     <AppCard 
                         label="Presensi QR" 
                         subLabel="Scan Kartu"
-                        icon={QrCode} 
+                        icon={ScanLine} 
                         path="/qr" 
                         gradientClass="bg-gradient-to-br from-slate-600 to-slate-800" 
                     />

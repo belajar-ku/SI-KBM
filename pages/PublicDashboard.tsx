@@ -258,7 +258,7 @@ const PublicDashboard: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-[calc(env(safe-area-inset-top)+2rem)] font-sans bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
+    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-[calc(env(safe-area-inset-top)+0.5rem)] font-sans bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
       <main className="w-full max-w-md space-y-4">
         
         {/* HEADER CARD */}

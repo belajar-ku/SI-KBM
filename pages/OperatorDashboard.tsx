@@ -272,7 +272,7 @@ const OperatorDashboard: React.FC = () => {
 
          {/* ABSENCE MODAL - TOP ALIGNED */}
          {modalOpen && (
-            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300" onClick={() => setModalOpen(false)}>
+            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300" onClick={() => setModalOpen(false)}>
               <div className="bg-white rounded-2xl shadow-2xl w-full md:w-full md:max-w-md flex flex-col max-h-[85vh] overflow-hidden border border-slate-100 relative animate-fade-in" onClick={e => e.stopPropagation()}>
                   <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100">
                       <h3 className="font-extrabold text-slate-800 text-lg leading-tight">Rincian Ketidakhadiran</h3>

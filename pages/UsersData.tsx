@@ -263,7 +263,7 @@ const UsersData: React.FC = () => {
 
         {/* MODAL RESET PASSWORD - TOP ALIGNED */}
         {resetModalOpen && (
-            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100 border border-slate-100 relative animate-fade-in">
                     <div className="bg-yellow-500 p-4 flex justify-between items-center text-white">
                         <h3 className="font-bold flex items-center gap-2"><KeyRound size={20} /> Reset Password</h3>
@@ -295,7 +295,7 @@ const UsersData: React.FC = () => {
 
         {/* MODAL EDIT AKADEMIK - TOP ALIGNED */}
         {editingUser && (
-            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 border border-slate-100 relative animate-fade-in">
                     <div className="bg-blue-600 p-4 flex justify-between items-center text-white">
                         <h3 className="font-bold flex items-center gap-2"><UserCog size={20} /> Edit Data Akademik</h3>
@@ -345,7 +345,7 @@ const UsersData: React.FC = () => {
 
         {/* MODAL ADD USER - TOP ALIGNED */}
         {isAddModalOpen && (
-            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all scale-100 border border-slate-100 relative animate-fade-in flex flex-col max-h-[85vh]">
                     <div className="bg-green-600 p-4 flex justify-between items-center text-white flex-shrink-0">
                         <h3 className="font-bold flex items-center gap-2"><UserPlus size={20} /> Tambah User Manual</h3>

@@ -145,7 +145,7 @@ const KinerjaGuru: React.FC = () => {
 
             {/* Schedule Modal - TOP ALIGNED */}
             {showScheduleModal && selectedTeacherSchedule && (
-                <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+                <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
                     <div className="bg-white dark:bg-slate-800 w-full md:w-auto md:max-w-lg rounded-2xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-700 relative animate-fade-in flex flex-col max-h-[85vh]">
                         <div className="bg-blue-600 p-4 flex justify-between items-center text-white flex-shrink-0">
                             <h3 className="font-bold text-lg flex items-center gap-2"><Calendar size={20}/> Jadwal Mengajar: {selectedTeacherSchedule.teacher.full_name}</h3>

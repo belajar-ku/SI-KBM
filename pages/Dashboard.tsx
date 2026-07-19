@@ -842,7 +842,7 @@ const Dashboard: React.FC = () => {
 
         {/* MODAL EDIT SPECIFIC - TOP ALIGNED & MODERN */}
         {showEditSpecificModal && (
-            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+            <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
                 <div className="bg-white dark:bg-slate-800 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden border border-slate-100 dark:border-slate-700 relative flex flex-col max-h-[80vh] transform transition-all scale-100 animate-fade-in">
                     
                     {/* Header */}

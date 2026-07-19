@@ -326,7 +326,7 @@ const StudentsData: React.FC = () => {
         {/* Dynamic Modal - TOP ALIGNED & MODERN */}
 
             {isModalOpen && (
-                <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
+                <div className="fixed inset-0 z-[9999] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm transition-all duration-300">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 relative animate-fade-in border border-slate-100">
                     <div className="bg-blue-600 p-5 flex justify-between items-center text-white">
                         <h3 className="font-bold flex items-center gap-2 text-lg">

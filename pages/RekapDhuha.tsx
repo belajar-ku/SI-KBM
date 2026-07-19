@@ -157,7 +157,7 @@ const RekapDhuha: React.FC = () => {
 
       {/* DETAIL MODAL - TOP ALIGNED */}
       {showModal && selectedStudentSummary && (
-          <div className="fixed inset-0 z-[100] flex items-start justify-center pt-20 sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in print:hidden" onClick={() => setShowModal(false)}>
+          <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[calc(env(safe-area-inset-top)+1rem)] sm:p-4 bg-slate-900/50 backdrop-blur-sm animate-fade-in print:hidden" onClick={() => setShowModal(false)}>
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col max-h-[85vh] border border-slate-100 relative animate-fade-in" onClick={e => e.stopPropagation()}>
                   <div className="bg-purple-600 px-6 py-5 border-b border-purple-500 flex justify-between items-center text-white">
                       <div><h3 className="font-extrabold text-lg">{selectedStudentSummary.student.name}</h3><p className="text-xs text-purple-200 mt-0.5">Rincian Ketidakhadiran Dhuha</p></div>

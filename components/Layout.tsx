@@ -284,7 +284,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
           {/* Mobile Header */}
-          <div className="md:hidden sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+          <div className="md:hidden sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+0.25rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
                  <div className="flex items-center gap-3">
                      <img 
@@ -321,7 +321,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
           </div>
 
           {/* DESKTOP TOP BAR */}
-          <div className="hidden md:flex justify-between items-center sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-8 py-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+          <div className="hidden md:flex justify-between items-center sticky top-0 z-30 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-700 px-8 py-3 pt-[calc(env(safe-area-inset-top)+0.25rem)]">
               <div className="flex items-center gap-3 text-sm font-bold">
                   <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 px-3 py-1.5 rounded-xl border border-blue-100 dark:border-blue-800/50 shadow-sm">
                       <span className="text-blue-400 dark:text-blue-500">T.A:</span> {academicYear}
@@ -356,7 +356,10 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* --- MOBILE BOTTOM NAV (FLUTTER STYLE ANIMATED) --- */}
       {showNav && !isOperator && !isAdmin && (
         <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-            <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2 max-w-[95vw]">
+            <div className="relative pointer-events-auto p-[2px] rounded-full overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-[95vw] group">
+                {/* Animated Glow Border */}
+                <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #3b82f6 360deg)' }}></div>
+                <nav className="relative z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-full flex items-center p-2 gap-2 w-full h-full border border-slate-200/50 dark:border-slate-700/50">
                 <BottomNavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
 
                 {!isHeadmaster && (
@@ -369,6 +372,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
 
                 <BottomNavItem path="/profile" label="Profil" icon={User} />
             </nav>
+            </div>
         </div>
       )}
 
