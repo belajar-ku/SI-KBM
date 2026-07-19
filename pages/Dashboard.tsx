@@ -47,6 +47,12 @@ interface TeacherMatrixItem {
 }
 
 const Dashboard: React.FC = () => {
+  const currentHour = new Date().getHours();
+  let greeting = 'Selamat Malam';
+  if (currentHour >= 5 && currentHour < 11) greeting = 'Selamat Pagi';
+  else if (currentHour >= 11 && currentHour < 15) greeting = 'Selamat Siang';
+  else if (currentHour >= 15 && currentHour < 18) greeting = 'Selamat Sore';
+
   const { isAdmin, profile, academicYear, semester , activeScheduleVersion , semesterStart, semesterEnd } = useAuth();
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin'; 
 
@@ -476,8 +482,11 @@ const Dashboard: React.FC = () => {
 
   if (isHeadmaster) {
       // Headmaster view code
-      return (
-        <Layout>
+      
+    
+
+  return (
+    <Layout>
             <div className="space-y-6 animate-fade-in">
                 {/* Header Kepsek */}
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -575,6 +584,7 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                     <div>
+                        <p className="text-blue-100 text-sm font-bold opacity-90 mb-0.5">{greeting},</p>
                         <h1 className="text-xl md:text-2xl font-extrabold leading-tight tracking-tight">{profile?.full_name}</h1>
                         <p className="text-blue-100 text-sm font-mono opacity-90 mb-2">{isAdmin ? 'Administrator' : (profile?.nip || 'NIP -')}</p>
                         <div className="flex flex-wrap gap-2">
