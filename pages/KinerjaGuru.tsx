@@ -55,8 +55,10 @@ const KinerjaGuru: React.FC = () => {
               supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                       const fallback = await supabase.from('schedules').select('*');
-                      if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
-                      return { data: [], error: null };
+                      if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
+                          fallback.data = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+                      }
+                      return fallback;
                   }
                   return res;
               }),
@@ -105,8 +107,11 @@ const KinerjaGuru: React.FC = () => {
           let { data, error } = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').order('day_of_week').order('hour');
           if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
               const res = await supabase.from('schedules').select('*').eq('teacher_id', teacher.id).order('day_of_week').order('hour');
-              if (academicYear === '2025/2026' && semester === 'Genap') data = res.data;
-              else data = [];
+              if (res.data && res.data.length > 0 && res.data[0].academic_year !== undefined) {
+                  data = res.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+              } else {
+                  data = res.data;
+              }
           }
           setSelectedTeacherSchedule({ teacher, schedules: data || [] });
           setShowScheduleModal(true);

@@ -110,10 +110,10 @@ const InputJadwal: React.FC = () => {
               if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester') || error.message?.includes('schedule_version') || error.message?.includes('schema cache'))) {
                   // Fallback if column doesn't exist yet
                   const fallbackRes = await supabase.from('schedules').select('*').eq('teacher_id', teacherId).order('day_of_week').order('hour');
-                  if (academicYear === '2025/2026' && semester === 'Genap') {
-                      data = fallbackRes.data;
+                  if (fallbackRes.data && fallbackRes.data.length > 0 && fallbackRes.data[0].academic_year !== undefined) {
+                      data = fallbackRes.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
                   } else {
-                      data = [];
+                      data = fallbackRes.data || [];
                   }
                   error = fallbackRes.error;
                   if (!error) console.warn("Kolom academic_year/semester belum ada di tabel schedules. Silakan jalankan SUPABASE_SETUP.sql");
@@ -193,11 +193,19 @@ const InputJadwal: React.FC = () => {
         let { error } = await supabase.from('schedules').insert(payloads);
         if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester') || error.message?.includes('schedule_version') || error.message?.includes('schema cache'))) {
             // Fallback without academic_year and semester
-            const fallbackPayloads = payloads.map(p => {
-                const { academic_year, semester, schedule_version, ...rest } = p as any;
+            let fallbackPayloads = payloads.map(p => {
+                const { schedule_version, ...rest } = p as any;
                 return rest;
             });
-            const fallbackRes = await supabase.from('schedules').insert(fallbackPayloads);
+            let fallbackRes = await supabase.from('schedules').insert(fallbackPayloads);
+            
+            if (fallbackRes.error && fallbackRes.error.code === '42703') {
+                fallbackPayloads = fallbackPayloads.map(p => {
+                    const { academic_year, semester, ...rest } = p as any;
+                    return rest;
+                });
+                fallbackRes = await supabase.from('schedules').insert(fallbackPayloads);
+            }
             error = fallbackRes.error;
             if (!error) console.warn("Kolom academic_year/semester belum ada di tabel schedules. Data disimpan tanpa tahun ajaran.");
         }

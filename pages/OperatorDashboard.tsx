@@ -104,8 +104,10 @@ const OperatorDashboard: React.FC = () => {
               supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                       const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
-                      if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
-                      return { data: [], error: null };
+                      if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
+                          fallback.data = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+                      }
+                      return fallback;
                   }
                   return res;
               }),

@@ -104,8 +104,10 @@ const Dashboard: React.FC = () => {
               supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                       const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
-                      if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
-                      return { data: [], error: null };
+                      if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
+                          fallback.data = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+                      }
+                      return fallback;
                   }
                   return res;
               }),
@@ -179,9 +181,12 @@ const Dashboard: React.FC = () => {
 
         let { data: mySchedules, error: mySchedError } = await supabase.from('schedules').select('day_of_week, hour').eq('teacher_id', profile?.id).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama');
         if (mySchedError && (mySchedError.code === '42703' || mySchedError.message?.includes('academic_year'))) {
-            const fallback = await supabase.from('schedules').select('day_of_week, hour').eq('teacher_id', profile?.id);
-            if (academicYear === '2025/2026' && semester === 'Genap') mySchedules = fallback.data;
-            else mySchedules = [];
+            const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile?.id);
+            if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
+                mySchedules = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+            } else {
+                mySchedules = fallback.data;
+            }
         }
 
         let targetJp = 0;
@@ -212,8 +217,10 @@ const Dashboard: React.FC = () => {
             supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
                 if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                     const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay);
-                    if (academicYear === '2025/2026' && semester === 'Genap') return fallback;
-                    return { data: [], error: null };
+                    if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
+                        fallback.data = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+                    }
+                    return fallback;
                 }
                 return res;
             }),
