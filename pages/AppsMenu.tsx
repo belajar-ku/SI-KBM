@@ -19,7 +19,7 @@ const AppsMenu: React.FC = () => {
   const AppCard = ({ label, subLabel, icon: Icon, path, gradientClass }: any) => (
     <button
       onClick={() => navigate(path)}
-      className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-[2rem] p-6 flex flex-col items-center justify-center gap-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/50 dark:border-slate-700/50 hover:shadow-xl hover:border-white/80 dark:hover:border-slate-600 hover:-translate-y-1.5 transition-all duration-300 w-full h-52 group relative overflow-hidden"
+      className="bg-white dark:bg-slate-800 rounded-3xl p-6 flex flex-col items-center justify-center gap-5 shadow-sm border border-slate-200 dark:border-slate-700 hover:shadow-lg hover:border-blue-300 dark:hover:border-slate-600 hover:-translate-y-1 transition-all duration-300 w-full h-52 group relative overflow-hidden"
     >
       {/* 3D ICON CONTAINER */}
       <div className={`w-20 h-20 rounded-3xl flex items-center justify-center text-white shadow-xl shadow-${gradientClass.split('-')[gradientClass.split('-').length-1]}/30 border-t border-white/40 relative z-10 transform transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 ${gradientClass}`}>

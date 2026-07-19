@@ -14,7 +14,7 @@ const PublicDashboard: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [loginViewMode, setLoginViewMode] = useState<'selection' | 'form'>('selection');
   const [selectedRoleLabel, setSelectedRoleLabel] = useState('');
-  const [userId, setUserId] = useState('');
+  const [userId, setUserId] = useState(() => localStorage.getItem('saved_nip') || '');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loginError, setLoginError] = useState('');
@@ -206,6 +206,7 @@ const PublicDashboard: React.FC = () => {
            setLoginError(error.message);
         }
       } else {
+        localStorage.setItem('saved_nip', userId);
         navigate('/dashboard');
       }
     } catch (err) {
@@ -477,7 +478,7 @@ const PublicDashboard: React.FC = () => {
                       
                       <button 
                         onClick={() => handleRoleSelect('guru')}
-                        className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-blue-300 dark:hover:border-blue-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
+                        className="bg-white dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-blue-300 dark:hover:border-blue-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
                       >
                           <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                               <GraduationCap size={32} />
@@ -493,7 +494,7 @@ const PublicDashboard: React.FC = () => {
 
                       <button 
                         onClick={() => handleRoleSelect('operator')}
-                        className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-orange-300 dark:hover:border-orange-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
+                        className="bg-white dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-orange-300 dark:hover:border-orange-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
                       >
                           <div className="w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                               <MonitorPlay size={32} />
@@ -509,7 +510,7 @@ const PublicDashboard: React.FC = () => {
 
                       <button 
                         onClick={() => handleRoleSelect('admin')}
-                        className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-slate-400 dark:hover:border-slate-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
+                        className="bg-white dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-slate-400 dark:hover:border-slate-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
                       >
                           <div className="w-16 h-16 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
                               <Shield size={32} />
@@ -524,7 +525,7 @@ const PublicDashboard: React.FC = () => {
                       </button>
                   </div>
                ) : (
-                  <div className="w-full max-w-sm bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-[2rem] shadow-2xl border border-white/50 dark:border-slate-700 overflow-hidden relative animate-fade-in transition-colors">
+                  <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-white/50 dark:border-slate-700 overflow-hidden relative animate-fade-in transition-colors">
                       <div className="p-8">
                           <div className="flex justify-between items-start mb-6">
                               <button 
@@ -553,6 +554,9 @@ const PublicDashboard: React.FC = () => {
                                   <User className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
+                                  name="nip"
+                                  id="nip"
+                                  autoComplete="username"
                                   type="text"
                                   value={userId}
                                   onChange={(e) => setUserId(e.target.value)}
@@ -571,6 +575,9 @@ const PublicDashboard: React.FC = () => {
                                   <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
+                                  name="password"
+                                  id="password"
+                                  autoComplete="current-password"
                                   type={showPassword ? "text" : "password"}
                                   value={password}
                                   onChange={(e) => setPassword(e.target.value)}

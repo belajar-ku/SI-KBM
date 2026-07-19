@@ -180,7 +180,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       
       {/* --- DESKTOP SIDEBAR (Compact Mode Default) --- */}
       {showNav && (
-        <aside className={`hidden md:flex flex-col h-screen sticky top-0 bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl border-r border-slate-200/50 dark:border-slate-700/50 z-20 transition-all duration-300 ${collapsed ? 'w-20' : 'w-72'}`}>
+        <aside className={`hidden md:flex flex-col h-screen sticky top-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700 z-20 transition-all duration-300 ${collapsed ? 'w-20' : 'w-72'}`}>
             {/* Logo Area */}
             <div className={`p-4 flex items-center gap-3 border-b border-slate-100 dark:border-slate-700 ${collapsed ? 'justify-center' : ''} h-20`}>
                  <img 
@@ -284,7 +284,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
           {/* Mobile Header */}
-          <div className="md:hidden sticky top-0 bg-white/70 dark:bg-slate-800/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+1.5rem)]">
+          <div className="md:hidden sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+1.5rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
                  <div className="flex items-center gap-3">
                      <img 
