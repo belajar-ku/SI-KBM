@@ -71,6 +71,17 @@ const PublicDashboard: React.FC = () => {
     const todayStr = getWIBISOString();
     const startOfDay = `${todayStr}T00:00:00+07:00`;
 
+    
+    const todayObj = new Date(todayStr);
+    const jsDay = todayObj.getDay();
+    let jpPerClass = 0;
+    if (jsDay === 1) jpPerClass = 7;
+    else if (jsDay >= 2 && jsDay <= 4) jpPerClass = 8;
+    else if (jsDay === 5) jpPerClass = 5;
+    else if (jsDay === 6) jpPerClass = 6;
+    
+    const calculatedTotalJp = jpPerClass * 24;
+
     try {
         const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
             supabase.from('students').select('id, kelas').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
@@ -171,7 +182,7 @@ const PublicDashboard: React.FC = () => {
         setStats({
             count7: c7, count8: c8, count9: c9,
             classDetails: classCounts,
-            totalJpRequired: 240, 
+            totalJpRequired: calculatedTotalJp, 
             completedJp: completedJp,
             absenceCount: sCount + iCount + aCount,
             absenceDetails: { S: sCount, I: iCount, A: aCount },
@@ -338,12 +349,15 @@ const PublicDashboard: React.FC = () => {
 
             {/* LOGIN */}
             <div className="pt-2">
-                <button 
-                    onClick={() => setShowLoginModal(true)} 
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold text-lg py-4 rounded-2xl flex items-center justify-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none active:translate-y-0.5 transition-all"
-                >
-                    <LogIn size={24} /> Login Sebagai
-                </button>
+                <div className="relative p-[3px] rounded-2xl overflow-hidden group">
+                    <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #f59e0b 360deg)' }}></div>
+                    <button 
+                        onClick={() => setShowLoginModal(true)} 
+                        className="relative z-10 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-4 rounded-[14px] flex items-center justify-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none active:translate-y-0.5 transition-all"
+                    >
+                        <span className="relative overflow-hidden inline-flex items-center justify-center gap-2 group-hover:scale-105 transition-transform"><span className="absolute inset-0 z-20 w-[50%] h-full bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-[200%] animate-[shimmer_2s_infinite]"></span><LogIn size={24} className="relative z-10" /> <span className="relative z-10">Login Sebagai</span></span>
+                    </button>
+                </div>
             </div>
           </>
         ) : <p className="text-center text-gray-400 text-sm mt-10">Gagal memuat data.</p>}

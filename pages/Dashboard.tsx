@@ -14,7 +14,7 @@ interface MonthlyStats {
     totalJp: number;
     targetJp: number;
     totalMeetings: number;
-    classProgress: Record<string, number>;
+    classProgress: Record<string, { count: number, materis: string[] }>;
 }
 
 interface WaliKelasAbsence {
@@ -102,10 +102,12 @@ const Dashboard: React.FC = () => {
           const [profilesRes, schedulesRes, journalsRes] = await Promise.all([
               supabase.from('profiles').select('*').neq('role', 'operator').order('full_name'),
               supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
-                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
-                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
-                      if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
-                          fallback.data = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year') || res.error.message?.includes('schedule_version'))) {
+                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil');
+                      if (fallback.error) {
+                          const ultra = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
+                          if (ultra.data) ultra.data = ultra.data.filter(s => s.academic_year === academicYear && s.semester === semester);
+                          return ultra;
                       }
                       return fallback;
                   }
@@ -170,18 +172,20 @@ const Dashboard: React.FC = () => {
         const startOfDay = `${filterDate}T00:00:00+07:00`;
         const endOfDay = `${filterDate}T23:59:59+07:00`;
 
-        const { data: journals } = await supabase.from('journals').select('hours, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile?.id).gte('created_at', firstDayStr);
+        const { data: journals } = await supabase.from('journals').select('hours, kelas, material').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile?.id).gte('created_at', firstDayStr);
 
         let jp = 0;
         let meetings = 0;
-        const classMap: Record<string, number> = {};
+        const classMap: Record<string, { count: number, materis: string[] }> = {};
 
         if (journals) {
             meetings = journals.length;
             journals.forEach(j => {
                 const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
                 jp += parts.length;
-                classMap[j.kelas] = (classMap[j.kelas] || 0) + 1;
+                if (!classMap[j.kelas]) classMap[j.kelas] = { count: 0, materis: [] };
+                classMap[j.kelas].count += 1;
+                if (j.material) classMap[j.kelas].materis.push(j.material);
             });
         }
 
@@ -816,22 +820,29 @@ const Dashboard: React.FC = () => {
                 {/* CLASS PROGRESS WIDGET */}
                 <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
                     <div className="absolute -bottom-10 -right-6 p-4 opacity-5 pointer-events-none rotate-12"><BookOpen size={180} className="text-slate-900 dark:text-white" /></div>
-                    <h3 className="relative z-10 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-6 flex items-center gap-2 tracking-wide"><TrendingUp size={16} className="text-blue-500"/> Distribusi Pertemuan Kelas (Bulanan)</h3>
+                    <h3 className="relative z-10 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-6 flex items-center gap-2 tracking-wide"><TrendingUp size={16} className="text-blue-500"/> Distribusi Pertemuan Kelas ({new Date().toLocaleDateString('id-ID', { month: 'long' })})</h3>
                     <div className="relative z-10 space-y-3">
                         {Object.keys(stats.classProgress).length === 0 ? (
                             <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500 font-medium italic bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700 border-dashed">Belum ada data mengajar bulan ini.</div>
                         ) : (
-                            Object.entries(stats.classProgress).sort().map(([kelas, count]) => (
-                                <div key={kelas} className="flex items-center justify-between p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors group relative overflow-hidden">
-                                    <div className="flex items-center gap-4 relative z-10">
-                                        <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shadow-sm border border-blue-200 dark:border-blue-800">{kelas}</div>
-                                        <div><h4 className="font-bold text-slate-700 dark:text-white text-sm flex items-center gap-2">Kelas {kelas}</h4><p className="text-xs text-slate-400 font-medium flex items-center gap-1"><Users size={10} /> Data KBM</p></div>
+                            Object.entries(stats.classProgress).sort().map(([kelas, data]) => (
+                                <div key={kelas} className="flex flex-col p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors group relative overflow-hidden">
+                                    <div className="flex items-center justify-between relative z-10">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shadow-sm border border-blue-200 dark:border-blue-800">{kelas}</div>
+                                            <div><h4 className="font-bold text-slate-700 dark:text-white text-sm flex items-center gap-2">Kelas {kelas}</h4><p className="text-xs text-slate-400 font-medium flex items-center gap-1"><Users size={10} /> {data.count} Pertemuan</p></div>
+                                        </div>
+                                        <div className="text-right relative z-10">
+                                            <span className="block text-2xl font-extrabold text-slate-800 dark:text-white leading-none group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{data.count}</span>
+                                        </div>
                                     </div>
-                                    <div className="text-right relative z-10">
-                                        <span className="block text-2xl font-extrabold text-slate-800 dark:text-white leading-none group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{count}</span>
-                                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Pertemuan</span>
+                                    <div className="mt-3 relative z-10">
+                                        <p className="text-xs font-bold text-slate-500 mb-1">Materi Terakhir:</p>
+                                        <ul className="list-disc pl-4 text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2">
+                                            {data.materis.slice(-2).map((m, i) => <li key={i}>{m}</li>)}
+                                        </ul>
                                     </div>
-                                    <div className="absolute bottom-0 left-0 h-1 bg-blue-500/10 w-full"><div className="h-full bg-blue-500/30" style={{ width: `${Math.min(Number(count) * 10, 100)}%` }}></div></div>
+                                    <div className="absolute bottom-0 left-0 h-1 bg-blue-500/10 w-full"><div className="h-full bg-blue-500/30" style={{ width: `${Math.min(Number(data.count) * 10, 100)}%` }}></div></div>
                                 </div>
                             ))
                         )}

@@ -9,21 +9,19 @@ import { useNavigate, useLocation } from 'react-router-dom';
 
 // CHANGED: Default collapsed is now true for all pages
 export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; collapsed?: boolean }> = ({ children, showNav = true, collapsed = true }) => {
-  const { signOut, profile, isOperator, isAdmin } = useAuth();
+  const { signOut, profile, isOperator, isAdmin, academicYear, semester, activeScheduleVersion } = useAuth();
     const navigate = useNavigate();
   const location = useLocation();
   
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [semester, setSemester] = useState('...');
-  const [academicYear, setAcademicYear] = useState('...');
-  const [currentTime, setCurrentTime] = useState(new Date());
+      const [currentTime, setCurrentTime] = useState(new Date());
   
   // NEW: State for Scroll-to-Top Button
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [hasUnfilled, setHasUnfilled] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
-  const { activeScheduleVersion } = useAuth();
+  
 
 
   // Logic to identify Headmaster
@@ -32,20 +30,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const isDhuhaTeacher = profile?.mengajar_mapel?.toLowerCase().includes('dhuha');
 
   useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const { data } = await supabase.from('app_settings').select('*').in('key', ['semester', 'academic_year']);
-        if (data) {
-            const sem = data.find(item => item.key === 'semester')?.value;
-            const year = data.find(item => item.key === 'academic_year')?.value;
-            if (sem) setSemester(sem);
-            if (year) setAcademicYear(year);
-        }
-      } catch (e) {
-        console.error("Failed to load settings", e);
-      }
-    };
-    fetchSettings();
+    
 
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
@@ -93,10 +78,15 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         .eq('semester', semester || 'Ganjil')
                         .eq('schedule_version', activeScheduleVersion || 'Utama');
                         
-                    if (schedErr && (schedErr.code === '42703' || schedErr.message?.includes('academic_year'))) {
-                        const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay);
-                        if (academicYear === '2025/2026') scheds = fallback.data;
-                        else scheds = [];
+                    if (schedErr && (schedErr.code === '42703' || schedErr.message?.includes('academic_year') || schedErr.message?.includes('schedule_version'))) {
+                        const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Genap');
+                        if (fallback.error) {
+                             // If even academic_year doesn't exist
+                             const ultraFallback = await supabase.from('schedules').select('*').eq('teacher_id', profile.id).eq('day_of_week', dbDay);
+                             scheds = (ultraFallback.data || []).filter(s => s.academic_year === academicYear && s.semester === semester);
+                        } else {
+                             scheds = fallback.data;
+                        }
                     }
 
                     const { data: journals } = await supabase.from('journals').select('id, kelas, subject, created_at')
@@ -115,6 +105,10 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                     notifs.sort((a,b) => parseInt(a.hour) - parseInt(b.hour));
                     setNotifications(notifs);
                     setHasUnfilled(notifs.some(n => !n.isFilled));
+                    
+                    
+                    
+                    
                 } catch(e) {}
             };
             fetchNotifs();
@@ -300,14 +294,24 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                      </div>
                  </div>
                  <div className="flex items-center gap-2">
-                     {!isAdmin && !isOperator && !isHeadmaster && (
-        <button onClick={() => setShowNotifModal(true)} className="relative w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
-            <Bell size={18} />
-            {hasUnfilled && (
-                <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 border-2 border-white dark:border-slate-800 rounded-full"></span>
-            )}
-        </button>
-     )}
+                     {!isAdmin && !isOperator && !isHeadmaster && notifications.length > 0 && (
+                        <div className="relative group">
+                            <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
+                                <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: `conic-gradient(from 0deg, transparent 0 340deg, ${hasUnfilled ? '#ef4444' : '#22c55e'} 360deg)` }}></div>
+                            </div>
+                            <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
+                                <Bell size={16} />
+                            </button>
+                            <span className={`absolute top-0 right-0 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-slate-50 dark:border-slate-800 rounded-full px-[3px] ${hasUnfilled ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                                {notifications.length}
+                            </span>
+                        </div>
+                    )}
+                    {!isAdmin && !isOperator && !isHeadmaster && notifications.length === 0 && (
+                        <button onClick={() => setShowNotifModal(true)} className="relative w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
+                            <Bell size={18} />
+                        </button>
+                    )}
                      <button onClick={handleLogoutClick} className="w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-slate-300 active:bg-gray-100 border border-slate-200 dark:border-slate-600 flex-shrink-0">
                          <LogOut size={18}/>
                      </button>
@@ -331,8 +335,29 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                   </div>
               </div>
               <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400">
+                  {!isAdmin && !isOperator && !isHeadmaster && notifications.length > 0 && (
+                      <div className="relative group hover:scale-105 transition-transform">
+                          <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
+                              <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: `conic-gradient(from 0deg, transparent 0 340deg, ${hasUnfilled ? '#ef4444' : '#22c55e'} 360deg)` }}></div>
+                          </div>
+                          <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
+                              <Bell size={16} />
+                          </button>
+                          <span className={`absolute top-0 right-0 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-white dark:border-slate-800 rounded-full px-[3px] ${hasUnfilled ? 'bg-red-500' : 'bg-emerald-500'}`}>
+                              {notifications.length}
+                          </span>
+                      </div>
+                  )}
+                  {!isAdmin && !isOperator && !isHeadmaster && notifications.length === 0 && (
+                      <button onClick={() => setShowNotifModal(true)} className="relative w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform hover:scale-105 active:scale-95">
+                          <Bell size={18} />
+                      </button>
+                  )}
                   <span>{formattedDate}</span>
                   <span className="font-mono text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">{formattedTime} WIB</span>
+                  <button onClick={handleLogoutClick} className="w-9 h-9 ml-2 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors border border-slate-200 dark:border-slate-600 flex-shrink-0">
+                      <LogOut size={18}/>
+                  </button>
               </div>
           </div>
 
@@ -437,7 +462,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
         <div className="fixed inset-0 z-[9999] flex justify-center items-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setShowNotifModal(false)}>
            <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl w-full max-w-sm rounded-3xl shadow-2xl p-5 transform scale-100 transition-all border border-white/50 dark:border-slate-700/50 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
               <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-slate-700">
-                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-white flex items-center gap-2"><Bell size={20} className="text-blue-500"/> Notifikasi Jurnal</h3>
+                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-white flex items-center gap-2"><Bell size={20} className="text-blue-500"/> Jadwal Mengajar</h3>
                   <button onClick={() => setShowNotifModal(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600 p-1 rounded-full transition-colors"><X size={20}/></button>
               </div>
               

@@ -69,7 +69,7 @@ const OperatorDashboard: React.FC = () => {
     const attendanceChannel = supabase.channel('realtime-operator-attendance').on('postgres_changes', { event: '*', schema: 'public', table: 'attendance_logs' }, () => { fetchMonitorData(); }).on('postgres_changes', { event: '*', schema: 'public', table: 'homeroom_attendance' }, () => { fetchMonitorData(); }).subscribe();
     const refreshInterval = setInterval(() => { fetchMonitorData(); }, 180000);
     return () => { supabase.removeChannel(journalChannel); supabase.removeChannel(attendanceChannel); clearInterval(refreshInterval); };
-  }, [filterDate]); 
+  }, [filterDate, academicYear, semester, activeScheduleVersion, semesterStart, semesterEnd]); 
 
   useEffect(() => { if (missingTeachers.length === 0) return; const timer = setInterval(() => { setTickerIndex(prev => (prev + 1) % missingTeachers.length); }, 4000); return () => clearInterval(timer); }, [missingTeachers]);
   useEffect(() => { const rotationTimer = setInterval(() => { setRotationIndex(prev => prev + 1); }, 3000); return () => clearInterval(rotationTimer); }, []);
@@ -102,10 +102,14 @@ const OperatorDashboard: React.FC = () => {
 
           const [schedulesRes, journalsRes, attendanceRes, studentsRes, homeroomRes] = await Promise.all([
               supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
-                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
-                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
-                      if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
-                          fallback.data = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
+                  if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year') || res.error.message?.includes('schedule_version'))) {
+                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Genap');
+                      if (fallback.error) {
+                          const ultraFallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
+                          if (ultraFallback.data) {
+                              ultraFallback.data = ultraFallback.data.filter(s => s.academic_year === academicYear && s.semester === semester);
+                          }
+                          return ultraFallback;
                       }
                       return fallback;
                   }
@@ -243,7 +247,11 @@ const OperatorDashboard: React.FC = () => {
          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
                 <div className="bg-slate-800 p-2.5 rounded-xl text-white shadow-lg hidden sm:block"><MonitorPlay size={24} /></div>
-                <div><h2 className="text-lg font-extrabold text-slate-800 leading-tight">Dashboard Monitoring KBM</h2><div className="flex items-center gap-3 mt-0.5"><div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs font-bold text-slate-600"><CalendarDays size={12}/><input type="date" className="bg-transparent border-none p-0 text-xs font-bold text-slate-700 focus:ring-0 cursor-pointer" value={filterDate} onChange={(e) => setFilterDate(e.target.value)}/></div><span className="text-[10px] text-slate-400 font-mono hidden md:inline">Live Update</span></div></div>
+                <div><h2 className="text-lg font-extrabold text-slate-800 leading-tight">Dashboard Monitoring KBM</h2>
+                    <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">T.A: {academicYear}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700">Semester: {semester}</span>
+                    </div><div className="flex items-center gap-3 mt-0.5"><div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs font-bold text-slate-600"><CalendarDays size={12}/><input type="date" className="bg-transparent border-none p-0 text-xs font-bold text-slate-700 focus:ring-0 cursor-pointer" value={filterDate} onChange={(e) => setFilterDate(e.target.value)}/></div><span className="text-[10px] text-slate-400 font-mono hidden md:inline">Live Update</span></div></div>
             </div>
             <div className="flex-1 overflow-hidden relative bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 flex items-center gap-2 min-h-[42px]">
                 <div className="flex-shrink-0 bg-amber-200 text-amber-700 p-1 rounded-lg"><AlertTriangle size={16} /></div>
