@@ -14,7 +14,7 @@ interface MonthlyStats {
     totalJp: number;
     targetJp: number;
     totalMeetings: number;
-    classProgress: Record<string, { count: number, materis: string[] }>;
+    monthJournals: Array<{ id: string, kelas: string, date: string, material: string, count: number }>;
 }
 
 interface WaliKelasAbsence {
@@ -56,7 +56,7 @@ const Dashboard: React.FC = () => {
   const { isAdmin, profile, academicYear, semester , activeScheduleVersion , semesterStart, semesterEnd } = useAuth();
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin'; 
 
-  const [stats, setStats] = useState<MonthlyStats>({ totalJp: 0, targetJp: 0, totalMeetings: 0, classProgress: {} });
+  const [stats, setStats] = useState<MonthlyStats>({ totalJp: 0, targetJp: 0, totalMeetings: 0, monthJournals: [] });
   const [homeroomAbsences, setHomeroomAbsences] = useState<WaliKelasAbsence[]>([]);
   const [kbmStatus, setKbmStatus] = useState<KbmStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -172,21 +172,27 @@ const Dashboard: React.FC = () => {
         const startOfDay = `${filterDate}T00:00:00+07:00`;
         const endOfDay = `${filterDate}T23:59:59+07:00`;
 
-        const { data: journals } = await supabase.from('journals').select('hours, kelas, material').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile?.id).gte('created_at', firstDayStr);
+        const { data: journals } = await supabase.from('journals').select('id, created_at, hours, kelas, material').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile?.id).gte('created_at', firstDayStr);
 
         let jp = 0;
         let meetings = 0;
-        const classMap: Record<string, { count: number, materis: string[] }> = {};
+        const monthJournals: Array<{ id: string, kelas: string, date: string, material: string, count: number }> = [];
 
         if (journals) {
             meetings = journals.length;
             journals.forEach(j => {
                 const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
                 jp += parts.length;
-                if (!classMap[j.kelas]) classMap[j.kelas] = { count: 0, materis: [] };
-                classMap[j.kelas].count += 1;
-                if (j.material) classMap[j.kelas].materis.push(j.material);
+                monthJournals.push({
+                    id: j.id,
+                    kelas: j.kelas,
+                    date: j.created_at,
+                    material: j.material || '-',
+                    count: parts.length
+                });
             });
+            // Sort by date descending
+            monthJournals.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         }
 
         let { data: mySchedules, error: mySchedError } = await supabase.from('schedules').select('day_of_week, hour').eq('teacher_id', profile?.id).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama');
@@ -215,7 +221,7 @@ const Dashboard: React.FC = () => {
             });
         }
 
-        setStats({ totalJp: jp, targetJp: targetJp, totalMeetings: meetings, classProgress: classMap });
+        setStats({ totalJp: jp, targetJp: targetJp, totalMeetings: meetings, monthJournals });
 
         const dateObj = new Date(); 
         const jsDay = dateObj.getDay(); 
@@ -822,27 +828,30 @@ const Dashboard: React.FC = () => {
                     <div className="absolute -bottom-10 -right-6 p-4 opacity-5 pointer-events-none rotate-12"><BookOpen size={180} className="text-slate-900 dark:text-white" /></div>
                     <h3 className="relative z-10 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-6 flex items-center gap-2 tracking-wide"><TrendingUp size={16} className="text-blue-500"/> Distribusi Pertemuan Kelas ({new Date().toLocaleDateString('id-ID', { month: 'long' })})</h3>
                     <div className="relative z-10 space-y-3">
-                        {Object.keys(stats.classProgress).length === 0 ? (
+                        {stats.monthJournals.length === 0 ? (
                             <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500 font-medium italic bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700 border-dashed">Belum ada data mengajar bulan ini.</div>
                         ) : (
-                            Object.entries(stats.classProgress).sort().map(([kelas, data]) => (
-                                <div key={kelas} className="flex flex-col p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors group relative overflow-hidden">
+                            stats.monthJournals.map((j) => (
+                                <div key={j.id} className="flex flex-col p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors group relative overflow-hidden">
                                     <div className="flex items-center justify-between relative z-10">
                                         <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shadow-sm border border-blue-200 dark:border-blue-800">{kelas}</div>
-                                            <div><h4 className="font-bold text-slate-700 dark:text-white text-sm flex items-center gap-2">Kelas {kelas}</h4><p className="text-xs text-slate-400 font-medium flex items-center gap-1"><Users size={10} /> {data.count} Pertemuan</p></div>
-                                        </div>
-                                        <div className="text-right relative z-10">
-                                            <span className="block text-2xl font-extrabold text-slate-800 dark:text-white leading-none group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{data.count}</span>
+                                            <div className="w-12 h-12 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg shadow-sm border border-blue-200 dark:border-blue-800 min-w-[3rem]">{j.kelas}</div>
+                                            <div>
+                                                <h4 className="font-bold text-slate-700 dark:text-white text-sm flex items-center gap-2">Kelas {j.kelas}</h4>
+                                                <p className="text-xs text-blue-500 dark:text-blue-400 font-bold flex items-center gap-1">
+                                                    <Calendar size={10} /> 
+                                                    {new Date(j.date).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+                                                </p>
+                                            </div>
                                         </div>
                                     </div>
                                     <div className="mt-3 relative z-10">
-                                        <p className="text-xs font-bold text-slate-500 mb-1">Materi Terakhir:</p>
-                                        <ul className="list-disc pl-4 text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2">
-                                            {data.materis.slice(-2).map((m, i) => <li key={i}>{m}</li>)}
-                                        </ul>
+                                        <p className="text-xs font-bold text-slate-500 mb-1">Materi yang diajar:</p>
+                                        <p className="text-xs text-slate-600 dark:text-slate-400 line-clamp-3">
+                                            {j.material}
+                                        </p>
                                     </div>
-                                    <div className="absolute bottom-0 left-0 h-1 bg-blue-500/10 w-full"><div className="h-full bg-blue-500/30" style={{ width: `${Math.min(Number(data.count) * 10, 100)}%` }}></div></div>
+                                    <div className="absolute bottom-0 left-0 h-1 bg-blue-500/10 w-full"><div className="h-full bg-blue-500/30" style={{ width: '100%' }}></div></div>
                                 </div>
                             ))
                         )}

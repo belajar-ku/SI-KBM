@@ -296,15 +296,19 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                  <div className="flex items-center gap-2">
                      {!isAdmin && !isOperator && !isHeadmaster && notifications.length > 0 && (
                         <div className="relative group">
-                            <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
-                                <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: `conic-gradient(from 0deg, transparent 0 340deg, ${hasUnfilled ? '#ef4444' : '#22c55e'} 360deg)` }}></div>
-                            </div>
+                            {hasUnfilled && (
+                                <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
+                                    <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #ef4444 360deg)' }}></div>
+                                </div>
+                            )}
                             <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
                                 <Bell size={16} />
                             </button>
-                            <span className={`absolute top-0 right-0 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-slate-50 dark:border-slate-800 rounded-full px-[3px] ${hasUnfilled ? 'bg-red-500' : 'bg-emerald-500'}`}>
-                                {notifications.length}
-                            </span>
+                            {hasUnfilled && (
+                                <span className="absolute -top-1 -right-1 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-slate-50 dark:border-slate-800 rounded-full px-[3px] bg-red-500">
+                                    {notifications.filter(n => !n.isFilled).length}
+                                </span>
+                            )}
                         </div>
                     )}
                     {!isAdmin && !isOperator && !isHeadmaster && notifications.length === 0 && (
@@ -337,15 +341,19 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
               <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400">
                   {!isAdmin && !isOperator && !isHeadmaster && notifications.length > 0 && (
                       <div className="relative group hover:scale-105 transition-transform">
-                          <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
-                              <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: `conic-gradient(from 0deg, transparent 0 340deg, ${hasUnfilled ? '#ef4444' : '#22c55e'} 360deg)` }}></div>
-                          </div>
+                          {hasUnfilled && (
+                              <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
+                                  <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #ef4444 360deg)' }}></div>
+                              </div>
+                          )}
                           <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
                               <Bell size={16} />
                           </button>
-                          <span className={`absolute top-0 right-0 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-white dark:border-slate-800 rounded-full px-[3px] ${hasUnfilled ? 'bg-red-500' : 'bg-emerald-500'}`}>
-                              {notifications.length}
-                          </span>
+                          {hasUnfilled && (
+                              <span className="absolute -top-1 -right-1 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-white dark:border-slate-800 rounded-full px-[3px] bg-red-500">
+                                  {notifications.filter(n => !n.isFilled).length}
+                              </span>
+                          )}
                       </div>
                   )}
                   {!isAdmin && !isOperator && !isHeadmaster && notifications.length === 0 && (
@@ -473,9 +481,13 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                       </div>
                   ) : (
                       notifications.map((n, i) => (
-                          <div key={i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-100 dark:border-slate-600">
+                          <button 
+                              key={i} 
+                              onClick={() => { setShowNotifModal(false); navigate('/jurnal', { state: { scheduleId: n.id } }); }}
+                              className="w-full flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700/50 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-xl border border-slate-100 dark:border-slate-600 transition-colors text-left group"
+                          >
                               <div>
-                                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200">{n.subject} - Kelas {n.kelas}</p>
+                                  <p className="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{n.subject} - Kelas {n.kelas}</p>
                                   <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Jam ke-{n.hour}</p>
                               </div>
                               <div>
@@ -485,7 +497,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                                       <XCircle size={24} className="text-red-500" />
                                   )}
                               </div>
-                          </div>
+                          </button>
                       ))
                   )}
               </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +17,10 @@ interface NoteItem {
 const smartTitleCase = (str: string) => {
     const smallWords = ['di', 'ke', 'dari', 'pada', 'dalam', 'dengan', 'dan', 'atau', 'yang', 'untuk', 'saja'];
     return str.split(' ').map((word, index) => {
+        if (!word) return '';
+        if (word === word.toUpperCase() && /[A-Z]/.test(word)) {
+            return word;
+        }
         const lower = word.toLowerCase();
         if (index === 0) return lower.charAt(0).toUpperCase() + lower.slice(1);
         if (smallWords.includes(lower)) return lower;
@@ -27,6 +31,7 @@ const smartTitleCase = (str: string) => {
 
 const JurnalForm: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { profile, academicYear, semester , activeScheduleVersion , semesterStart, semesterEnd } = useAuth();
   
   const [step, setStep] = useState(1);
@@ -84,6 +89,14 @@ const JurnalForm: React.FC = () => {
   const isDhuha = isSpecialSubjectDhuha(formData.subject);
 
   useEffect(() => { fetchInitData(); }, [profile]);
+
+  useEffect(() => {
+    if (todaySchedules.length > 0 && location.state?.scheduleId && !initLoading) {
+      handleScheduleSelect(location.state.scheduleId);
+      // clear state so it doesn't re-trigger on remounts
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [todaySchedules, location.state, initLoading]);
 
   useEffect(() => { if (isDhuha && !formData.material) { setFormData(prev => ({ ...prev, material: 'Salat Dhuha' })); } }, [formData.subject, isDhuha]);
 
