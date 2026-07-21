@@ -23,16 +23,17 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const [notifications, setNotifications] = useState<any[]>([]);
   const [hasUnfilled, setHasUnfilled] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
-  const [showTeacherSplash, setShowTeacherSplash] = useState(() => location.state?.justLoggedIn && profile?.role === 'user');
+  const [showTeacherSplash, setShowTeacherSplash] = useState(false);
 
   useEffect(() => {
-     if (location.state?.justLoggedIn) {
+     if (location.state?.justLoggedIn && profile?.role === 'user') {
+        setShowTeacherSplash(true);
         const timer = setTimeout(() => {
             navigate(location.pathname, { replace: true, state: {} });
         }, 100);
         return () => clearTimeout(timer);
      }
-  }, [location, navigate]);
+  }, [location.state?.justLoggedIn, profile?.role, navigate, location.pathname]);
   
 
 
@@ -484,8 +485,11 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {showNotifModal && (
         <div className="fixed inset-0 z-[9999] flex justify-center items-center p-4 bg-slate-900/40 backdrop-blur-sm animate-fade-in" onClick={() => setShowNotifModal(false)}>
            <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl w-full max-w-sm rounded-3xl shadow-2xl p-5 transform scale-100 transition-all border border-white/50 dark:border-slate-700/50 relative overflow-hidden" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100 dark:border-slate-700">
-                  <h3 className="text-lg font-extrabold text-slate-800 dark:text-white flex items-center gap-2"><Bell size={20} className="text-blue-500"/> Jadwal Mengajar</h3>
+              <div className="flex justify-between items-start mb-4 pb-3 border-b border-gray-100 dark:border-slate-700">
+                  <div>
+                      <h3 className="text-lg font-extrabold text-slate-800 dark:text-white flex items-center gap-2"><Bell size={20} className="text-blue-500"/> Jadwal Mengajar</h3>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">Klik salah satu untuk mengisi Jurnal Pembelajaran!</p>
+                  </div>
                   <button onClick={() => setShowNotifModal(false)} className="text-gray-400 hover:text-gray-600 bg-gray-50 hover:bg-gray-100 dark:bg-slate-700 dark:hover:bg-slate-600 p-1 rounded-full transition-colors"><X size={20}/></button>
               </div>
               

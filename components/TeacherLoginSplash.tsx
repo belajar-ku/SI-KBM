@@ -43,9 +43,9 @@ export const TeacherLoginSplash: React.FC<{ onFinish: () => void, hasUnfilled: b
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 1, 1, 0] }}
             transition={{ duration: 4.5, times: [0, 0.1, 0.6, 0.7] }}
-            className="text-3xl font-extrabold text-white text-center tracking-wide leading-tight mb-8 drop-shadow-lg"
+            className="text-3xl font-extrabold text-white text-center tracking-wide leading-tight mb-8 drop-shadow-lg max-w-lg"
          >
-             Perhatikan fitur berikut!
+             Anda Memiliki {notifCount} Pemberitahuan. Klik Icon berikut!
          </motion.h1>
          <div className="relative">
              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.5)]">

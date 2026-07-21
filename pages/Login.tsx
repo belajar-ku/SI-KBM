@@ -43,7 +43,7 @@ const Login: React.FC = () => {
         }
       } else {
         localStorage.setItem('saved_nip', userId);
-        navigate('/dashboard');
+        navigate('/dashboard', { state: { justLoggedIn: true } });
       }
     } catch (err) {
       setError('Terjadi kesalahan sistem.');
