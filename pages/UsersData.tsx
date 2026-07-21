@@ -5,6 +5,7 @@ import { supabase } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js'; 
 import { Profile } from '../types';
 import { Search, UserCog, GraduationCap, Shield, Edit, Save, X, Loader2, ChevronDown, Check, UserPlus, KeyRound, Eye, EyeOff, Lock, User, RefreshCw } from 'lucide-react';
+import { showAlert, showConfirm } from '../utils/alert';
 
 const PasswordCell = ({ password }: { password?: string }) => {
   const [show, setShow] = useState(false);
@@ -93,7 +94,7 @@ const UsersData: React.FC = () => {
             setSubjectsList(parsed); 
         } catch(e) { console.error("Parse subjects error", e); }
       }
-    } catch (err: any) { alert('Gagal mengambil data user: ' + err.message); } finally { setLoading(false); }
+    } catch (err: any) { showAlert('Gagal mengambil data user: ' + err.message); } finally { setLoading(false); }
   };
 
   const handleEditClick = (user: Profile) => {
@@ -133,12 +134,12 @@ const UsersData: React.FC = () => {
 
       setProfiles(prev => prev.map(p => p.id === editingUser.id ? { ...p, mengajar_mapel: finalMapel, wali_kelas: editFormData.wali_kelas } : p));
       setEditingUser(null);
-    } catch (err: any) { alert('Gagal menyimpan data: ' + err.message); } finally { setSaving(false); }
+    } catch (err: any) { showAlert('Gagal menyimpan data: ' + err.message); } finally { setSaving(false); }
   };
 
   const handleCreateUser = async () => {
-      if (!newUser.nip || !newUser.fullName || !newUser.password) { alert("NIP, Nama Lengkap, dan Password wajib diisi."); return; }
-      if (!serviceKey) { alert("Service Role Key wajib diisi untuk membuat akun Login."); return; }
+      if (!newUser.nip || !newUser.fullName || !newUser.password) { showAlert("NIP, Nama Lengkap, dan Password wajib diisi."); return; }
+      if (!serviceKey) { showAlert("Service Role Key wajib diisi untuk membuat akun Login."); return; }
       setSaving(true);
       try {
           let finalMapelNew = newUser.mapel;
@@ -173,15 +174,15 @@ const UsersData: React.FC = () => {
 
           await supabase.from('tabel_guru').upsert({ nip: newUser.nip, nama_lengkap: newUser.fullName, mapel: typeof finalMapelNew !== 'undefined' ? finalMapelNew : newUser.mapel, wali_kelas: newUser.waliKelas });
 
-          alert("User berhasil ditambahkan!");
+          showAlert("User berhasil ditambahkan!");
           setIsAddModalOpen(false);
           setNewUser({ nip: '', fullName: '', password: 'Spansa@1', role: 'user', mapel: '', waliKelas: '' });
           fetchData(); 
-      } catch (err: any) { alert(err.message); } finally { setSaving(false); }
+      } catch (err: any) { showAlert(err.message); } finally { setSaving(false); }
   };
 
   const handleResetPasswordAction = async () => {
-      if(!resetData.newPassword || !serviceKey) { alert("Password baru dan Service Key wajib diisi."); return; }
+      if(!resetData.newPassword || !serviceKey) { showAlert("Password baru dan Service Key wajib diisi."); return; }
       setSaving(true);
       try {
           const SUPABASE_URL = 'https://aobgqejpjomgwxiosgin.supabase.co'; 
@@ -193,11 +194,11 @@ const UsersData: React.FC = () => {
           const { error: profileError } = await supabase.from('profiles').update({ password_info: resetData.newPassword }).eq('id', resetData.userId);
           if (profileError) throw new Error("Gagal update Profile: " + profileError.message);
 
-          alert("Password berhasil direset!");
+          showAlert("Password berhasil direset!");
           setProfiles(prev => prev.map(p => p.id === resetData.userId ? { ...p, password_info: resetData.newPassword } : p));
           setResetModalOpen(false);
           setResetData({ userId: '', userName: '', newPassword: '' });
-      } catch(e: any) { alert(e.message); } finally { setSaving(false); }
+      } catch(e: any) { showAlert(e.message); } finally { setSaving(false); }
   };
 
     const toggleMapelSelection = (subject: string, isEditMode: boolean) => {

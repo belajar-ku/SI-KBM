@@ -5,6 +5,7 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
 import { Search, GraduationCap, Edit, UserPlus, UserMinus, Trash2, Save, X, Loader2, Filter, ArrowRight , TrendingUp } from 'lucide-react';
+import { showAlert, showConfirm } from '../utils/alert';
 
 const StudentsData: React.FC = () => {
   const { academicYear } = useAuth();
@@ -79,7 +80,7 @@ const StudentsData: React.FC = () => {
       if (error) throw error;
       setStudents(data || []);
     } catch (err: any) {
-      alert('Gagal mengambil data murid: ' + err.message);
+      showAlert('Gagal mengambil data murid: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -111,16 +112,16 @@ const StudentsData: React.FC = () => {
   
   const handleKenaikanKelas = async () => {
       if (!targetYear) {
-          alert('Pilih Tahun Ajaran tujuan!');
+          showAlert('Pilih Tahun Ajaran tujuan!');
           return;
       }
       if (targetYear === academicYear) {
-          alert('Tahun Ajaran tujuan tidak boleh sama dengan yang sekarang!');
+          showAlert('Tahun Ajaran tujuan tidak boleh sama dengan yang sekarang!');
           return;
       }
       
       const confirmMsg = `Apakah Anda yakin memproses kenaikan kelas dari ${academicYear} ke ${targetYear}?\n\nSiswa Kelas 7 akan naik ke Kelas 8.\nSiswa Kelas 8 akan naik ke Kelas 9.\nSiswa Kelas 9 akan diluluskan (Data tidak disalin ke tahun ajaran baru).`;
-      if (!window.confirm(confirmMsg)) return;
+      if (!await showConfirm(confirmMsg)) return;
       
       setKenaikanLoading(true);
       try {
@@ -131,7 +132,7 @@ const StudentsData: React.FC = () => {
               
           if (fetchErr) throw fetchErr;
           if (!currentStudents || currentStudents.length === 0) {
-              alert('Tidak ada data murid di tahun ajaran saat ini.');
+              showAlert('Tidak ada data murid di tahun ajaran saat ini.');
               setKenaikanLoading(false);
               return;
           }
@@ -161,7 +162,7 @@ const StudentsData: React.FC = () => {
           }
           
           if (newRecords.length === 0) {
-              alert('Tidak ada murid yang dapat dinaikkan (semua kelas 9 atau data tidak valid).');
+              showAlert('Tidak ada murid yang dapat dinaikkan (semua kelas 9 atau data tidak valid).');
               setKenaikanLoading(false);
               return;
           }
@@ -177,10 +178,10 @@ const StudentsData: React.FC = () => {
               throw insertErr;
           }
           
-          alert(`Berhasil memproses kenaikan kelas untuk ${newRecords.length} murid!`);
+          showAlert(`Berhasil memproses kenaikan kelas untuk ${newRecords.length} murid!`);
           setShowKenaikanModal(false);
       } catch (err: any) {
-          alert('Gagal memproses kenaikan kelas: ' + err.message);
+          showAlert('Gagal memproses kenaikan kelas: ' + err.message);
       } finally {
           setKenaikanLoading(false);
       }
@@ -188,7 +189,7 @@ const StudentsData: React.FC = () => {
 
   const handleSaveMasuk = async () => {
       if (!formData.nisn || !formData.name || !formData.kelas) {
-          alert("NISN, Nama, dan Kelas wajib diisi!");
+          showAlert("NISN, Nama, dan Kelas wajib diisi!");
           return;
       }
       setSaving(true);
@@ -220,7 +221,7 @@ const StudentsData: React.FC = () => {
           }
           setIsModalOpen(false);
       } catch (err: any) {
-          alert("Gagal menyimpan: " + err.message);
+          showAlert("Gagal menyimpan: " + err.message);
       } finally {
           setSaving(false);
       }
@@ -228,7 +229,7 @@ const StudentsData: React.FC = () => {
 
   const handleSaveKeluar = async () => {
       if (!mutasiKeluarData.kelas || !mutasiKeluarData.studentId) {
-          alert("Pilih Kelas dan Murid terlebih dahulu.");
+          showAlert("Pilih Kelas dan Murid terlebih dahulu.");
           return;
       }
       setSaving(true);
@@ -237,13 +238,13 @@ const StudentsData: React.FC = () => {
               const { error } = await supabase.from('students').delete().eq('id', mutasiKeluarData.studentId);
               if (error) throw error;
               setStudents(prev => prev.filter(s => s.id !== mutasiKeluarData.studentId));
-              alert("Data murid berhasil dihapus (Mutasi Keluar).");
+              showAlert("Data murid berhasil dihapus (Mutasi Keluar).");
           } else {
-              alert("Tidak ada perubahan disimpan karena status 'Aktif'.");
+              showAlert("Tidak ada perubahan disimpan karena status 'Aktif'.");
           }
           setIsModalOpen(false);
       } catch (err: any) {
-          alert("Gagal memproses: " + err.message);
+          showAlert("Gagal memproses: " + err.message);
       } finally {
           setSaving(false);
       }

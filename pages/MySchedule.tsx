@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Schedule } from '../types';
 import { Calendar, Clock, BookOpen, Loader2, CalendarDays, Download, ImageIcon } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { showAlert, showConfirm } from '../utils/alert';
 
 const MySchedule: React.FC = () => {
   const { profile, academicYear, semester , activeScheduleVersion } = useAuth();
@@ -103,7 +104,7 @@ const MySchedule: React.FC = () => {
           link.href = canvas.toDataURL('image/png', 1.0);
           link.click();
       } catch (e) {
-          alert("Gagal mengunduh gambar.");
+          showAlert("Gagal mengunduh gambar.");
           console.error(e);
       } finally {
           setDownloading(false);

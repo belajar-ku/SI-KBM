@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, Filter, Search, Gavel, User, Calendar, ChevronUp } from 'lucide-react';
 import { Student } from '../types';
 import { getWIBISOString } from '../utils/dateUtils';
+import { showAlert, showConfirm } from '../utils/alert';
 
 interface NoteItem {
     category: string;
@@ -332,7 +333,7 @@ const Kedisiplinan: React.FC = () => {
           } else {
               // Mass Mode
               if (!massCommonData.category || massRows.length === 0) {
-                  alert("Mohon lengkapi Jenis Pelanggaran dan Data Murid.");
+                  showAlert("Mohon lengkapi Jenis Pelanggaran dan Data Murid.");
                   return;
               }
               
@@ -361,7 +362,7 @@ const Kedisiplinan: React.FC = () => {
           if (notesInserts.length > 0) {
               const { error } = await supabase.from('journal_notes').insert(notesInserts);
               if (error) throw error;
-              alert("Data pelanggaran berhasil disimpan.");
+              showAlert("Data pelanggaran berhasil disimpan.");
               setShowInputForm(false);
               
               // Reset States
@@ -372,10 +373,10 @@ const Kedisiplinan: React.FC = () => {
               
               fetchReportData();
           } else {
-              alert("Tidak ada data valid untuk disimpan.");
+              showAlert("Tidak ada data valid untuk disimpan.");
           }
       } catch (err: any) {
-          alert("Gagal menyimpan: " + err.message);
+          showAlert("Gagal menyimpan: " + err.message);
       }
   };
 

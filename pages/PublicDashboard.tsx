@@ -218,7 +218,7 @@ const PublicDashboard: React.FC = () => {
         }
       } else {
         localStorage.setItem('saved_nip', userId);
-        navigate('/dashboard');
+        navigate('/dashboard', { state: { justLoggedIn: true } });
       }
     } catch (err) {
       setLoginError('Terjadi kesalahan sistem.');
@@ -270,7 +270,7 @@ const PublicDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-[calc(env(safe-area-inset-top)+0.5rem)] font-sans bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
-      <main className="w-full max-w-md space-y-4">
+      <main className="w-full max-w-md space-y-4 my-auto">
         
         {/* HEADER CARD */}
         <div className="app-card p-5 flex items-center justify-between bg-white dark:bg-slate-800">

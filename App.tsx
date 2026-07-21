@@ -1,8 +1,11 @@
 
-import React from 'react';
+import React, { useState } from 'react';
+import { AnimatePresence } from 'motion/react';
+import { AppSplash } from './components/AppSplash';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider } from './contexts/ThemeContext'; // Import ThemeProvider
+import { ThemeProvider } from './contexts/ThemeContext';
+import { CustomAlertProvider } from './components/CustomAlertProvider'; // Import ThemeProvider
 import PublicDashboard from './pages/PublicDashboard';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -60,10 +63,19 @@ const AdminRoute: React.FC<{ children: React.ReactElement }> = ({ children }) =>
   };
 
 const App: React.FC = () => {
+  const [showSplash, setShowSplash] = useState(() => !sessionStorage.getItem('splashShown'));
+  const handleSplashFinish = () => {
+    sessionStorage.setItem('splashShown', 'true');
+    setShowSplash(false);
+  };
   return (
     <ThemeProvider> 
       <AuthProvider>
+        <CustomAlertProvider>
         <HashRouter>
+          <AnimatePresence>
+            {showSplash && <AppSplash key="splash" onFinish={handleSplashFinish} />}
+          </AnimatePresence>
           <Routes>
             <Route path="/" element={<PublicDashboard />} />
             <Route path="/login" element={<Login />} />
@@ -184,6 +196,7 @@ const App: React.FC = () => {
 
           </Routes>
         </HashRouter>
+        </CustomAlertProvider>
       </AuthProvider>
     </ThemeProvider>
   );

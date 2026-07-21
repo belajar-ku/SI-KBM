@@ -4,6 +4,7 @@ import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { User, Camera, Save, AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { showAlert, showConfirm } from '../utils/alert';
 
 const ProfilePage: React.FC = () => {
   const { profile, academicYear, semester } = useAuth();
@@ -75,7 +76,7 @@ const ProfilePage: React.FC = () => {
     const fileSizeLimit = 500 * 1024; // 500 KB
 
     if (file.size > fileSizeLimit) {
-      alert("Ukuran file maksimal 500 KB");
+      showAlert("Ukuran file maksimal 500 KB");
       return;
     }
 
@@ -110,7 +111,7 @@ const ProfilePage: React.FC = () => {
       setMsg({ type: 'success', text: 'Foto profil berhasil diupload!' });
 
     } catch (err: any) {
-      alert('Gagal upload foto: ' + err.message);
+      showAlert('Gagal upload foto: ' + err.message);
     } finally {
       setLoading(false);
     }

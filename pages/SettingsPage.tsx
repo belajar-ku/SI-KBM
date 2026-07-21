@@ -4,6 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square, User, BookOpen, AlertCircle, Sparkles, Gavel } from 'lucide-react';
 import { AppSetting, NonEffectiveDay, Profile } from '../types';
+import { showAlert, showConfirm } from '../utils/alert';
 
 const SettingsPage: React.FC = () => {
   const [settings, setSettings] = useState<Record<string, string>>({
@@ -125,8 +126,8 @@ const SettingsPage: React.FC = () => {
       }
   };
 
-  const removeFromList = (item: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>) => {
-      if(confirm(`Hapus item "${item}"?`)) {
+  const removeFromList = async (item: string, list: string[], setList: React.Dispatch<React.SetStateAction<string[]>>) => {
+      if(await showConfirm(`Hapus item "${item}"?`)) {
           setList(prev => prev.filter(s => s !== item));
       }
   };
@@ -148,9 +149,9 @@ const SettingsPage: React.FC = () => {
           const { error } = await supabase.from('app_settings').upsert(updates);
           if (error) throw error;
           
-          alert("Pengaturan umum & data master berhasil disimpan!");
+          showAlert("Pengaturan umum & data master berhasil disimpan!");
       } catch (err: any) {
-          alert("Gagal menyimpan: " + (err.message || err));
+          showAlert("Gagal menyimpan: " + (err.message || err));
       } finally {
           setSaving(false);
       }
@@ -166,11 +167,11 @@ const SettingsPage: React.FC = () => {
 
   const handleAddDay = () => {
       if (!newDay.date || !newDay.reason) {
-          alert("Tanggal dan Keterangan wajib diisi.");
+          showAlert("Tanggal dan Keterangan wajib diisi.");
           return;
       }
       if (!isFullDay && selectedHours.length === 0) {
-          alert("Pilih minimal satu jam jika bukan Full Day.");
+          showAlert("Pilih minimal satu jam jika bukan Full Day.");
           return;
       }
       const hoursString = isFullDay 
@@ -205,7 +206,7 @@ const SettingsPage: React.FC = () => {
           });
           if (error) throw error;
       } catch (err: any) {
-          alert("Gagal menyimpan hari libur: " + (err.message || "Unknown error"));
+          showAlert("Gagal menyimpan hari libur: " + (err.message || "Unknown error"));
       }
   };
 

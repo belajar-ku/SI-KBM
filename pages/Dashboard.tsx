@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 import { Student, Profile } from '../types';
+import { showAlert, showConfirm } from '../utils/alert';
 
 interface MonthlyStats {
     totalJp: number;
@@ -405,7 +406,7 @@ const Dashboard: React.FC = () => {
           }
           setShowInputForm(false); // Close accordion
           fetchDashboardData(); 
-      } catch(e) { alert("Gagal menyimpan absensi: " + e); } finally { setSavingAttendance(false); }
+      } catch(e) { showAlert("Gagal menyimpan absensi: " + e); } finally { setSavingAttendance(false); }
   };
 
   const toggleModalStatus = (studentId: string, status: 'S'|'I'|'A'|'D') => {
@@ -458,7 +459,7 @@ const Dashboard: React.FC = () => {
           }
           setShowEditSpecificModal(false);
           fetchDashboardData();
-      } catch (e) { alert("Gagal menyimpan perubahan: " + e); } finally { setSavingAttendance(false); }
+      } catch (e) { showAlert("Gagal menyimpan perubahan: " + e); } finally { setSavingAttendance(false); }
   };
 
   const filterAbsences = (status: string) => homeroomAbsences.filter(a => a.status === status);

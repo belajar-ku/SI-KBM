@@ -6,6 +6,8 @@ import { Bell, CheckCircle2, XCircle, X } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset, ArrowUp, AlertCircle, Settings, Database, Users, GraduationCap, Upload, Edit3, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { TeacherLoginSplash } from './TeacherLoginSplash';
+import { AnimatePresence } from 'motion/react';
 
 // CHANGED: Default collapsed is now true for all pages
 export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; collapsed?: boolean }> = ({ children, showNav = true, collapsed = true }) => {
@@ -21,6 +23,16 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const [notifications, setNotifications] = useState<any[]>([]);
   const [hasUnfilled, setHasUnfilled] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
+  const [showTeacherSplash, setShowTeacherSplash] = useState(() => location.state?.justLoggedIn && profile?.role === 'user');
+
+  useEffect(() => {
+     if (location.state?.justLoggedIn) {
+        const timer = setTimeout(() => {
+            navigate(location.pathname, { replace: true, state: {} });
+        }, 100);
+        return () => clearTimeout(timer);
+     }
+  }, [location, navigate]);
   
 
 
@@ -170,7 +182,11 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const formattedTime = new Intl.DateTimeFormat('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }).format(currentTime).replace(/\./g, ':');
 
   return (
-    <div className="min-h-screen flex bg-[#F0F4F8] dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-300">
+    <>
+      <AnimatePresence>
+        {showTeacherSplash && <TeacherLoginSplash key="tsplash" onFinish={() => setShowTeacherSplash(false)} hasUnfilled={hasUnfilled} notifCount={notifications.filter(n => !n.isFilled).length} />}
+      </AnimatePresence>
+      <div className="min-h-screen flex bg-[#F0F4F8] dark:bg-slate-900 font-sans text-slate-800 dark:text-slate-100 transition-colors duration-300">
       
       {/* --- DESKTOP SIDEBAR (Compact Mode Default) --- */}
       {showNav && (
@@ -408,8 +424,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
             </div>
         </div>
       )}
-
-      
+  
       {/* Mobile Nav for Admin */}
       {showNav && isAdmin && (
            <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
@@ -506,5 +521,6 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       )}
 
     </div>
+    </>
   );
 };

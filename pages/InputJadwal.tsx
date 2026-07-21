@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { CalendarPlus, Save, CheckCircle, AlertCircle, Loader2, User, Plus, Trash2, BookOpen, Clock, Edit, X, Database, ListChecks } from 'lucide-react';
 import { Profile, Schedule } from '../types';
+import { showAlert, showConfirm } from '../utils/alert';
 
 interface ScheduleQueueItem {
     id: string; 
@@ -74,7 +75,7 @@ const InputJadwal: React.FC = () => {
   
   const handleCreateNewVersion = () => {
       if (!newVersionName.trim()) {
-          alert("Nama versi tidak boleh kosong!");
+          showAlert("Nama versi tidak boleh kosong!");
           return;
       }
       
@@ -83,7 +84,7 @@ const InputJadwal: React.FC = () => {
       setWorkingVersion(vName);
       setNewVersionName('');
       setShowNewVersionModal(false);
-      alert(`Berhasil membuat versi jadwal baru: ${vName}. Silakan tambahkan jadwal.`);
+      showAlert(`Berhasil membuat versi jadwal baru: ${vName}. Silakan tambahkan jadwal.`);
   };
 
 
@@ -219,12 +220,12 @@ const InputJadwal: React.FC = () => {
   };
 
   const handleDeleteDbSchedule = async (id: string) => {
-      if(!confirm("Yakin ingin menghapus jadwal ini?")) return;
+      if(!await showConfirm("Yakin ingin menghapus jadwal ini?")) return;
       try {
           const { error } = await supabase.from('schedules').delete().eq('id', id);
           if (error) throw error;
           if (selectedTeacher) fetchTeacherSchedules(selectedTeacher.id);
-      } catch (err: any) { alert("Gagal menghapus: " + err.message); }
+      } catch (err: any) { showAlert("Gagal menghapus: " + err.message); }
   };
 
   const openEditModal = (item: Schedule) => {
@@ -250,7 +251,7 @@ const InputJadwal: React.FC = () => {
         if (error) throw error;
         setEditingItem(null); 
         if (selectedTeacher) fetchTeacherSchedules(selectedTeacher.id); 
-      } catch (err: any) { alert("Gagal update: " + err.message); } finally { setSubmitting(false); }
+      } catch (err: any) { showAlert("Gagal update: " + err.message); } finally { setSubmitting(false); }
   };
 
   const toggleEditJam = (j: number) => {
