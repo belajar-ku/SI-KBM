@@ -5,7 +5,7 @@ import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Schedule, Journal } from '../types';
 import { getWIBISOString, getWIBDate } from '../utils/dateUtils';
-import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban, ChevronRight, Plus, Trash2, ChevronDown, CheckSquare, Square, Gavel } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Send, Sparkles, BookOpen, Clock, ToggleLeft, ToggleRight, Loader2, Edit3, XCircle, CheckCircle2, MessageSquare, History, ClipboardCheck, X, ClipboardList, BookOpenCheck, Ban, ChevronRight, Plus, Trash2, ChevronDown, CheckSquare, Square, Gavel, Lock } from 'lucide-react';
 
 interface NoteItem {
     category: string;
@@ -71,6 +71,7 @@ const JurnalForm: React.FC = () => {
     message: string;
   }>({ isOpen: false, type: 'success', title: '', message: '' });
 
+  const [lockedAttendance, setLockedAttendance] = useState<string[]>([]);
   const [formData, setFormData] = useState({
     kelas: '',
     subject: '',
@@ -228,13 +229,14 @@ const JurnalForm: React.FC = () => {
               loadedNotes.activity = Object.entries(actMap).map(([key, studentIds]) => { const [category, _, note] = key.split('|'); return { category, note, studentIds }; });
           }
           setNotesData(loadedNotes);
+          setLockedAttendance([]);
           setFormData({ kelas: existing.kelas, subject: existing.subject, hours: existing.hours.split(',').map(s => s.trim()), material: existing.material, attendance: attendanceMap, cleanliness: existing.cleanliness as any, validation: existing.validation as any, notes: existing.notes || '', isConfirmed: existing.validation === 'hadir_kbm' });
       } else {
           setEditJournalId(null); setNotesData({ discipline: [], activity: [] });
           let hoursParsed: string[] = []; if (selectedSchedule.hour.includes(',')) hoursParsed = selectedSchedule.hour.split(',').map(s => s.trim()); else hoursParsed = [selectedSchedule.hour];
           const isDhuhaSched = isSpecialSubjectDhuha(selectedSchedule.subject); const defaultMaterial = isDhuhaSched ? 'Salat Dhuha' : '';
           const todayStr = getWIBISOString();
-          supabase.from('homeroom_attendance').select('student_id, status').eq('date', todayStr).eq('kelas', selectedSchedule.kelas).then(({data}) => { if (data && data.length > 0) { const initialAttendance: Record<string, any> = {}; data.forEach(r => { if (['S', 'I', 'A', 'D'].includes(r.status)) { initialAttendance[r.student_id] = r.status; } }); setFormData(prev => ({...prev, attendance: {...prev.attendance, ...initialAttendance}})); } });
+          supabase.from('homeroom_attendance').select('student_id, status').eq('date', todayStr).eq('kelas', selectedSchedule.kelas).then(({data}) => { if (data && data.length > 0) { const initialAttendance: Record<string, any> = {}; const locked: string[] = []; data.forEach(r => { if (['S', 'I', 'A', 'D'].includes(r.status)) { initialAttendance[r.student_id] = r.status; locked.push(r.student_id); } }); setFormData(prev => ({...prev, attendance: {...prev.attendance, ...initialAttendance}})); setLockedAttendance(locked); } else { setLockedAttendance([]); } });
           setFormData({ kelas: selectedSchedule.kelas, subject: selectedSchedule.subject, hours: hoursParsed, material: defaultMaterial, attendance: {}, cleanliness: '', validation: '', notes: '', isConfirmed: false });
       }
   };
@@ -429,7 +431,7 @@ const JurnalForm: React.FC = () => {
                                                        return (
                                                            <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                                                                <td className="p-2 sm:p-3 pl-3 sm:pl-4 overflow-hidden">
-                                                                   <div className="font-bold text-slate-700 text-xs sm:text-sm truncate w-full" title={student.name}>{student.name}</div>
+                                                                   <div className="font-bold text-slate-700 text-xs sm:text-sm truncate w-full flex items-center gap-1" title={student.name}>{student.name}{lockedAttendance.includes(student.id) && <span title="Diisi & dikunci oleh Wali Kelas" className="flex items-center"><Lock size={12} className="text-slate-400" /></span>}</div>
                                                                    <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                                                        {stats.A > 0 && <span className="text-red-600 text-[10px] font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap">A: {stats.A}</span>}
                                                                        {isDhuha && stats.D > 0 && <span className="text-purple-600 text-[10px] font-extrabold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 whitespace-nowrap">D: {stats.D}</span>}
@@ -440,12 +442,12 @@ const JurnalForm: React.FC = () => {
                                                                    <>
                                                                        <td className="p-1 sm:p-2 text-center align-middle">
                                                                            <div className="flex justify-center">
-                                                                               <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500" checked={formData.attendance[student.id] === 'A'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'A') delete newAtt[student.id]; else newAtt[student.id] = 'A'; setFormData({...formData, attendance: newAtt}); }} />
+                                                                               <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled={lockedAttendance.includes(student.id)} checked={formData.attendance[student.id] === 'A'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'A') delete newAtt[student.id]; else newAtt[student.id] = 'A'; setFormData({...formData, attendance: newAtt}); }} />
                                                                            </div>
                                                                        </td>
                                                                        <td className="p-1 sm:p-2 text-center align-middle">
                                                                            <div className="flex justify-center">
-                                                                               <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500" checked={formData.attendance[student.id] === 'D'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'D') delete newAtt[student.id]; else newAtt[student.id] = 'D'; setFormData({...formData, attendance: newAtt}); }} />
+                                                                               <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled={lockedAttendance.includes(student.id)} checked={formData.attendance[student.id] === 'D'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'D') delete newAtt[student.id]; else newAtt[student.id] = 'D'; setFormData({...formData, attendance: newAtt}); }} />
                                                                            </div>
                                                                        </td>
                                                                    </>
@@ -455,7 +457,8 @@ const JurnalForm: React.FC = () => {
                                                                            <div className="flex justify-center">
                                                                                <input 
                                                                                    type="checkbox" 
-                                                                                   className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer ${status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' : status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' : status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' : 'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'}`} 
+                                                                                   disabled={lockedAttendance.includes(student.id)}
+                                                                                   className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' : status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' : status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' : 'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'}`} 
                                                                                    checked={formData.attendance[student.id] === status} 
                                                                                    onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === status) delete newAtt[student.id]; else newAtt[student.id] = status as any; setFormData({...formData, attendance: newAtt}); }} 
                                                                                />
