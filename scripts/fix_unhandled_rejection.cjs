@@ -1,18 +1,11 @@
-import React from 'react';
+const fs = require('fs');
+const path = require('path');
+const file = path.join(__dirname, '../index.tsx');
+let content = fs.readFileSync(file, 'utf8');
+
+const newContent = `import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
-
-
-const originalConsoleError = console.error;
-console.error = (...args) => {
-    if (args[0] && typeof args[0] === 'string' && (args[0].includes('Refresh Token') || args[0].includes('refresh token'))) {
-        return;
-    }
-    if (args[0] && args[0].message && (args[0].message.includes('Refresh Token') || args[0].message.includes('refresh token'))) {
-        return;
-    }
-    originalConsoleError.apply(console, args);
-};
 
 window.addEventListener('unhandledrejection', (event) => {
     if (event.reason && event.reason.message && (event.reason.message.includes('Refresh Token') || event.reason.message.includes('refresh token'))) {
@@ -31,4 +24,7 @@ root.render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
-);
+);`;
+
+fs.writeFileSync(file, newContent);
+console.log('Added unhandled rejection handler to index.tsx');

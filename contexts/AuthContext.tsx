@@ -70,9 +70,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
           setIsLoading(false);
         }
-      } catch (error) {
-        console.warn("Auth initialization failed (likely no connection):", error);
-        // Do not block app loading on auth error
+      } catch (error: any) {
+        console.warn("Auth initialization failed:", error);
+        if (error?.message?.includes('Refresh Token') || error?.message?.includes('refresh token')) {
+            await supabase.auth.signOut().catch(() => {});
+        }
         setIsLoading(false);
       }
     };
@@ -135,7 +137,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     if (isSupabaseConfigured) {
-      await supabase.auth.signOut();
+      try {
+          await supabase.auth.signOut();
+      } catch (err) {
+          console.warn("Sign out error", err);
+      }
     }
     setProfile(null);
     setSession(null);
