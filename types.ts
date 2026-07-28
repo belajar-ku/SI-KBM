@@ -72,6 +72,7 @@ export interface PublicStats {
   count8: number;
   count9: number;
   classDetails: Record<string, number>;
+  classGenderDetails?: Record<string, { L: number; P: number }>;
   totalJpRequired: number;
   completedJp: number;
   absenceCount: number;

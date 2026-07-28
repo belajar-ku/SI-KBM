@@ -60,7 +60,7 @@ const PublicDashboard: React.FC = () => {
   const useMockData = () => { 
       setStats({
           count7: 0, count8: 0, count9: 0,
-          classDetails: {},
+          classDetails: {}, classGenderDetails: {},
           totalJpRequired: 100, completedJp: 0,
           absenceCount: 0, absenceDetails: {S:0, I:0, A:0},
           absencePerClass: {}, unfilledKbm: []
@@ -84,9 +84,9 @@ const PublicDashboard: React.FC = () => {
 
     try {
         const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
-            supabase.from('students').select('id, kelas').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
+            supabase.from('students').select('id, kelas, gender').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
-                      return supabase.from('students').select('id, kelas').eq('academic_year', academicYear || '2025/2026');
+                      return supabase.from('students').select('id, kelas, gender').eq('academic_year', academicYear || '2025/2026');
                   }
                   return res;
               }),
@@ -96,15 +96,20 @@ const PublicDashboard: React.FC = () => {
         ]);
 
         const classCounts: Record<string, number> = {};
+        const classGenderCounts: Record<string, { L: number, P: number }> = {};
         const sClassMap: Record<string, string> = {}; 
         let c7 = 0, c8 = 0, c9 = 0;
         
         if (studentsRes.data) {
             studentsRes.data.forEach((s: any) => {
                 const rawKelas = s.kelas ? s.kelas.toUpperCase().trim() : '';
+                const gender = s.gender === 'P' ? 'P' : 'L';
                 sClassMap[s.id] = rawKelas;
                 if (rawKelas) {
                     classCounts[rawKelas] = (classCounts[rawKelas] || 0) + 1;
+                    if (!classGenderCounts[rawKelas]) classGenderCounts[rawKelas] = { L: 0, P: 0 };
+                    classGenderCounts[rawKelas][gender]++;
+                    
                     if (rawKelas.startsWith('7')) c7++; else if (rawKelas.startsWith('8')) c8++; else if (rawKelas.startsWith('9')) c9++;
                 }
             });
@@ -181,7 +186,7 @@ const PublicDashboard: React.FC = () => {
 
         setStats({
             count7: c7, count8: c8, count9: c9,
-            classDetails: classCounts,
+            classDetails: classCounts, classGenderDetails: classGenderCounts,
             totalJpRequired: calculatedTotalJp, 
             completedJp: completedJp,
             absenceCount: sCount + iCount + aCount,
@@ -381,12 +386,17 @@ const PublicDashboard: React.FC = () => {
                       
                       {modalContent.type === 'class' ? (
                           <div className="grid grid-cols-3 gap-3">
-                              {modalContent.data.map(([cls, count]: any) => (
+                              {modalContent.data.map(([cls, count]: any) => {
+                                  const genderData = stats?.classGenderDetails?.[cls] || { L: 0, P: 0 };
+                                  return (
                                   <div key={cls} className="bg-white dark:bg-slate-700/50 p-3 rounded-2xl text-center border border-gray-100 dark:border-slate-600 shadow-sm hover:border-blue-200 transition-colors">
                                       <div className="font-extrabold text-slate-700 dark:text-white text-xl">{cls}</div>
-                                      <div className="text-[10px] text-gray-400 dark:text-gray-400 font-bold uppercase mt-1">{count} Murid</div>
+                                      <div className="text-[10px] text-slate-500 font-bold uppercase mt-1">{count} Murid</div>
+                                      <div className="text-[9px] text-slate-400 font-bold uppercase mt-0.5 border-t border-slate-100 dark:border-slate-600 pt-1 flex justify-center gap-2">
+                                          <span className="text-blue-500">L: {genderData.L}</span> | <span className="text-pink-500">P: {genderData.P}</span>
+                                      </div>
                                   </div>
-                              ))}
+                              )})}
                           </div>
                       ) : (
                         <>
