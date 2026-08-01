@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { getWIBISOString } from '../utils/dateUtils';
 import {  Bell, CheckCircle2, XCircle, X , LayoutGrid } from 'lucide-react';
 import { supabase } from '../services/supabase';
-import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset, ArrowUp, AlertCircle, Settings, Database, Users, GraduationCap, Upload, Edit3, Calendar } from 'lucide-react';
+import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset, ArrowUp, AlertCircle, Settings, Database, Users, GraduationCap, Upload, Edit3, Calendar, Clock } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { TeacherLoginSplash } from './TeacherLoginSplash';
 import { AnimatePresence } from 'motion/react';
@@ -215,21 +215,19 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       return (
           <button 
             onClick={() => navigate(path)}
-            className={`relative flex items-center justify-center h-12 rounded-full transition-all duration-500 ease-out overflow-hidden ${
-                isActive 
-                ? 'flex-1 bg-[#1281ff] text-white shadow-lg shadow-blue-200/50 dark:shadow-none' 
-                : 'w-12 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 dark:text-slate-500'
-            }`}
+            className="relative flex flex-col items-center justify-center w-[80px] h-[64px]"
           >
-              <div className="flex items-center justify-center gap-3">
-                  <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className="flex-shrink-0" />
-                  
-                  <span className={`text-sm font-semibold whitespace-nowrap transition-all duration-500 ${
-                      isActive ? 'opacity-100 max-w-[100px] translate-x-0' : 'opacity-0 max-w-0 -translate-x-4 absolute'
-                  }`}>
-                      {label}
-                  </span>
-              </div>
+              {isActive ? (
+                  <div className="absolute -top-[28px] flex flex-col items-center justify-center w-[72px] h-[72px] bg-[#1281ff] rounded-full shadow-[0_0_0_8px_rgba(18,129,255,0.1)] text-white z-10 transition-transform duration-300">
+                      <Icon size={26} strokeWidth={2.5} className="mb-0.5" />
+                      <span className="text-[10px] font-bold tracking-wide">{label}</span>
+                  </div>
+              ) : (
+                  <div className="flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-slate-600 dark:hover:text-slate-300 transition-colors mt-2">
+                      <Icon size={24} strokeWidth={2} className="mb-1" />
+                      <span className="text-[11px] font-semibold">{label}</span>
+                  </div>
+              )}
           </button>
       );
   };
@@ -281,12 +279,12 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         <NavItem path="/import-data" label="Import Data" icon={Upload} />
                         <NavItem path="/input-manual" label="Input Manual" icon={Edit3} />
                         <NavItem path="/input-jadwal" label="Input Jadwal" icon={Calendar} />
-                        <NavItem path="/profile" label="Profil Saya" icon={User} />
+                        <NavItem path="/profile" label="Akun Saya" icon={User} />
                     </>
                 ) : isOperator ? (
                     <>
                         <NavItem path="/operator-dashboard" label="Dashboard KBM" icon={MonitorPlay} />
-                        <NavItem path="/profile" label="Profil Saya" icon={User} />
+                        <NavItem path="/profile" label="Akun Saya" icon={User} />
                     </>
                 ) : (
                     <>
@@ -295,7 +293,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         {!isHeadmaster && <NavItem path="/apps" label="KBM" icon={Grid} />}
                         {isHeadmaster && <NavItem path="/kedisiplinan" label="Kedisiplinan" icon={Siren} />}
                         {isDhuhaTeacher && <NavItem path="/rekap-dhuha" label="Rekap Dhuha" icon={Sunset} />}
-                        <NavItem path="/profile" label="Profil Saya" icon={User} />
+                        <NavItem path="/profile" label="Akun Saya" icon={User} />
                     </>
                 )}
             </div>
@@ -346,22 +344,22 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
             </div>
         </aside>
       )}
-
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
+      <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative bg-[#F8FAFC] dark:bg-slate-900 transition-colors duration-300">
+      {/* --- MAIN CONTENT --- */}
           {/* Mobile Header */}
-          <div className="md:hidden sticky top-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+0.25rem)]">
+          <div className="md:hidden sticky top-0 bg-[#F8FAFC] dark:bg-slate-900 z-30 pt-[calc(env(safe-area-inset-top)+0.25rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
-                 <div className="flex items-center gap-3">
-                     <img 
-                       src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" 
-                       className="h-10 w-auto object-contain" 
-                       alt="Logo"
+                 <div className="flex items-center gap-2.5">
+                     <img
+                        src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0"
+                        className="h-11 w-auto object-contain"
+                        alt="Logo"
                      />
                      <div>
-                         <h1 className="text-[10px] font-extrabold text-slate-900 dark:text-white leading-tight">SISTEM INFORMASI<br/>KEGIATAN BELAJAR MENGAJAR</h1>
-                         <p className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase mt-0.5 tracking-wide">
-                            SEMESTER {semester} | T.A {academicYear}
+                         <h1 className="text-[11px] font-black text-[#0f172a] dark:text-white leading-tight">SISTEM INFORMASI<br/>KEGIATAN BELAJAR MENGAJAR</h1>
+                         <p className="text-[9px] text-[#64748b] dark:text-slate-400 font-bold uppercase mt-0.5 tracking-wide">
+                            SEMESTER {semester} <span className="mx-0.5 text-slate-300">|</span> T.A {academicYear}
                          </p>
                      </div>
                  </div>
@@ -370,33 +368,44 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         <div className="relative group">
                             {(hasUnfilled || waliNotifications.length > 0) && (
                                 <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
-                                    <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #ef4444 360deg)' }}></div>
+                                    
                                 </div>
                             )}
-                            <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
-                                <Bell size={16} />
+                            <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-9 h-9 m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-[#475569] dark:text-gray-300 transition-transform active:scale-95 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
+                                <Bell size={18} strokeWidth={2.5} />
                             </button>
                             {(hasUnfilled || waliNotifications.length > 0) && (
-                                <span className="absolute -top-1 -right-1 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-slate-50 dark:border-slate-800 rounded-full px-[3px] bg-red-500">
+                                <span className="absolute -top-1 -right-1 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-white dark:border-slate-800 rounded-full px-[3px] bg-red-500">
                                     {notifications.filter(n => !n.isFilled).length + waliNotifications.length}
                                 </span>
                             )}
                         </div>
                     )}
                     {!isAdmin && !isOperator && !isHeadmaster && notifications.length === 0 && waliNotifications.length === 0 && (
-                        <button onClick={() => setShowNotifModal(true)} className="relative w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
-                            <Bell size={18} />
+                        <button onClick={() => setShowNotifModal(true)} className="relative w-9 h-9 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center text-[#475569] dark:text-gray-300 transition-transform active:scale-95 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
+                            <Bell size={18} strokeWidth={2.5} />
                         </button>
                     )}
-                     <button onClick={handleLogoutClick} className="w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-slate-300 active:bg-gray-100 border border-slate-200 dark:border-slate-600 flex-shrink-0">
-                         <LogOut size={18}/>
+                     <button onClick={handleLogoutClick} className="w-9 h-9 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center text-[#475569] dark:text-slate-300 active:bg-gray-50 flex-shrink-0 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
+                         <LogOut size={18} strokeWidth={2.5} className="ml-0.5" />
                      </button>
                  </div>
              </div>
+             
              {/* Running Date & Time Bar */}
-             <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-1.5 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-[10px] font-bold text-slate-600 dark:text-slate-400">
-                 <span>{formattedDate}</span>
-                 <span className="font-mono text-blue-600 dark:text-blue-400">{formattedTime} WIB</span>
+             <div className="px-4 pb-3">
+                 <div className="bg-white dark:bg-slate-800 px-3 py-2.5 rounded-[14px] flex justify-between items-center text-[11px] font-bold text-[#0f172a] dark:text-slate-400 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
+                     <div className="flex items-center gap-2">
+                         <div className="w-7 h-7 rounded-[10px] bg-[#2563eb] text-white flex items-center justify-center shadow-[0_4px_12px_-2px_rgba(37,99,235,0.4)]">
+                             <Calendar size={14} strokeWidth={2.5} />
+                         </div>
+                         <span className="ml-1 tracking-wide">{formattedDate}</span>
+                     </div>
+                     <div className="flex items-center gap-1.5 font-mono text-[#2563eb] dark:text-blue-400 pr-1">
+                         <Clock size={15} strokeWidth={2.5} />
+                         <span className="text-[12px]">{formattedTime} WIB</span>
+                     </div>
+                 </div>
              </div>
           </div>
 
@@ -410,12 +419,13 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                       <span className="text-purple-400 dark:text-purple-500">Semester:</span> {semester}
                   </div>
               </div>
+              
               <div className="flex items-center gap-4 text-xs font-bold text-slate-500 dark:text-slate-400">
                   {!isAdmin && !isOperator && !isHeadmaster && (notifications.length > 0 || waliNotifications.length > 0) && (
                       <div className="relative group hover:scale-105 transition-transform">
                           {(hasUnfilled || waliNotifications.length > 0) && (
                               <div className="absolute inset-0 rounded-full overflow-hidden shadow-sm">
-                                  <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #ef4444 360deg)' }}></div>
+                                  
                               </div>
                           )}
                           <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
@@ -433,6 +443,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                           <Bell size={18} />
                       </button>
                   )}
+                  
                   <span>{formattedDate}</span>
                   <span className="font-mono text-blue-600 dark:text-blue-400 bg-white dark:bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">{formattedTime} WIB</span>
                   <button onClick={handleLogoutClick} className="w-9 h-9 ml-2 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-600 transition-colors border border-slate-200 dark:border-slate-600 flex-shrink-0">
@@ -463,8 +474,8 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
         <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
             <div className="relative pointer-events-auto p-[2px] rounded-full overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-[95vw] group">
                 {/* Animated Glow Border */}
-                <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #3b82f6 360deg)' }}></div>
-                <nav className="relative z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-full flex items-center p-2 gap-2 w-full h-full border border-slate-200/50 dark:border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+                
+                <nav className="relative z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-[32px] flex items-center justify-around px-2 w-full h-[76px] border border-slate-200/50 dark:border-slate-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.08)]">
                 <BottomNavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
 
                 {!isHeadmaster && (
@@ -475,7 +486,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                     <BottomNavItem path="/kinerja" label="Kinerja" icon={Activity} />
                 )}
 
-                <BottomNavItem path="/profile" label="Profil" icon={User} />
+                <BottomNavItem path="/profile" label="Akun" icon={User} />
             </nav>
             </div>
         </div>
@@ -484,20 +495,20 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* Mobile Nav for Admin */}
       {showNav && isAdmin && (
            <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-                <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2">
+                <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 rounded-[32px] shadow-[0_8px_32px_rgba(0,0,0,0.08)] flex items-center justify-around px-2 pointer-events-auto w-full max-w-[340px] h-[76px] relative">
                     <BottomNavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
                     <BottomNavItem path="/penyimpanan" label="Buat T.A" icon={Database} />
                     <BottomNavItem path="/settings" label="Pengaturan" icon={Settings} />
-                    <BottomNavItem path="/profile" label="Profil" icon={User} />
+                    <BottomNavItem path="/profile" label="Akun" icon={User} />
                 </nav>
            </div>
       )}
       {/* Mobile Nav for Operator */}
       {showNav && isOperator && !isAdmin && (
            <div className="md:hidden fixed bottom-6 left-0 right-0 z-40 flex justify-center pointer-events-none pb-[env(safe-area-inset-bottom)]">
-                <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200 dark:border-slate-700 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center p-2 pointer-events-auto gap-2">
+                <nav className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl border border-slate-200/50 dark:border-slate-700/50 rounded-[32px] shadow-[0_8px_32px_rgba(0,0,0,0.08)] flex items-center justify-around px-2 pointer-events-auto w-full max-w-[340px] h-[76px] relative">
                     <BottomNavItem path="/operator-dashboard" label="Monitor" icon={MonitorPlay} />
-                    <BottomNavItem path="/profile" label="Profil" icon={User} />
+                    <BottomNavItem path="/profile" label="Akun" icon={User} />
                 </nav>
            </div>
       )}

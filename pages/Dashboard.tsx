@@ -48,11 +48,15 @@ interface TeacherMatrixItem {
 }
 
 const Dashboard: React.FC = () => {
-  const currentHour = new Date().getHours();
-  let greeting = 'Selamat Malam';
-  if (currentHour >= 5 && currentHour < 11) greeting = 'Selamat Pagi';
-  else if (currentHour >= 11 && currentHour < 15) greeting = 'Selamat Siang';
-  else if (currentHour >= 15 && currentHour < 18) greeting = 'Selamat Sore';
+  const getGreeting = () => {
+      const hour = getWIBDate().getHours();
+      if (hour < 11) return 'Selamat Pagi,';
+      if (hour < 15) return 'Selamat Siang,';
+      if (hour < 18) return 'Selamat Sore,';
+      return 'Selamat Malam,';
+  };
+  const greeting = getGreeting();
+
 
   const { isAdmin, profile, academicYear, semester , activeScheduleVersion , semesterStart, semesterEnd } = useAuth();
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin'; 
@@ -497,13 +501,26 @@ const Dashboard: React.FC = () => {
       );
   };
 
-  const currentMonthName = new Date().toLocaleDateString('id-ID', { month: 'long' });
-  const percentage = stats.targetJp > 0 ? (stats.totalJp / stats.targetJp) * 100 : 0;
-  let performanceStatus = "Di Bawah Ekspektasi";
-  let performanceColor = "text-red-200";
-  if (percentage > 85) { performanceStatus = "Di Atas Ekspektasi"; performanceColor = "text-emerald-200"; } 
-  else if (percentage >= 70) { performanceStatus = "Sesuai Ekspektasi"; performanceColor = "text-blue-200"; }
+  const currentMonthName = getWIBDate().toLocaleDateString('id-ID', { month: 'long' });
 
+  let performanceStatus = "TIDAK ADA DATA";
+  let performanceColor = "text-slate-400";
+  
+  if (stats.targetJp > 0) {
+      const percentage = (stats.totalJp / stats.targetJp) * 100;
+      if (percentage >= 90) {
+          performanceStatus = "DI ATAS EKSPEKTASI";
+          performanceColor = "text-emerald-500";
+      } else if (percentage >= 70) {
+          performanceStatus = "SESUAI EKSPEKTASI";
+          performanceColor = "text-blue-500";
+      } else {
+          performanceStatus = "DI BAWAH EKSPEKTASI";
+          performanceColor = "text-orange-500";
+      }
+  }
+
+    
   if (isHeadmaster) {
       // Headmaster view code
       
@@ -596,75 +613,77 @@ const Dashboard: React.FC = () => {
       <div className="space-y-6 animate-fade-in">
         
         {/* HEADER */}
-        
-<div className="bg-[#1281ff] dark:bg-blue-900 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-200/50 dark:shadow-none relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-2 opacity-20 pointer-events-none">
-                 <Clock size={200} strokeWidth={2.5} className="-mr-8 -mt-8" />
+        {!isAdmin && (
+        <div className="bg-[#1281ff] rounded-[32px] p-5 md:p-8 text-white relative overflow-hidden mb-6">
+            {/* Background pattern from the image */}
+            <div className="absolute bottom-0 right-0 w-[60%] h-full pointer-events-none opacity-20">
+                 <div className="absolute right-0 bottom-0 w-64 h-64" style={{ backgroundImage: 'radial-gradient(circle, white 2.5px, transparent 2.5px)', backgroundSize: '16px 16px' }}></div>
             </div>
             
-            <div className="relative z-10 flex flex-col items-start gap-4">
-                <div className="flex items-center gap-5">
+            <div className="relative z-10 flex flex-col items-start gap-4 w-full">
+                <div className="flex items-center gap-5 w-full pl-2">
                     <div className="flex-shrink-0">
-                        <div className="w-[84px] h-[84px] rounded-full border-[3px] border-white shadow-sm overflow-hidden bg-white flex items-center justify-center">
-                            {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <User size={40} className="text-slate-300" />}
+                        <div className="w-[100px] h-[100px] rounded-full overflow-hidden bg-white flex items-center justify-center">
+                            {profile?.avatar_url ? <img src={profile?.avatar_url} className="w-full h-full object-cover" /> : <User size={50} strokeWidth={1.5} className="text-slate-300" />}
                         </div>
                     </div>
-                    <div>
-                        <p className="text-blue-50 text-sm mb-1">{greeting},</p>
-                        <h1 className="text-xl md:text-2xl font-semibold mb-0.5">{profile?.full_name}</h1>
-                        <p className="text-blue-100/90 text-sm mb-3 font-mono">{isAdmin ? 'Administrator' : (profile?.nip || 'NIP -')}</p>
-                        <div className="flex flex-wrap gap-2">
-                            {!isAdmin && profile?.mengajar_mapel && <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/10 text-[10px] font-bold uppercase tracking-wider"><BookOpen size={12} className="mr-1.5 opacity-80"/> {profile.mengajar_mapel}</span>}
-                            {!isAdmin && profile?.wali_kelas && <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/10 text-[10px] font-bold uppercase tracking-wider"><Users size={12} className="mr-1.5 opacity-80"/> Wali Kelas {profile.wali_kelas}</span>}
+                    <div className="flex-1 flex flex-col justify-center">
+                        <p className="text-white text-[13px] mb-1 font-medium">{greeting}</p>
+                        <h1 className="text-[22px] md:text-3xl font-bold mb-1 leading-tight">{profile?.full_name}</h1>
+                        <p className="text-white text-[13px] mb-3 font-medium tracking-wide">{profile?.nip || 'NIP -'}</p>
+                        <div className="flex flex-col items-start gap-2">
+                            {profile?.mengajar_mapel && <span className="inline-flex items-start px-4 py-2 rounded-[24px] bg-white/20 text-[10px] font-bold uppercase tracking-wider max-w-[240px] text-left leading-[1.4]"><BookOpen size={14} className="mr-2 mt-[2px] shrink-0" strokeWidth={2.5}/> <span>{profile.mengajar_mapel}</span></span>}
+                            {profile?.wali_kelas && <span className="inline-flex items-center px-4 py-2 rounded-full bg-white/20 text-[10px] font-bold uppercase tracking-wider"><Users size={14} className="mr-2" strokeWidth={2.5}/> Wali Kelas {profile.wali_kelas}</span>}
                         </div>
                     </div>
                 </div>
                 
-                {!isAdmin && (
-                    <div className="w-full mt-4 bg-white/10 border border-white/20 rounded-2xl p-3 flex flex-col gap-3 relative z-10">
-                        <div className="flex items-center justify-between">
-                            <p className="text-[11px] font-extrabold text-white/90 uppercase tracking-widest pl-1">Kinerja Bulan {currentMonthName}</p>
+                <div className="w-full mt-2 relative z-10">
+                    <div className="flex items-center justify-center gap-4 mb-4 mt-2">
+                        <div className="h-[1px] flex-1 bg-gradient-to-l from-white/60 to-transparent max-w-[100px]"></div>
+                        <p className="text-[13px] font-semibold text-white">Kinerja Bulan {currentMonthName}</p>
+                        <div className="h-[1px] flex-1 bg-gradient-to-r from-white/60 to-transparent max-w-[100px]"></div>
+                    </div>
+                    
+                    <div className="bg-white rounded-[24px] p-5 flex items-center justify-between shadow-[0_4px_20px_rgba(0,0,0,0.1)] relative">
+                        <div className="flex-1 flex flex-col items-center justify-center relative">
+                            <div className="flex flex-row items-center gap-3 mb-1">
+                                <div className="w-12 h-12 rounded-full border border-blue-100 bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                                    <Users size={22} strokeWidth={2} />
+                                </div>
+                                <span className="text-[44px] font-medium text-blue-600 leading-none tracking-tight">{stats.totalMeetings}</span>
+                            </div>
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-2">Pertemuan</span>
+                            <div className="absolute right-0 top-[10%] bottom-[10%] w-[1px] bg-slate-100"></div>
                         </div>
                         
-                        <div className="grid grid-cols-3 gap-2">
-                            <div className="bg-white rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden group">
-                                <div className="w-7 h-7 mb-1.5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
-                                    <Users size={14} strokeWidth={2.5} />
+                        <div className="flex-1 flex flex-col items-center justify-center relative">
+                            <div className="flex flex-row items-center gap-3 mb-1">
+                                <div className="w-12 h-12 rounded-full border border-emerald-100 bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                                    <FileText size={22} strokeWidth={2} />
                                 </div>
-                                <div className="flex items-baseline gap-1 justify-center">
-                                    <span className="text-[18px] font-black text-slate-800 leading-none tracking-tighter">{stats.totalMeetings}</span>
-                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Kali</span>
-                                </div>
-                                <span className="text-[8px] font-extrabold text-slate-400 uppercase mt-0.5 tracking-widest">Pertemuan</span>
-                            </div>
-                            
-                            <div className="bg-white rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden group">
-                                <div className="w-7 h-7 mb-1.5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                    <FileText size={14} strokeWidth={2.5} />
-                                </div>
-                                <div className="flex items-baseline gap-1 justify-center">
-                                    <span className="text-[18px] font-black text-slate-800 leading-none tracking-tighter">{stats.totalJp}</span>
-                                    <span className="text-[8px] font-bold text-slate-400">/ {stats.targetJp}</span>
-                                </div>
-                                <span className="text-[8px] font-extrabold text-slate-400 uppercase mt-0.5 tracking-widest">Total JP</span>
-                            </div>
-                            
-                            <div className="bg-white rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden group">
-                                <div className="w-7 h-7 mb-1.5 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center">
-                                    <Star size={14} strokeWidth={2.5} />
-                                </div>
-                                <div className="flex flex-col items-center justify-center mt-0.5">
-                                    <span className={"text-[10px] font-black leading-tight uppercase text-center " + performanceColor}>
-                                        {performanceStatus.split(' ').map((word, i) => <React.Fragment key={i}>{word} </React.Fragment>)}
-                                    </span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-[44px] font-medium text-emerald-600 leading-none tracking-tight">{stats.totalJp}</span>
+                                    <span className="text-[20px] font-medium text-slate-400">/{stats.targetJp}</span>
                                 </div>
                             </div>
+                            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-2">Total JP</span>
+                            <div className="absolute right-0 top-[10%] bottom-[10%] w-[1px] bg-slate-100"></div>
+                        </div>
+                        
+                        <div className="flex-[1.2] flex items-center justify-center gap-3 pl-2">
+                            <div className="w-12 h-12 rounded-full border border-orange-100 bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+                                <Star size={24} strokeWidth={2} />
+                            </div>
+                            <span className={"text-[11px] font-bold leading-[1.3] uppercase text-left tracking-wider max-w-[90px] " + performanceColor}>
+                                {performanceStatus}
+                            </span>
                         </div>
                     </div>
-                )}
+                </div>
             </div>
         </div>
-
+        )}
 
         {/* MAIN WIDGETS */}
         {!isAdmin && (
@@ -802,16 +821,21 @@ const Dashboard: React.FC = () => {
 
                 {/* KBM STATUS TABLE */}
                 <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-                    <h3 className="font-bold text-slate-800 dark:text-white text-xs mb-4 uppercase tracking-wide flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400" strokeWidth={2.5}/>
-                        KETERLAKSANAAN KBM HARI INI DI KELAS
-                    </h3>
-                    <div className="overflow-x-auto bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
-                        <table className="w-full text-center border-collapse">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+                            <CalendarDays size={18} strokeWidth={2.5}/>
+                        </div>
+                        <h3 className="font-bold text-slate-800 dark:text-white text-[13px] uppercase tracking-wide">
+                            KETERLAKSANAAN KBM HARI INI DI KELAS
+                        </h3>
+                    </div>
+                    
+                    <div className="overflow-hidden bg-white dark:bg-slate-800 rounded-[14px] border border-slate-100 dark:border-slate-700 shadow-sm">
+                        <table className="w-full text-center border-collapse table-fixed">
                             <thead>
                                 <tr className="bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                                     {kbmStatus.map((status) => (
-                                        <th key={status.hour} className="py-3 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0 font-bold text-slate-700 dark:text-slate-300 w-[12.5%] text-sm">
+                                        <th key={status.hour} className="py-3 px-1 border-r border-slate-100 dark:border-slate-700 last:border-r-0 font-semibold text-slate-800 dark:text-slate-300 w-[12.5%] text-[13px]">
                                             {status.hour}
                                         </th>
                                     ))}
@@ -820,11 +844,11 @@ const Dashboard: React.FC = () => {
                             <tbody>
                                 <tr className="bg-white dark:bg-slate-800">
                                     {kbmStatus.map((status) => (
-                                        <td key={status.hour} className="py-4 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0">
-                                            <div className="flex flex-col items-center justify-center min-h-[2rem]">
+                                        <td key={status.hour} className="py-3 px-1 border-r border-slate-100 dark:border-slate-700 last:border-r-0">
+                                            <div className="flex flex-col items-center justify-center min-h-[1.5rem]">
                                                 {status.isScheduled ? (
                                                     status.className.split(' / ').map((cls, idx) => (
-                                                        <span key={idx} className={`block font-black text-xl ${
+                                                        <span key={idx} className={`block font-bold text-sm ${
                                                             status.isFilled 
                                                             ? 'text-emerald-600 dark:text-emerald-400' 
                                                             : 'text-rose-600 dark:text-rose-400'
@@ -833,7 +857,7 @@ const Dashboard: React.FC = () => {
                                                         </span>
                                                     ))
                                                 ) : (
-                                                    <span className="text-slate-300 dark:text-slate-600 font-black text-2xl leading-none select-none">-</span>
+                                                    <span className="text-slate-400 dark:text-slate-600 font-bold text-[13px] leading-none select-none">-</span>
                                                 )}
                                             </div>
                                         </td>
@@ -845,17 +869,48 @@ const Dashboard: React.FC = () => {
                 </div>
                 
                 {/* CLASS PROGRESS WIDGET */}
-                <div className="bg-white dark:bg-slate-800 rounded-3xl p-6 shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden">
-                    <div className="absolute -bottom-10 -right-6 p-4 opacity-5 pointer-events-none rotate-12"><BookOpen size={180} className="text-slate-900 dark:text-white" /></div>
-                    <h3 className="relative z-10 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-6 flex items-center gap-2 tracking-wide"><TrendingUp size={16} className="text-blue-500"/> Distribusi Pertemuan Kelas ({new Date().toLocaleDateString('id-ID', { month: 'long' })})</h3>
-                    <div className="relative z-10 space-y-3">
+                <div className="bg-white dark:bg-slate-800 rounded-[20px] p-5 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700 relative overflow-hidden">
+                    <div className="flex items-center gap-2 mb-6">
+                        <TrendingUp size={18} strokeWidth={2.5} className="text-[#2563eb]"/>
+                        <h3 className="text-[13px] font-bold text-[#0f172a] dark:text-slate-300 uppercase tracking-wide">Distribusi Pertemuan Kelas ({currentMonthName})</h3>
+                    </div>
+                    <div className="relative z-10">
                         {stats.monthJournals.length === 0 ? (
-                            <div className="relative py-12 px-8 bg-slate-50 dark:bg-slate-700/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-between">
-                                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium italic max-w-[150px] relative z-10">Belum ada data mengajar<br/>bulan ini.</p>
-                                <div className="absolute -right-4 -bottom-4 text-blue-100 dark:text-slate-800 rotate-12">
-                                    <ClipboardList size={140} strokeWidth={1} />
+                            <div className="relative py-14 px-8 bg-gradient-to-r from-[#F8FAFC] to-[#F1F5F9] dark:from-slate-800/50 dark:to-slate-700/50 rounded-2xl border border-white dark:border-slate-700 overflow-hidden flex items-center justify-between">
+                                {/* Subtle stars decorations */}
+                                <div className="absolute top-4 left-1/4 text-blue-200/60 dark:text-blue-500/30">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2z"/></svg>
                                 </div>
-                                <div className="absolute right-12 bottom-6 bg-blue-500 text-white rounded-full p-2 shadow-lg shadow-blue-500/30">
+                                <div className="absolute top-8 right-1/4 text-blue-200/60 dark:text-blue-500/30">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2z"/></svg>
+                                </div>
+                                <div className="absolute bottom-6 left-10 text-blue-200/60 dark:text-blue-500/30">
+                                    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2z"/></svg>
+                                </div>
+
+                                <p className="text-[13px] text-[#475569] dark:text-slate-400 font-medium italic leading-relaxed max-w-[150px] relative z-10 ml-2">
+                                    Belum ada data<br/>mengajar bulan ini.
+                                </p>
+                                
+                                <div className="absolute -right-4 -bottom-4">
+                                    <div className="relative">
+                                        <div className="w-[120px] h-[140px] bg-[#3b82f6] rounded-xl transform rotate-[10deg] shadow-[0_8px_20px_rgba(37,99,235,0.2)]"></div>
+                                        <div className="absolute inset-0 w-[110px] h-[130px] bg-white rounded-lg transform rotate-[10deg] ml-2 mt-2 flex flex-col p-3">
+                                            <div className="w-full h-3 bg-blue-100 rounded-sm mb-2"></div>
+                                            <div className="flex gap-2 mb-2 items-end">
+                                                <div className="w-3 h-8 bg-[#60a5fa] rounded-t-sm"></div>
+                                                <div className="w-3 h-12 bg-[#2563eb] rounded-t-sm"></div>
+                                                <div className="w-5 h-5 rounded-full bg-[#93c5fd] ml-1"></div>
+                                            </div>
+                                            <div className="w-full h-2 bg-slate-100 rounded-sm mt-auto"></div>
+                                        </div>
+                                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-10 h-6 bg-[#93c5fd] rounded-lg rotate-[10deg] shadow-sm flex justify-center pt-1">
+                                            <div className="w-4 h-1.5 bg-[#2563eb] rounded-full"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div className="absolute right-6 bottom-4 bg-[#3b82f6] text-white rounded-full p-2.5 shadow-[0_4px_12px_rgba(37,99,235,0.4)] z-10 border-2 border-white">
                                     <Check size={20} strokeWidth={3} />
                                 </div>
                             </div>
