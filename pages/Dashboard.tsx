@@ -628,9 +628,9 @@ const Dashboard: React.FC = () => {
                         </div>
                     </div>
                     <div className="flex-1 flex flex-col justify-center min-w-0 overflow-hidden">
-                        <p className="text-white/90 text-[10px] sm:text-[11px] md:text-[13px] mb-0 font-medium">{greeting}</p>
-                        <div className="w-full overflow-x-auto no-scrollbar" style={{ maskImage: 'linear-gradient(to right, black 90%, transparent 100%)', WebkitMaskImage: 'linear-gradient(to right, black 90%, transparent 100%)' }}>
-                             <h1 className="text-[14px] sm:text-[16px] md:text-2xl lg:text-3xl font-bold mb-0.5 leading-tight whitespace-nowrap min-w-max pr-4">{profile?.full_name}</h1>
+                        <p className="text-white/90 text-[9px] sm:text-[10px] md:text-[12px] mb-0 font-medium tracking-wide opacity-80">{greeting}</p>
+                        <div className="w-full flex items-center">
+                             <h1 className="font-bold mb-0.5 leading-tight whitespace-nowrap tracking-tight" style={{ fontSize: 'clamp(11px, 4vw, 24px)' }}>{profile?.full_name}</h1>
                         </div>
                         <p className="text-white/90 text-[10px] sm:text-[11px] md:text-[13px] mb-1.5 font-medium tracking-wide">{profile?.nip || 'NIP -'}</p>
                         <div className="flex flex-col items-start gap-1">

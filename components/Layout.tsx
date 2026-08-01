@@ -28,7 +28,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const pendingSplashCheck = React.useRef(false);
 
   const openNotifModal = () => {
-      openNotifModal();
+      setShowNotifModal(true);
       const notifCount = notifications.filter(n => !n.isFilled).length + waliNotifications.length;
       const todayStr = new Date().toLocaleDateString('id-ID');
       localStorage.setItem(`lastSeenNotifCount_${profile?.id}_${todayStr}`, notifCount.toString());
@@ -184,7 +184,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         const todayStr = new Date().toLocaleDateString('id-ID');
                         const lsKey = `lastSeenNotifCount_${profile.id}_${todayStr}`;
                         const lastSeen = parseInt(localStorage.getItem(lsKey) || '0', 10);
-                        if (finalNotifCount > 0 && finalNotifCount !== lastSeen) {
+                        if (finalNotifCount > 0 && finalNotifCount > lastSeen) {
                             setShowTeacherSplash(true);
                         }
                         pendingSplashCheck.current = false;
