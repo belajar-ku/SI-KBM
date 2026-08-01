@@ -50,14 +50,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    fetchSettings();
-
     const initAuth = async () => {
       // Prevent fetching if config is missing (avoids 404/Network Error loops)
       if (!isSupabaseConfigured) {
         setIsLoading(false);
         return;
       }
+      
+      await fetchSettings(); // Wait for settings first
 
       try {
         // Check active session safely
