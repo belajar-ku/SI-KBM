@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
 import { 
   User, Bell, BookOpen, Clock, Stethoscope, CheckCircle2, XCircle, FileText, ClipboardList, 
-  CalendarDays, TrendingUp, Users, Edit2, Plus, X, Loader2, Save, Flag, Check, Minus, Calendar, ChevronUp, ChevronDown
+  CalendarDays, TrendingUp, Users, Star, Edit2, Plus, X, Loader2, Save, Flag, Check, Minus, Calendar, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 import { Student, Profile } from '../types';
@@ -596,47 +596,66 @@ const Dashboard: React.FC = () => {
       <div className="space-y-6 animate-fade-in">
         
         {/* HEADER */}
-        <div className="bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-900 dark:to-indigo-900 rounded-3xl p-6 text-white shadow-lg shadow-blue-200 dark:shadow-none relative overflow-hidden">
-             <div className="absolute top-0 right-0 p-4 opacity-10 pointer-events-none">
-                 <Clock size={200} className="-mr-10 -mt-10" />
+        
+<div className="bg-[#1281ff] dark:bg-blue-900 rounded-3xl p-6 md:p-8 text-white shadow-xl shadow-blue-200/50 dark:shadow-none relative overflow-hidden">
+             <div className="absolute top-0 right-0 p-2 opacity-20 pointer-events-none">
+                 <Clock size={200} strokeWidth={2.5} className="-mr-8 -mt-8" />
             </div>
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            
+            <div className="relative z-10 flex flex-col items-start gap-4">
                 <div className="flex items-center gap-5">
                     <div className="flex-shrink-0">
-                        <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-white/20 shadow-inner overflow-hidden bg-white/10 flex items-center justify-center">
-                            {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <User size={32} className="text-white/80" />}
+                        <div className="w-[84px] h-[84px] rounded-full border-[3px] border-white shadow-sm overflow-hidden bg-white flex items-center justify-center">
+                            {profile?.avatar_url ? <img src={profile.avatar_url} className="w-full h-full object-cover" /> : <User size={40} className="text-slate-300" />}
                         </div>
                     </div>
                     <div>
-                        <p className="text-blue-100 text-sm font-bold opacity-90 mb-0.5">{greeting},</p>
-                        <h1 className="text-xl md:text-2xl font-extrabold leading-tight tracking-tight">{profile?.full_name}</h1>
-                        <p className="text-blue-100 text-sm font-mono opacity-90 mb-2">{isAdmin ? 'Administrator' : (profile?.nip || 'NIP -')}</p>
+                        <p className="text-blue-50 text-sm mb-1">{greeting},</p>
+                        <h1 className="text-xl md:text-2xl font-semibold mb-0.5">{profile?.full_name}</h1>
+                        <p className="text-blue-100/90 text-sm mb-3 font-mono">{isAdmin ? 'Administrator' : (profile?.nip || 'NIP -')}</p>
                         <div className="flex flex-wrap gap-2">
-                            {!isAdmin && profile?.mengajar_mapel && <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-white/20 backdrop-blur-md border border-white/10 text-[10px] font-bold uppercase tracking-wider">{profile.mengajar_mapel}</span>}
-                            {!isAdmin && profile?.wali_kelas && <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-orange-500/90 text-white border border-orange-400 text-[10px] font-bold uppercase tracking-wider shadow-sm">Wali Kelas {profile.wali_kelas}</span>}
+                            {!isAdmin && profile?.mengajar_mapel && <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/10 text-[10px] font-bold uppercase tracking-wider"><BookOpen size={12} className="mr-1.5 opacity-80"/> {profile.mengajar_mapel}</span>}
+                            {!isAdmin && profile?.wali_kelas && <span className="inline-flex items-center px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md border border-white/10 text-[10px] font-bold uppercase tracking-wider"><Users size={12} className="mr-1.5 opacity-80"/> Wali Kelas {profile.wali_kelas}</span>}
                         </div>
                     </div>
                 </div>
                 
                 {!isAdmin && (
-                    <div className="w-full md:w-auto mt-4 md:mt-0">
-                        <p className="text-xs font-bold text-blue-100 mb-2 opacity-90 text-center md:text-right">Kinerja Bulan {currentMonthName}</p>
-                        <div className="bg-white/10 rounded-2xl border border-white/10 backdrop-blur-md w-full overflow-hidden">
-                            <div className="grid grid-cols-3 divide-x divide-white/20">
-                                <div className="p-3 py-4 flex flex-col items-center justify-center text-center">
-                                    <span className="text-2xl md:text-3xl font-extrabold leading-none tracking-tight">{stats.totalMeetings}</span>
-                                    <span className="text-[10px] md:text-xs font-bold text-blue-100/80 uppercase tracking-wider mt-1">Pertemuan</span>
+                    <div className="w-full mt-4 bg-white/10 border border-white/20 rounded-2xl p-3 flex flex-col gap-3 relative z-10">
+                        <div className="flex items-center justify-between">
+                            <p className="text-[11px] font-extrabold text-white/90 uppercase tracking-widest pl-1">Kinerja Bulan {currentMonthName}</p>
+                        </div>
+                        
+                        <div className="grid grid-cols-3 gap-2">
+                            <div className="bg-white rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden group">
+                                <div className="w-7 h-7 mb-1.5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <Users size={14} strokeWidth={2.5} />
                                 </div>
-                                <div className="p-3 py-4 flex flex-col items-center justify-center text-center">
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-2xl md:text-3xl font-extrabold leading-none tracking-tight">{stats.totalJp}</span>
-                                        <span className="text-sm md:text-base font-medium opacity-60">/ {stats.targetJp}</span>
-                                    </div>
-                                    <span className="text-[10px] md:text-xs font-bold text-blue-100/80 uppercase tracking-wider mt-1">Total JP</span>
+                                <div className="flex items-baseline gap-1 justify-center">
+                                    <span className="text-[18px] font-black text-slate-800 leading-none tracking-tighter">{stats.totalMeetings}</span>
+                                    <span className="text-[8px] font-bold text-slate-400 uppercase">Kali</span>
                                 </div>
-                                <div className="p-3 py-4 flex flex-col items-center justify-center text-center h-full">
-                                    <span className={`text-xs md:text-sm font-extrabold leading-tight uppercase ${performanceColor}`}>
-                                        {performanceStatus}
+                                <span className="text-[8px] font-extrabold text-slate-400 uppercase mt-0.5 tracking-widest">Pertemuan</span>
+                            </div>
+                            
+                            <div className="bg-white rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden group">
+                                <div className="w-7 h-7 mb-1.5 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                                    <FileText size={14} strokeWidth={2.5} />
+                                </div>
+                                <div className="flex items-baseline gap-1 justify-center">
+                                    <span className="text-[18px] font-black text-slate-800 leading-none tracking-tighter">{stats.totalJp}</span>
+                                    <span className="text-[8px] font-bold text-slate-400">/ {stats.targetJp}</span>
+                                </div>
+                                <span className="text-[8px] font-extrabold text-slate-400 uppercase mt-0.5 tracking-widest">Total JP</span>
+                            </div>
+                            
+                            <div className="bg-white rounded-xl p-2.5 flex flex-col items-center justify-center text-center shadow-sm relative overflow-hidden group">
+                                <div className="w-7 h-7 mb-1.5 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center">
+                                    <Star size={14} strokeWidth={2.5} />
+                                </div>
+                                <div className="flex flex-col items-center justify-center mt-0.5">
+                                    <span className={"text-[10px] font-black leading-tight uppercase text-center " + performanceColor}>
+                                        {performanceStatus.split(' ').map((word, i) => <React.Fragment key={i}>{word} </React.Fragment>)}
                                     </span>
                                 </div>
                             </div>
@@ -645,6 +664,7 @@ const Dashboard: React.FC = () => {
                 )}
             </div>
         </div>
+
 
         {/* MAIN WIDGETS */}
         {!isAdmin && (
@@ -782,29 +802,29 @@ const Dashboard: React.FC = () => {
 
                 {/* KBM STATUS TABLE */}
                 <div className="bg-white dark:bg-slate-800 rounded-3xl p-5 shadow-sm border border-slate-100 dark:border-slate-700">
-                    <h3 className="font-extrabold text-slate-800 dark:text-white text-sm mb-4 uppercase tracking-wide flex items-center gap-2">
-                        <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400"/>
-                        Keterlaksanaan KBM Hari Ini Di Kelas
+                    <h3 className="font-bold text-slate-800 dark:text-white text-xs mb-4 uppercase tracking-wide flex items-center gap-2">
+                        <CheckCircle2 size={16} className="text-blue-600 dark:text-blue-400" strokeWidth={2.5}/>
+                        KETERLAKSANAAN KBM HARI INI DI KELAS
                     </h3>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-center border-collapse text-sm">
+                    <div className="overflow-x-auto bg-white dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 shadow-sm">
+                        <table className="w-full text-center border-collapse">
                             <thead>
-                                <tr className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
+                                <tr className="bg-white dark:bg-slate-800 border-b border-slate-100 dark:border-slate-700">
                                     {kbmStatus.map((status) => (
-                                        <th key={status.hour} className="py-2 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0 font-extrabold text-slate-600 dark:text-slate-300 w-[12.5%]">
+                                        <th key={status.hour} className="py-3 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0 font-bold text-slate-700 dark:text-slate-300 w-[12.5%] text-sm">
                                             {status.hour}
                                         </th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr className="border-b border-slate-100 dark:border-slate-700">
+                                <tr className="bg-white dark:bg-slate-800">
                                     {kbmStatus.map((status) => (
-                                        <td key={status.hour} className="py-3 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0">
-                                            <div className="flex flex-col items-center justify-center min-h-[3rem]">
+                                        <td key={status.hour} className="py-4 px-1 border-r border-slate-100 dark:border-slate-700 last:border-0">
+                                            <div className="flex flex-col items-center justify-center min-h-[2rem]">
                                                 {status.isScheduled ? (
                                                     status.className.split(' / ').map((cls, idx) => (
-                                                        <span key={idx} className={`block font-extrabold text-xl md:text-2xl ${
+                                                        <span key={idx} className={`block font-black text-xl ${
                                                             status.isFilled 
                                                             ? 'text-emerald-600 dark:text-emerald-400' 
                                                             : 'text-rose-600 dark:text-rose-400'
@@ -813,7 +833,7 @@ const Dashboard: React.FC = () => {
                                                         </span>
                                                     ))
                                                 ) : (
-                                                    <span className="text-slate-200 dark:text-slate-700 font-bold text-lg select-none">-</span>
+                                                    <span className="text-slate-300 dark:text-slate-600 font-black text-2xl leading-none select-none">-</span>
                                                 )}
                                             </div>
                                         </td>
@@ -830,7 +850,15 @@ const Dashboard: React.FC = () => {
                     <h3 className="relative z-10 text-xs font-bold text-gray-500 dark:text-slate-400 uppercase mb-6 flex items-center gap-2 tracking-wide"><TrendingUp size={16} className="text-blue-500"/> Distribusi Pertemuan Kelas ({new Date().toLocaleDateString('id-ID', { month: 'long' })})</h3>
                     <div className="relative z-10 space-y-3">
                         {stats.monthJournals.length === 0 ? (
-                            <div className="py-8 text-center text-sm text-gray-400 dark:text-gray-500 font-medium italic bg-slate-50 dark:bg-slate-700/50 rounded-2xl border border-slate-100 dark:border-slate-700 border-dashed">Belum ada data mengajar bulan ini.</div>
+                            <div className="relative py-12 px-8 bg-slate-50 dark:bg-slate-700/50 rounded-[1.5rem] border border-slate-100 dark:border-slate-700 overflow-hidden flex items-center justify-between">
+                                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium italic max-w-[150px] relative z-10">Belum ada data mengajar<br/>bulan ini.</p>
+                                <div className="absolute -right-4 -bottom-4 text-blue-100 dark:text-slate-800 rotate-12">
+                                    <ClipboardList size={140} strokeWidth={1} />
+                                </div>
+                                <div className="absolute right-12 bottom-6 bg-blue-500 text-white rounded-full p-2 shadow-lg shadow-blue-500/30">
+                                    <Check size={20} strokeWidth={3} />
+                                </div>
+                            </div>
                         ) : (
                             stats.monthJournals.map((j) => (
                                 <div key={j.id} className="flex flex-col p-4 rounded-2xl bg-slate-50 dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 hover:border-blue-200 transition-colors group relative overflow-hidden">

@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
-import { Printer, Loader2, BookX, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
+import {  Printer, Loader2, BookX, CalendarDays, ChevronDown, ChevronUp , UserMinus } from 'lucide-react';
 import { formatDateSignature, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 
 interface ReportDetail {
@@ -31,6 +31,7 @@ const AbsensiRapor: React.FC = () => {
   const [selectedClass, setSelectedClass] = useState('');
   
   // Date Range
+  const [isStartDateInitialized, setIsStartDateInitialized] = useState(false);
   const [startDate, setStartDate] = useState(() => {
       const d = new Date();
       d.setDate(1); // 1st of current month
@@ -52,6 +53,13 @@ const AbsensiRapor: React.FC = () => {
   const componentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (semesterStart && !isStartDateInitialized) {
+        setStartDate(semesterStart);
+        setIsStartDateInitialized(true);
+    }
+  }, [semesterStart, isStartDateInitialized]);
+
+useEffect(() => {
     fetchInitData();
   }, [profile]);
 
@@ -71,11 +79,10 @@ const AbsensiRapor: React.FC = () => {
         settingsData?.forEach(item => newSettings[item.key] = item.value);
         setSettings(prev => ({ ...prev, ...newSettings }));
 
-        let { data, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', settings.academic_year || '2025/2026').eq('academic_year', academicYear || '2025/2026');
+        let { data, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
         if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
             const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
-            if (settings.academic_year === '2025/2026' || !settings.academic_year) data = res.data;
-            else data = [];
+            data = res.data;
         }
         if(data) {
             const unique = Array.from(new Set(data.map((s:any) => s.kelas))).sort();
@@ -175,14 +182,14 @@ const AbsensiRapor: React.FC = () => {
     <Layout>
       <div className="print:hidden space-y-6">
         <div className="flex items-center gap-3">
-            <div className="bg-red-100 p-3 rounded-xl text-red-600">
-                <BookX size={24} />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-red-400 to-rose-600 text-white flex items-center justify-center shadow-sm">
+                    <UserMinus size={20} />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Absensi Rapor</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Ketidakhadiran murid per kelas wali.</p>
+                </div>
             </div>
-            <div>
-                <h2 className="text-2xl font-bold text-gray-800">Ketidakhadiran (Rapor)</h2>
-                <p className="text-gray-500 text-sm">Rekapitulasi gabungan S/I/A/D untuk Rapor.</p>
-            </div>
-        </div>
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div className="grid md:grid-cols-4 gap-4 items-end">

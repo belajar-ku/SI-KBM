@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase, isSupabaseConfigured } from '../services/supabase';
 import { PublicStats } from '../types';
-import { LogIn, Loader2, BookOpen, AlertCircle, X, School, ChevronDown, ChevronRight, Bookmark, Lock, User, ArrowRight, ShieldCheck, GraduationCap, MonitorPlay, Shield, ChevronLeft, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Loader2, BookOpen, AlertCircle, X, School, ChevronDown, ChevronRight, Bookmark, Lock, User, ArrowRight, ShieldCheck, GraduationCap, MonitorPlay, Shield, ChevronLeft, Eye, EyeOff, BookX, Calendar, Check, Clock } from 'lucide-react';
 import { getWIBDate, getWIBISOString, formatDateIndo, formatTimeIndo } from '../utils/dateUtils';
 
 const PublicDashboard: React.FC = () => {
@@ -20,12 +19,13 @@ const PublicDashboard: React.FC = () => {
   const [loginError, setLoginError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { signIn } = useAuth();
-
+  
   const [loading, setLoading] = useState(true);
   const [time, setTime] = useState(getWIBDate());
   
   const [rawAttendance, setRawAttendance] = useState<any[]>([]);
   const [studentClassMap, setStudentClassMap] = useState<Record<string, string>>({});
+
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState<{
     title: string;
@@ -45,14 +45,14 @@ const PublicDashboard: React.FC = () => {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'journals' }, () => { fetchStatsClientSide(); })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'homeroom_attendance' }, () => { fetchStatsClientSide(); })
             .subscribe();
+
         return () => { clearInterval(timer); supabase.removeChannel(channel); };
     }
     return () => clearInterval(timer);
-  }, [academicYear, semester, semesterStart, semesterEnd]);
+  }, []);
 
   const fetchData = async () => {
     setLoading(true);
-    if (!isSupabaseConfigured) { useMockData(); setLoading(false); return; }
     await fetchStatsClientSide();
     setLoading(false);
   };
@@ -71,7 +71,6 @@ const PublicDashboard: React.FC = () => {
     const todayStr = getWIBISOString();
     const startOfDay = `${todayStr}T00:00:00+07:00`;
 
-    
     const todayObj = new Date(todayStr);
     const jsDay = todayObj.getDay();
     let jpPerClass = 0;
@@ -80,7 +79,9 @@ const PublicDashboard: React.FC = () => {
     else if (jsDay === 5) jpPerClass = 5;
     else if (jsDay === 6) jpPerClass = 6;
     
-    const calculatedTotalJp = jpPerClass * 24;
+    if (jpPerClass === 0 || !isSupabaseConfigured) {
+        useMockData(); return;
+    }
 
     try {
         const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
@@ -89,7 +90,7 @@ const PublicDashboard: React.FC = () => {
                       return supabase.from('students').select('id, kelas, gender').eq('academic_year', academicYear || '2025/2026');
                   }
                   return res;
-              }),
+            }),
             supabase.from('journals').select('hours').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
             supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
             supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').eq('date', todayStr)
@@ -126,48 +127,35 @@ const PublicDashboard: React.FC = () => {
             });
         }
 
-        // --- MERGE ATTENDANCE LOGIC (Homeroom Priority) ---
         const combinedAttendance: Record<string, {name: string, status: string, source: 'Wali' | 'Guru'}> = {};
 
-        // 1. Homeroom Attendance (Absensi Wali Kelas - Mutlak)
         if (homeroomRes.data) {
             homeroomRes.data.forEach((h: any) => {
                 if (['S', 'I', 'A'].includes(h.status)) {
-                    // We need name, but homeroom_attendance might not have it joined. 
-                    // However, we have student ID. We can map it if needed, or rely on logic below.
-                    combinedAttendance[h.student_id] = { 
-                        name: 'Loading...', // Name might be missing here if not joined, but handled in detail list
-                        status: h.status, 
-                        source: 'Wali' 
-                    };
+                    combinedAttendance[h.student_id] = { name: 'Loading...', status: h.status, source: 'Wali' };
                 }
             });
         }
 
-        // 2. Teacher Logs ( Guru Mapel) - Only if not already set by Homeroom
-        // FILTER: Exclude Salat Dhuha
-        const validTeacherLogs = (attendanceRes.data || []).filter((log: any) => {
-            const subject = log.subject ? log.subject.toLowerCase() : '';
-            return !subject.includes('dhuha');
-        });
-
-        validTeacherLogs.forEach((log: any) => {
-            if (!combinedAttendance[log.student_id]) {
+        if (attendanceRes.data) {
+            attendanceRes.data.forEach((log: any) => {
                 if (['S', 'I', 'A'].includes(log.status)) {
-                    combinedAttendance[log.student_id] = { 
-                        name: log.student_name, 
-                        status: log.status, 
-                        source: 'Guru' 
-                    };
+                    if (!combinedAttendance[log.student_id]) {
+                        combinedAttendance[log.student_id] = { name: log.student_name, status: log.status, source: 'Guru' };
+                    }
                 }
-            }
-        });
+            });
+        }
 
-        // Convert back to Array for processing
-        const finalAttendanceList = Object.entries(combinedAttendance).map(([id, val]) => ({
+        const finalAttendanceList = Object.entries(combinedAttendance).map(([id, data]) => ({
             student_id: id,
-            ...val
+            name: data.name,
+            status: data.status,
+            source: data.source
         }));
+
+        const activeClassesCount = Object.keys(classCounts).length;
+        const calculatedTotalJp = activeClassesCount * jpPerClass;
 
         setRawAttendance(finalAttendanceList);
 
@@ -207,29 +195,29 @@ const PublicDashboard: React.FC = () => {
       }
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    setIsSubmitting(true);
-    try {
-      const { error } = await signIn(userId, password);
-      if (error) {
-        if (error.message === 'Failed to fetch') {
-           setLoginError('Gagal terhubung ke Database.');
-        } else if (error.message.includes('Invalid login')) {
-           setLoginError('NIP atau Password salah.');
-        } else {
-           setLoginError(error.message);
-        }
-      } else {
-        localStorage.setItem('saved_nip', userId);
-        navigate('/dashboard', { state: { justLoggedIn: true } });
+  const handleLogin = async (e: React.FormEvent) => {
+      e.preventDefault();
+      setLoginError('');
+      setIsSubmitting(true);
+      try {
+          const { error } = await signIn(userId, password);
+          if (error) {
+              if (error.message === 'Failed to fetch') {
+                  setLoginError('Gagal terhubung ke Database.');
+              } else if (error.message.includes('Invalid login')) {
+                  setLoginError('NIP atau Password salah.');
+              } else {
+                  setLoginError(error.message);
+              }
+              setIsSubmitting(false);
+          } else {
+              localStorage.setItem('saved_nip', userId);
+              navigate('/dashboard', { state: { justLoggedIn: true } });
+          }
+      } catch (err: any) {
+          setLoginError(err.message || 'Gagal login. Periksa kembali NIP/Username dan Password.');
+          setIsSubmitting(false);
       }
-    } catch (err) {
-      setLoginError('Terjadi kesalahan sistem.');
-    } finally {
-      setIsSubmitting(false);
-    }
   };
 
   const handleClassClick = (grade: string) => {
@@ -247,12 +235,7 @@ const PublicDashboard: React.FC = () => {
   };
 
   const getAbsentStudentsForClass = (cls: string) => {
-      // Find students in rawAttendance that belong to this class
-      // Note: rawAttendance now contains merged data
       const absentStudents = rawAttendance.filter(log => studentClassMap[log.student_id] === cls);
-      
-      // Need to fetch real names if missing from Homeroom source
-      // In a real app, I'd pre-fetch names map. For now, rely on teacher logs or generic.
       return absentStudents.map(s => ({
           name: s.name === 'Loading...' ? 'Siswa (Data Wali)' : s.name, 
           status: s.status,
@@ -260,130 +243,248 @@ const PublicDashboard: React.FC = () => {
       }));
   };
 
-  const ClassCard = ({ label, count, colorClass, iconColorClass, onClick }: any) => (
-      <button 
-        onClick={onClick}
-        className="app-card p-5 flex flex-col items-center justify-center text-center transition-transform active:scale-95 h-36"
-      >
-          <div className={`mb-2 text-3xl ${iconColorClass}`}>
-              <School size={32} strokeWidth={1.5} />
-          </div>
-          <h2 className={`text-4xl font-extrabold ${colorClass} mb-1 tracking-tight`}>{count}</h2>
-          <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</p>
-      </button>
-  );
-
   return (
-    <div className="min-h-screen flex flex-col items-center justify-start p-4 pt-[calc(env(safe-area-inset-top)+0.5rem)] font-sans bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
-      <main className="w-full max-w-md space-y-4 my-auto">
-        
-        {/* HEADER CARD */}
-        <div className="app-card p-5 flex items-center justify-between bg-white dark:bg-slate-800">
-             <div className="flex items-center gap-3">
-                 <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-14 w-auto object-contain" />
-                 <div>
-                    <h1 className="text-md font-extrabold text-slate-800 dark:text-white leading-tight">UPT SMP NEGERI 1 <br/> PASURUAN</h1>
-                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 mt-1">Sistem Informasi Kegiatan <br/> Belajar Mengajar (SI KBM)</p>
-                 </div>
-             </div>
-             <div className="text-right">
-                <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">{formatDateIndo(time)}</p>
-                <p className="text-2xl font-bold text-blue-500 dark:text-blue-400 font-mono tracking-tight leading-none">{formatTimeIndo(time)} <span className="text-xs font-bold">WIB</span></p>
-             </div>
-        </div>
+    <div className="min-h-screen bg-slate-50 font-sans selection:bg-blue-200">
+      <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          {/* Very soft background gradient/glows similar to image */}
+          <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-blue-50/50 to-transparent"></div>
+      </div>
 
-        {loading ? (
-            <div className="app-card p-10 flex flex-col items-center justify-center text-gray-400 dark:text-gray-500 bg-white dark:bg-slate-800">
-                <Loader2 className="animate-spin mb-3 text-blue-500" size={32} />
-                <p className="text-xs font-bold">Memuat Data...</p>
-            </div> 
-        ) : stats ? (
-          <>
-            {/* ROW 1 */}
-            <div className="flex justify-center mb-4">
-                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-md border border-slate-200 dark:border-slate-700 px-6 py-2 rounded-full shadow-sm text-sm font-bold text-slate-700 dark:text-slate-300">
-                    Tahun Ajaran: {academicYear} | Semester: {semester}
-                </div>
-            </div>
-            <div className="grid grid-cols-3 gap-3">
-               <ClassCard label="Kelas 7" count={stats.count7} colorClass="text-blue-600 dark:text-blue-400" iconColorClass="text-blue-400 dark:text-blue-500" onClick={() => handleClassClick('7')} />
-               <ClassCard label="Kelas 8" count={stats.count8} colorClass="text-emerald-500 dark:text-emerald-400" iconColorClass="text-emerald-400 dark:text-emerald-500" onClick={() => handleClassClick('8')} />
-               <ClassCard label="Kelas 9" count={stats.count9} colorClass="text-red-500 dark:text-red-400" iconColorClass="text-red-400 dark:text-red-500" onClick={() => handleClassClick('9')} />
-            </div>
-
-            {/* ROW 2 */}
-            <div className="grid grid-cols-2 gap-3">
-                <div className="app-card p-6 flex flex-col items-center justify-center text-center h-44 bg-white dark:bg-slate-800">
-                     <div className="mb-3 text-purple-500 dark:text-purple-400">
-                        <BookOpen size={40} strokeWidth={1.5} />
-                     </div>
-                     <div className="flex items-baseline gap-1 mb-1">
-                        <span className="text-4xl font-extrabold text-purple-600 dark:text-purple-400">{stats.completedJp}</span>
-                        <span className="text-lg font-bold text-gray-400 dark:text-gray-500">/ {stats.totalJpRequired} JP</span>
-                     </div>
-                     <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mt-1">KBM Terlaksana</p>
-                </div>
-
-                <button 
-                    onClick={handleAbsenceClick}
-                    className="app-card p-6 flex flex-col items-center justify-center text-center h-44 transition-transform active:scale-95 bg-white dark:bg-slate-800 group"
-                >
-                     <div className="mb-3 text-orange-500 dark:text-orange-400 group-hover:scale-110 transition-transform">
-                        <AlertCircle size={40} strokeWidth={1.5} />
-                     </div>
-                     <span className="text-4xl font-extrabold text-orange-500 dark:text-orange-400 mb-1">{stats.absenceCount}</span>
-                     <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase mt-1 leading-tight">Ketidakhadiran <br/> Murid</p>
-                </button>
-            </div>
-
-            {/* PROGRESS BAR */}
-            <div className="app-card p-6 bg-white dark:bg-slate-800">
-                <h3 className="font-bold text-gray-600 dark:text-gray-300 text-xs uppercase mb-3 text-center">Progress KBM Hari Ini</h3>
-                <div className="w-full bg-gray-100 dark:bg-slate-700 rounded-full h-4 mb-2 overflow-hidden shadow-inner">
-                    <div 
-                      className="bg-blue-500 h-4 rounded-full transition-all duration-700 ease-out"
-                      style={{ width: `${Math.min((stats.completedJp / stats.totalJpRequired) * 100, 100)}%` }}
-                    ></div>
-                </div>
-                <div className="text-left">
-                    <span className="text-sm font-bold text-gray-700 dark:text-gray-200">
-                        {((stats.completedJp / stats.totalJpRequired) * 100).toFixed(1)}% Terlaksana
-                    </span>
-                </div>
-            </div>
-
-            {/* LOGIN */}
-            <div className="pt-2">
-                <div className="relative p-[3px] rounded-2xl overflow-hidden group">
-                    <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #f59e0b 360deg)' }}></div>
-                    <button 
-                        onClick={() => setShowLoginModal(true)} 
-                        className="relative z-10 w-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-lg py-4 rounded-[14px] flex items-center justify-center gap-2 shadow-lg shadow-blue-200 dark:shadow-none active:translate-y-0.5 transition-all"
-                    >
-                        <span className="relative overflow-hidden inline-flex items-center justify-center gap-2 group-hover:scale-105 transition-transform"><span className="absolute inset-0 z-20 w-[50%] h-full bg-gradient-to-r from-transparent via-white/50 to-transparent -translate-x-[200%] animate-[shimmer_2s_infinite]"></span><LogIn size={24} className="relative z-10" /> <span className="relative z-10">Login Sebagai</span></span>
-                    </button>
-                </div>
-            </div>
-          </>
-        ) : <p className="text-center text-gray-400 text-sm mt-10">Gagal memuat data.</p>}
-      </main>
-
-      {/* MODAL - FIXED VIEWPORT (Z-9999) */}
-      {modalOpen && modalContent && (
-          <div className="fixed inset-0 z-[9999] flex items-end md:items-center justify-center sm:p-4 bg-black/40 backdrop-blur-sm animate-fade-in w-screen h-[100dvh]" onClick={() => setModalOpen(false)}>
-              <div className="app-card w-full md:w-full md:max-w-sm flex flex-col max-h-[85vh] overflow-hidden bg-white dark:bg-slate-800 rounded-t-3xl md:rounded-3xl shadow-2xl mb-0 md:mb-auto transition-transform transform scale-100" onClick={e => e.stopPropagation()}>
+      <div className="relative z-10 max-w-[500px] mx-auto px-4 py-6 md:py-10 space-y-5">
+          
+          {/* 1. TOP HEADER CARD */}
+          <div className="bg-white rounded-[2rem] p-5 shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative overflow-hidden flex flex-col gap-5 border border-slate-100">
+              {/* Decorative wave at bottom right */}
+              <div className="absolute -bottom-10 -right-10 w-40 h-40 bg-gradient-to-br from-blue-400/20 to-blue-600/30 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="absolute -bottom-16 -right-4 w-48 h-32 bg-blue-500/10 rounded-[100%] rotate-12 pointer-events-none"></div>
+              
+              <div className="flex items-start justify-between z-10 relative gap-2">
+                  <div className="flex items-start gap-3">
+                      <div className="w-14 h-16 bg-white shadow-sm border border-slate-100 rounded-xl flex items-center justify-center p-1 shrink-0 relative overflow-hidden">
+                          <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="w-full h-full object-contain" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                          <div className="absolute inset-0 flex items-center justify-center bg-blue-50 text-blue-500 font-black text-xs" style={{ display: 'none' }}>
+                             <School size={24}/>
+                          </div>
+                      </div>
+                      <div className="pt-0.5">
+                          <h1 className="text-[15px] font-black text-slate-800 leading-tight tracking-tight">UPT SMP NEGERI 1<br/>PASURUAN</h1>
+                          <p className="text-[10px] text-slate-500 mt-1 leading-tight font-medium">Sistem Informasi Kegiatan<br/>Belajar Mengajar (SI KBM)</p>
+                      </div>
+                  </div>
                   
-                  {/* Modal Header */}
-                  <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100 dark:border-slate-700 flex-shrink-0">
-                      <h3 className="font-extrabold text-slate-800 dark:text-white text-lg leading-tight">{modalContent.title}</h3>
-                      <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 p-1 bg-gray-50 dark:bg-slate-700 rounded-full">
-                          <X size={20} />
+                  <div className="bg-white border border-slate-100 rounded-[1.25rem] p-2 pr-3 flex items-center gap-2.5 shadow-sm shrink-0">
+                      <div className="w-[34px] h-[34px] bg-blue-50 rounded-full flex items-center justify-center text-blue-600 shrink-0 border border-blue-100">
+                          <Calendar size={18} strokeWidth={2.5} />
+                      </div>
+                      <div className="text-right">
+                          <p className="text-[8px] font-bold text-slate-500 mb-0.5">{formatDateIndo(time)}</p>
+                          <div className="flex items-baseline justify-end gap-1 text-blue-600">
+                              <span className="text-lg font-black tracking-tighter leading-none">{formatTimeIndo(time).replace(' WIB', '')}</span>
+                              <span className="text-[8px] font-bold text-blue-500">WIB</span>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+
+          
+
+          {/* 2. ACADEMIC YEAR PILL */}
+          <div className="flex justify-center">
+              <div className="bg-white rounded-full shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 pl-1.5 pr-6 py-1.5 flex items-center gap-3">
+                  <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white shadow-md">
+                      <GraduationCap size={16} strokeWidth={2.5}/>
+                  </div>
+                  <div className="text-[11px] font-extrabold text-slate-700">
+                      Tahun Ajaran: {academicYear} <span className="text-slate-300 mx-1">|</span> Semester: {semester}
+                  </div>
+              </div>
+          </div>
+
+          {/* 3. CLASS CARDS */}
+          {loading || !stats ? (
+              <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-blue-500" size={32}/></div>
+          ) : (
+              <>
+                  <div className="grid grid-cols-3 gap-3">
+                      {/* Kelas 7 */}
+                      <button onClick={() => handleClassClick('7')} className="bg-white rounded-[1.5rem] p-4 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 text-left relative overflow-hidden group hover:shadow-md transition-all">
+                          <svg className="absolute bottom-0 left-0 w-full h-auto text-blue-50/80 group-hover:text-blue-100/80 transition-colors" viewBox="0 0 100 40" preserveAspectRatio="none">
+                              <path fill="currentColor" d="M0,20 Q25,40 50,20 T100,20 L100,40 L0,40 Z"></path>
+                          </svg>
+                          <div className="w-8 h-8 rounded-full border border-blue-200 flex items-center justify-center text-blue-500 mb-4 bg-white relative z-10 shadow-sm">
+                              <User size={14} strokeWidth={2.5} />
+                          </div>
+                          <div className="relative z-10">
+                              <div className="text-[28px] font-black text-slate-800 tracking-tighter leading-none">{stats.count7}</div>
+                              <div className="text-[10px] font-bold text-slate-500 mt-1.5 uppercase">Kelas 7</div>
+                              <div className="w-6 h-1 bg-blue-500 rounded-full mt-2.5"></div>
+                          </div>
+                      </button>
+
+                      {/* Kelas 8 */}
+                      <button onClick={() => handleClassClick('8')} className="bg-white rounded-[1.5rem] p-4 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 text-left relative overflow-hidden group hover:shadow-md transition-all">
+                          <svg className="absolute bottom-0 left-0 w-full h-auto text-emerald-50/80 group-hover:text-emerald-100/80 transition-colors" viewBox="0 0 100 40" preserveAspectRatio="none">
+                              <path fill="currentColor" d="M0,20 Q25,40 50,20 T100,20 L100,40 L0,40 Z"></path>
+                          </svg>
+                          <div className="w-8 h-8 rounded-full border border-emerald-200 flex items-center justify-center text-emerald-500 mb-4 bg-white relative z-10 shadow-sm">
+                              <User size={14} strokeWidth={2.5} />
+                          </div>
+                          <div className="relative z-10">
+                              <div className="text-[28px] font-black text-slate-800 tracking-tighter leading-none">{stats.count8}</div>
+                              <div className="text-[10px] font-bold text-slate-500 mt-1.5 uppercase">Kelas 8</div>
+                              <div className="w-6 h-1 bg-emerald-500 rounded-full mt-2.5"></div>
+                          </div>
+                      </button>
+
+                      {/* Kelas 9 */}
+                      <button onClick={() => handleClassClick('9')} className="bg-white rounded-[1.5rem] p-4 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 text-left relative overflow-hidden group hover:shadow-md transition-all">
+                          <svg className="absolute bottom-0 left-0 w-full h-auto text-red-50/80 group-hover:text-red-100/80 transition-colors" viewBox="0 0 100 40" preserveAspectRatio="none">
+                              <path fill="currentColor" d="M0,20 Q25,40 50,20 T100,20 L100,40 L0,40 Z"></path>
+                          </svg>
+                          <div className="w-8 h-8 rounded-full border border-red-200 flex items-center justify-center text-red-500 mb-4 bg-white relative z-10 shadow-sm">
+                              <User size={14} strokeWidth={2.5} />
+                          </div>
+                          <div className="relative z-10">
+                              <div className="text-[28px] font-black text-slate-800 tracking-tighter leading-none">{stats.count9}</div>
+                              <div className="text-[10px] font-bold text-slate-500 mt-1.5 uppercase">Kelas 9</div>
+                              <div className="w-6 h-1 bg-red-500 rounded-full mt-2.5"></div>
+                          </div>
                       </button>
                   </div>
 
-                  {/* Modal Body */}
-                  <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white dark:bg-slate-800 pb-10 md:pb-6">
+                  {/* 4. SUMMARY ROW */}
+                  <div className="grid grid-cols-2 gap-3">
+                      {/* KBM Terlaksana */}
+                      <div className="bg-white rounded-[1.75rem] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden flex flex-col justify-between min-h-[140px] text-left hover:shadow-md transition-all group">
+                          <div className="absolute bottom-0 right-0 w-32 h-32 bg-purple-50/50 rounded-tl-full transition-colors z-0"></div>
+                          
+                          <div className="w-[34px] h-[34px] rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center border border-purple-100 relative z-10">
+                              <BookOpen size={18} strokeWidth={2} />
+                          </div>
+                          
+                          <div className="relative z-10 mt-auto">
+                              <div className="flex items-baseline gap-1">
+                                  <span className="text-[32px] font-black text-purple-700 tracking-tighter leading-none">{stats.completedJp}</span>
+                                  <span className="text-[11px] font-bold text-slate-600">/ {stats.totalJpRequired} JP</span>
+                              </div>
+                              <div className="text-[10px] font-black text-slate-700 uppercase mt-2 tracking-wide leading-tight">KBM Terlaksana</div>
+                          </div>
+
+                          {/* 3D-like Icon Simulation */}
+                          <div className="absolute right-4 bottom-4 w-[60px] h-[60px] bg-gradient-to-br from-[#c4b5fd] to-[#8b5cf6] rounded-[1.25rem] shadow-[0_8px_16px_rgba(139,92,246,0.3)] flex items-center justify-center transform -rotate-3 border-t-[3px] border-l-[3px] border-white/40 z-10">
+                              <div className="w-10 h-10 bg-white rounded-xl shadow-inner flex items-center justify-center relative overflow-hidden">
+                                 <div className="absolute top-0 w-full h-2.5 bg-gradient-to-b from-slate-100 to-white"></div>
+                                 <Check size={24} strokeWidth={4} className="text-[#8b5cf6] drop-shadow-sm z-10" />
+                              </div>
+                              {/* Binder rings */}
+                              <div className="absolute -top-1.5 left-3 w-1.5 h-3.5 bg-slate-200 rounded-full shadow-sm border border-slate-300"></div>
+                              <div className="absolute -top-1.5 right-3 w-1.5 h-3.5 bg-slate-200 rounded-full shadow-sm border border-slate-300"></div>
+                          </div>
+                      </div>
+
+                      {/* Ketidakhadiran */}
+                      <button onClick={handleAbsenceClick} className="bg-white rounded-[1.75rem] p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100 relative overflow-hidden flex flex-col justify-between min-h-[140px] text-left hover:shadow-md transition-all group">
+                          <div className="absolute bottom-0 right-0 w-32 h-32 bg-orange-50/50 rounded-tl-full transition-colors z-0"></div>
+                          
+                          <div className="w-[34px] h-[34px] rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center border border-orange-100 relative z-10">
+                              <AlertCircle size={18} strokeWidth={2} />
+                          </div>
+                          
+                          <div className="relative z-10 mt-auto">
+                              <div className="text-[32px] font-black text-orange-500 tracking-tighter leading-none">{stats.absenceCount}</div>
+                              <div className="text-[10px] font-black text-slate-700 uppercase mt-2 tracking-wide leading-tight">Ketidakhadiran<br/>Murid</div>
+                          </div>
+
+                           {/* 3D-like Icon Simulation */}
+                           <div className="absolute right-4 bottom-4 w-[56px] h-[64px] bg-gradient-to-br from-[#fed7aa] to-[#f97316] rounded-xl shadow-[0_8px_16px_rgba(249,115,22,0.3)] flex flex-col items-center justify-center transform rotate-6 border-t-[3px] border-l-[3px] border-white/50 z-10 pt-2">
+                              {/* Paper */}
+                              <div className="w-10 h-10 bg-white rounded shadow-inner flex flex-col items-center justify-center gap-1">
+                                  <div className="w-6 h-0.5 bg-slate-200 rounded-full"></div>
+                                  <div className="w-6 h-0.5 bg-slate-200 rounded-full"></div>
+                                  <div className="w-4 h-0.5 bg-slate-200 rounded-full mr-2"></div>
+                              </div>
+                              {/* Clip */}
+                              <div className="absolute -top-1 w-6 h-3 bg-slate-700 rounded-md shadow-md border-b-2 border-slate-800"></div>
+                              <div className="absolute -top-3 w-3 h-3 border-2 border-slate-700 rounded-full"></div>
+                              
+                              {/* Alert Badge */}
+                              <div className="absolute -right-2 -bottom-2 w-7 h-7 bg-orange-500 rounded-full border-2 border-white flex items-center justify-center shadow-lg text-white font-black text-[13px] leading-none">!</div>
+                          </div>
+                      </button>
+                  </div>
+
+                  {/* 5. PROGRESS BAR */}
+                  <div className="bg-white rounded-3xl p-5 shadow-[0_4px_20px_rgb(0,0,0,0.03)] border border-slate-100">
+                      <div className="flex items-center gap-2 mb-3">
+                          <div className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
+                             <Bookmark size={12} strokeWidth={3}/>
+                          </div>
+                          <span className="text-[10px] font-extrabold text-slate-700 uppercase tracking-wide">Progress KBM Hari Ini</span>
+                      </div>
                       
+                      {(() => {
+                          const percentage = stats.totalJpRequired > 0 ? Math.min(100, Math.round((stats.completedJp / stats.totalJpRequired) * 100)) : 0;
+                          return (
+                              <div>
+                                  <div className="h-2.5 w-full bg-slate-100 rounded-full overflow-hidden mb-2 shadow-inner">
+                                      <div className="h-full bg-blue-600 rounded-full transition-all duration-1000 ease-out relative" style={{ width: `${percentage}%`}}>
+                                          <div className="absolute inset-0 bg-white/20 w-full h-full skew-x-12 translate-x-full animate-[shimmer_2s_infinite]"></div>
+                                      </div>
+                                  </div>
+                                  <div className="flex justify-between items-center text-[10px] font-bold">
+                                      <span className="text-slate-500">{percentage}% Terlaksana</span>
+                                      <span className="text-blue-600 text-sm font-black">{percentage}%</span>
+                                  </div>
+                              </div>
+                          );
+                      })()}
+                  </div>
+              </>
+          )}
+
+          {/* 6. LOGIN BUTTON */}
+          <button 
+              onClick={() => setShowLoginModal(true)}
+              className="w-full bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-3xl py-4 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 hover:shadow-xl hover:shadow-blue-500/30 transition-all active:scale-[0.98] mt-2 group"
+          >
+              <LogIn size={20} strokeWidth={2.5} className="group-hover:translate-x-1 transition-transform" />
+              <span className="font-extrabold text-sm">Login Sebagai</span>
+          </button>
+
+          {/* 7. FOOTER QUOTE */}
+          <div className="bg-white rounded-full py-2.5 px-4 flex items-center justify-between shadow-sm border border-slate-100 mx-4 mt-4">
+              <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              </div>
+              <p className="text-[9px] font-bold text-slate-600 text-center leading-tight mx-2">
+                  <span className="text-blue-500 font-serif font-black text-sm mr-1">"</span>
+                  Setiap hari adalah kesempatan baru<br/>untuk belajar, mengajar, dan menginspirasi.
+              </p>
+              <div className="w-6 h-6 text-blue-400 flex items-center justify-center shrink-0 relative">
+                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2z"/></svg>
+                 <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" stroke="none" className="absolute top-0 right-0"><path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4L12 2z"/></svg>
+              </div>
+          </div>
+      </div>
+      
+      {/* MODALS RETAINED FROM ORIGINAL (Just appended exactly as they were conceptually) */}
+      
+      {/* MODALS WRAPPER */}
+      {modalOpen && modalContent && (
+          <div className="fixed inset-0 z-[99999] flex justify-center items-end sm:items-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={() => setModalOpen(false)}>
+              <div className="bg-white dark:bg-slate-800 w-full max-w-lg sm:rounded-3xl rounded-t-3xl shadow-2xl overflow-hidden animate-slide-up sm:animate-zoom-in flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
+                  <div className="flex justify-between items-center p-5 sm:p-6 border-b border-gray-100 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
+                      <div>
+                          <h2 className="text-lg font-black text-slate-800 dark:text-white leading-tight">{modalContent.title}</h2>
+                          <p className="text-[10px] font-bold text-slate-500 uppercase mt-1">
+                              {modalContent.type === 'class' ? 'Statistik Kelas' : 'Rekap Ketidakhadiran'}
+                          </p>
+                      </div>
+                      <button onClick={() => setModalOpen(false)} className="text-gray-400 hover:text-slate-700 dark:hover:text-white p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700"><X size={20}/></button>
+                  </div>
+                  
+                  <div className="overflow-y-auto p-6 space-y-6 custom-scrollbar bg-white dark:bg-slate-800 pb-10 md:pb-6">
                       {modalContent.type === 'class' ? (
                           <div className="grid grid-cols-3 gap-3">
                               {modalContent.data.map(([cls, count]: any) => {
@@ -414,36 +515,25 @@ const PublicDashboard: React.FC = () => {
                                     <span className="text-3xl font-extrabold text-red-600 dark:text-red-400">{modalContent.data.absenceDetails.A}</span>
                                 </div>
                             </div>
-
                             <div className="p-3 bg-slate-50 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-600 rounded-xl text-center">
                                 <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">*Termasuk input dari Wali Kelas & Guru Mapel.</span>
                             </div>
-
                             <hr className="border-gray-100 dark:border-slate-700" />
-
                             <div>
-                                <div className="flex items-center gap-2 mb-4">
-                                    <Bookmark size={16} className="text-orange-500 fill-orange-500"/>
-                                    <h4 className="font-bold text-slate-700 dark:text-white text-sm">Rincian Per Kelas</h4>
-                                </div>
-                                
+                                <h3 className="text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase mb-3 flex items-center gap-2"><School size={14}/> Per Kelas</h3>
                                 <div className="space-y-3">
                                     {Object.keys(modalContent.data.classDetails).sort().map(cls => {
                                         const totalStudents = modalContent.data.classDetails[cls] || 0;
                                         const absentCount = modalContent.data.absencePerClass[cls] || 0;
                                         const presentCount = totalStudents - absentCount;
                                         const isExpanded = expandedClass === cls;
-
                                         return (
-                                            <div key={cls} className="border border-gray-100 dark:border-slate-700 rounded-2xl overflow-hidden transition-all hover:shadow-sm">
-                                                <button 
-                                                    onClick={() => setExpandedClass(isExpanded ? null : cls)} 
-                                                    className="w-full flex items-center p-3 bg-white dark:bg-slate-700/30"
-                                                >
-                                                    <div className="w-10 h-10 flex items-center justify-center bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-600 rounded-xl font-bold text-slate-700 dark:text-white text-sm shadow-sm">
+                                            <div key={cls} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
+                                                <button onClick={() => setExpandedClass(isExpanded ? null : cls)} className="w-full flex items-center p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left">
+                                                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-black text-slate-700 dark:text-white mr-3 shrink-0 text-sm">
                                                         {cls}
                                                     </div>
-                                                    <div className="flex-1 px-4 text-left">
+                                                    <div className="flex-1 px-1">
                                                         <div className="flex items-center gap-2 text-xs font-bold">
                                                             <span className="text-green-600 dark:text-green-400">{presentCount} Hadir</span>
                                                             <span className="text-gray-300 dark:text-gray-600">|</span>
@@ -456,7 +546,6 @@ const PublicDashboard: React.FC = () => {
                                                         {isExpanded ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
                                                     </div>
                                                 </button>
-
                                                 {isExpanded && absentCount > 0 && (
                                                     <div className="bg-gray-50 dark:bg-slate-800 p-3 border-t border-gray-100 dark:border-slate-700 space-y-2 animate-fade-in">
                                                         {getAbsentStudentsForClass(cls).map((s: any, idx: number) => (
@@ -494,159 +583,140 @@ const PublicDashboard: React.FC = () => {
         <div className="fixed inset-0 z-[99999] flex justify-center items-center p-4 bg-slate-900/60 backdrop-blur-md animate-fade-in" onClick={() => setShowLoginModal(false)}>
            <div className="bg-transparent w-full max-w-lg flex flex-col items-center" onClick={(e) => e.stopPropagation()}>
                {loginViewMode === 'selection' ? (
-                  <div className="w-full grid gap-4 animate-fade-in">
-                      <div className="flex justify-between items-center mb-2">
-                          <h2 className="text-xl font-extrabold text-white">Masuk Sebagai</h2>
-                          <button onClick={() => setShowLoginModal(false)} className="text-white/70 hover:text-white p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"><X size={24}/></button>
+                  <div className="w-full max-w-sm mx-auto space-y-4 animate-fade-in">
+                      <div className="flex justify-between items-center mb-6 px-1">
+                          <h2 className="text-2xl font-black text-white">Masuk Sebagai</h2>
+                          <button onClick={() => setShowLoginModal(false)} className="text-white/70 hover:text-white p-2 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors"><X size={24}/></button>
                       </div>
                       
                       <button 
                         onClick={() => handleRoleSelect('guru')}
-                        className="bg-white dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-blue-300 dark:hover:border-blue-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
+                        className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 p-6 rounded-[1.75rem] shadow-lg flex items-center gap-5 transition-transform active:scale-[0.98] group"
                       >
-                          <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                              <GraduationCap size={32} />
+                          <div className="w-16 h-16 rounded-full bg-blue-100/80 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center flex-shrink-0">
+                              <GraduationCap size={28} strokeWidth={2.5} />
                           </div>
-                          <div className="text-left">
-                              <h3 className="text-lg font-extrabold text-slate-800 dark:text-white group-hover:text-blue-700 dark:group-hover:text-blue-400">Guru / Tenaga Pendidik</h3>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Masuk untuk mengisi jurnal & absensi.</p>
+                          <div className="text-left flex-1">
+                              <h3 className="text-[17px] font-black text-slate-800 dark:text-white leading-tight">Guru / Tenaga<br/>Pendidik</h3>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 leading-snug">Masuk untuk mengisi jurnal<br/>& absensi.</p>
                           </div>
-                          <div className="ml-auto text-slate-300 dark:text-slate-600 group-hover:text-blue-500">
-                              <ArrowRight size={24} />
+                          <div className="text-slate-300 dark:text-slate-600 group-hover:text-blue-400 transition-colors">
+                              <ArrowRight size={20} strokeWidth={2.5} />
                           </div>
                       </button>
 
                       <button 
                         onClick={() => handleRoleSelect('operator')}
-                        className="bg-white dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-orange-300 dark:hover:border-orange-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
+                        className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 p-6 rounded-[1.75rem] shadow-lg flex items-center gap-5 transition-transform active:scale-[0.98] group"
                       >
-                          <div className="w-16 h-16 rounded-full bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                              <MonitorPlay size={32} />
+                          <div className="w-16 h-16 rounded-full bg-orange-100/80 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 flex items-center justify-center flex-shrink-0">
+                              <MonitorPlay size={28} strokeWidth={2.5} />
                           </div>
-                          <div className="text-left">
-                              <h3 className="text-lg font-extrabold text-slate-800 dark:text-white group-hover:text-orange-700 dark:group-hover:text-orange-400">Operator Monitor</h3>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Dashboard monitoring jadwal real-time.</p>
+                          <div className="text-left flex-1">
+                              <h3 className="text-[17px] font-black text-slate-800 dark:text-white leading-tight">Operator<br/>Monitor</h3>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 leading-snug">Dashboard monitoring<br/>jadwal real-time.</p>
                           </div>
-                          <div className="ml-auto text-slate-300 dark:text-slate-600 group-hover:text-orange-500">
-                              <ArrowRight size={24} />
+                          <div className="text-slate-300 dark:text-slate-600 group-hover:text-orange-400 transition-colors">
+                              <ArrowRight size={20} strokeWidth={2.5} />
                           </div>
                       </button>
 
                       <button 
                         onClick={() => handleRoleSelect('admin')}
-                        className="bg-white dark:bg-slate-800 hover:bg-white dark:hover:bg-slate-700 border-2 border-transparent hover:border-slate-400 dark:hover:border-slate-500/50 p-5 rounded-3xl shadow-xl flex items-center gap-5 transition-all group"
+                        className="w-full bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 p-6 rounded-[1.75rem] shadow-lg flex items-center gap-5 transition-transform active:scale-[0.98] group"
                       >
-                          <div className="w-16 h-16 rounded-full bg-slate-800 dark:bg-slate-700 text-white flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform">
-                              <Shield size={32} />
+                          <div className="w-16 h-16 rounded-full bg-slate-100 dark:bg-slate-900/50 text-slate-600 dark:text-slate-400 flex items-center justify-center flex-shrink-0">
+                              <Shield size={28} strokeWidth={2.5} />
                           </div>
-                          <div className="text-left">
-                              <h3 className="text-lg font-extrabold text-slate-800 dark:text-white">Administrator</h3>
-                              <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Pengaturan sistem dan data master.</p>
+                          <div className="text-left flex-1">
+                              <h3 className="text-[17px] font-black text-slate-800 dark:text-white leading-tight">Administrator</h3>
+                              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 leading-snug">Pengaturan sistem &<br/>database master.</p>
                           </div>
-                          <div className="ml-auto text-slate-300 dark:text-slate-600 group-hover:text-slate-800 dark:group-hover:text-white">
-                              <ArrowRight size={24} />
+                          <div className="text-slate-300 dark:text-slate-600 group-hover:text-slate-500 transition-colors">
+                              <ArrowRight size={20} strokeWidth={2.5} />
                           </div>
                       </button>
                   </div>
                ) : (
-                  <div className="w-full max-w-sm bg-white dark:bg-slate-800 rounded-[2rem] shadow-2xl border border-white/50 dark:border-slate-700 overflow-hidden relative animate-fade-in transition-colors">
-                      <div className="p-8">
-                          <div className="flex justify-between items-start mb-6">
-                              <button 
-                                onClick={() => setLoginViewMode('selection')}
-                                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 p-2 rounded-full transition-colors -ml-2"
-                                title="Kembali"
-                              >
-                                  <ChevronLeft size={24} />
-                              </button>
-                              <button onClick={() => setShowLoginModal(false)} className="text-slate-400 hover:text-slate-600 p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors -mr-2"><X size={24}/></button>
+                  <div className="bg-white dark:bg-slate-800 w-full max-w-sm mx-auto p-8 py-10 rounded-[2.5rem] shadow-2xl relative animate-zoom-in">
+                      <button onClick={() => setLoginViewMode('selection')} className="absolute top-8 left-8 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                          <ChevronLeft size={24} strokeWidth={2.5}/>
+                      </button>
+                      
+                      <div className="text-center mb-8">
+                          <div className="w-24 h-24 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 border-[6px] border-blue-50 dark:border-blue-900/30 shadow-[0_0_20px_rgba(59,130,246,0.1)]">
+                              {selectedRoleLabel === 'Administrator' ? <Shield size={36} className="text-blue-500" strokeWidth={2.5}/> : <GraduationCap size={36} className="text-blue-500" strokeWidth={2.5}/>}
                           </div>
+                          <h2 className="text-[26px] font-black text-slate-800 dark:text-white mb-1">Login {selectedRoleLabel}</h2>
+                          <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">Sistem Informasi KBM</p>
+                      </div>
+
+                      <form onSubmit={handleLogin} className="space-y-5">
+                          {loginError && (
+                              <div className="p-4 bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800/50 rounded-2xl flex gap-3 text-red-600 dark:text-red-400 animate-shake">
+                                  <AlertCircle size={20} className="shrink-0 mt-0.5" />
+                                  <p className="text-xs font-bold leading-relaxed">{loginError}</p>
+                              </div>
+                          )}
                           
-                          <div className="flex flex-col items-center justify-center gap-1 mb-6 -mt-4">
-                              <div className="p-3 bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 rounded-full mb-2">
-                                  <ShieldCheck size={28} />
+                          <div>
+                              <label className="block text-[11px] font-black text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-widest">ID Pengguna / NIP</label>
+                              <div className="relative">
+                                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                      <User size={20} strokeWidth={2} />
+                                  </div>
+                                  <input
+                                      type="text"
+                                      required
+                                      value={userId}
+                                      onChange={(e) => setUserId(e.target.value)}
+                                      className="w-full pl-12 pr-4 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-300 shadow-sm"
+                                      placeholder="Masukkan NIP"
+                                  />
                               </div>
-                              <h2 className="text-lg font-bold text-slate-800 dark:text-white">Login {selectedRoleLabel}</h2>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">Silakan masukkan kredensial Anda.</p>
                           </div>
 
-                          <form onSubmit={handleLoginSubmit} className="space-y-5">
-                            <div>
-                              <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">User ID (NIP/NIPPPK)</label>
+                          <div>
+                              <label className="block text-[11px] font-black text-slate-600 dark:text-slate-400 mb-2 uppercase tracking-widest">Kata Sandi</label>
                               <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                  <User className="h-5 w-5 text-gray-400" />
-                                </div>
-                                <input
-                                  name="nip"
-                                  id="nip"
-                                  autoComplete="username"
-                                  type="text"
-                                  value={userId}
-                                  onChange={(e) => setUserId(e.target.value)}
-                                  className="pl-12 block w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3.5 text-slate-800 dark:text-white text-sm font-bold transition-all placeholder:text-gray-300 dark:placeholder:text-slate-600 placeholder:font-normal"
-                                  placeholder="Contoh: 19870101..."
-                                  required
-                                  autoFocus
-                                />
+                                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-slate-400">
+                                      <Lock size={20} strokeWidth={2} />
+                                  </div>
+                                  <input
+                                      type={showPassword ? "text" : "password"}
+                                      required
+                                      value={password}
+                                      onChange={(e) => setPassword(e.target.value)}
+                                      className="w-full pl-12 pr-12 py-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-[1.25rem] text-sm font-bold text-slate-800 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder:font-normal placeholder:text-slate-300 shadow-sm"
+                                      placeholder="••••••••"
+                                  />
+                                  <button
+                                      type="button"
+                                      onClick={() => setShowPassword(!showPassword)}
+                                      className="absolute inset-y-0 right-0 pr-4 flex items-center text-slate-400 hover:text-blue-500 transition-colors"
+                                  >
+                                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                                  </button>
                               </div>
-                            </div>
+                          </div>
 
-                            <div>
-                              <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-2">Password</label>
-                              <div className="relative">
-                                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                  <Lock className="h-5 w-5 text-gray-400" />
-                                </div>
-                                <input
-                                  name="password"
-                                  id="password"
-                                  autoComplete="current-password"
-                                  type={showPassword ? "text" : "password"}
-                                  value={password}
-                                  onChange={(e) => setPassword(e.target.value)}
-                                  className="pl-12 pr-12 block w-full bg-white dark:bg-slate-900 border border-gray-300 dark:border-slate-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 p-3.5 text-slate-800 dark:text-white text-sm font-bold transition-all placeholder:text-gray-300 dark:placeholder:text-slate-600 placeholder:font-normal"
-                                  placeholder="Masukkan Password"
-                                  required
-                                />
-                                <button 
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 transition-colors cursor-pointer z-10"
-                                    tabIndex={-1}
-                                    title={showPassword ? "Sembunyikan" : "Lihat Password"}
-                                >
-                                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-                                </button>
-                              </div>
-                            </div>
-
-                            {loginError && (
-                              <div className="flex items-center gap-3 text-red-600 dark:text-red-400 text-xs font-bold bg-red-50 dark:bg-red-900/20 p-3 rounded-xl border border-red-100 dark:border-red-900/50">
-                                <AlertCircle size={18} className="flex-shrink-0" />
-                                <span>{loginError}</span>
-                              </div>
-                            )}
-
-                            <button
+                          <button
                               type="submit"
                               disabled={isSubmitting}
-                              className="w-full bg-[#3B82F6] hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50 shadow-lg shadow-blue-200 dark:shadow-none mt-4 active:translate-y-0.5"
-                            >
-                              {isSubmitting ? 'Memproses...' : (
-                                <>
-                                  Masuk Aplikasi <ArrowRight size={20} />
-                                </>
+                              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-[1.25rem] py-4 mt-2 font-black text-[15px] flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(37,99,235,0.25)] transition-transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
+                          >
+                              {isSubmitting ? (
+                                  <><Loader2 size={20} className="animate-spin" /> Sedang Masuk...</>
+                              ) : (
+                                  <>Masuk Sekarang <ArrowRight size={20} strokeWidth={2.5} /></>
                               )}
-                            </button>
-                          </form>
-                      </div>
+                          </button>
+                      </form>
                   </div>
                )}
            </div>
         </div>
       )}
-
     </div>
   );
 };

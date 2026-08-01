@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Schedule } from '../types';
-import { Calendar, Clock, BookOpen, Loader2, CalendarDays, Download, ImageIcon } from 'lucide-react';
+import {  Calendar, Clock, BookOpen, Loader2, CalendarDays, Download, ImageIcon , Compass } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import { showAlert, showConfirm } from '../utils/alert';
 
@@ -132,12 +132,12 @@ const MySchedule: React.FC = () => {
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
-                <div className="bg-gradient-to-br from-pink-500 to-rose-500 p-3 rounded-2xl shadow-lg shadow-pink-500/20 text-white">
-                    <CalendarDays size={28} />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-400 to-indigo-600 text-white flex items-center justify-center shadow-sm">
+                    <Compass size={20} />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Jadwal Mengajar</h2>
-                    <p className="text-gray-500 text-sm">Agenda KBM mingguan Anda.</p>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Jadwal Mengajar</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Agenda KBM mingguan Anda.</p>
                 </div>
             </div>
             

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { getWIBISOString } from '../utils/dateUtils';
-import { Bell, CheckCircle2, XCircle, X } from 'lucide-react';
+import {  Bell, CheckCircle2, XCircle, X , LayoutGrid } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { LogOut, LayoutDashboard, Grid, User, ChevronRight, MonitorPlay, Moon, Sun, Siren, Activity, Sunset, ArrowUp, AlertCircle, Settings, Database, Users, GraduationCap, Upload, Edit3, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -217,17 +217,19 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
             onClick={() => navigate(path)}
             className={`relative flex items-center justify-center h-12 rounded-full transition-all duration-500 ease-out overflow-hidden ${
                 isActive 
-                ? 'w-32 bg-slate-900 dark:bg-blue-600 text-white shadow-lg shadow-slate-200 dark:shadow-blue-900/50' 
+                ? 'flex-1 bg-[#1281ff] text-white shadow-lg shadow-blue-200/50 dark:shadow-none' 
                 : 'w-12 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 dark:text-slate-500'
             }`}
           >
-              <Icon size={24} strokeWidth={isActive ? 2.5 : 2} className={`flex-shrink-0 transition-transform duration-300 ${isActive ? '-ml-2' : ''}`} />
-              
-              <span className={`ml-2 text-xs font-bold whitespace-nowrap transition-all duration-500 ${
-                  isActive ? 'opacity-100 max-w-[100px] translate-x-0' : 'opacity-0 max-w-0 -translate-x-4 absolute'
-              }`}>
-                  {label}
-              </span>
+              <div className="flex items-center justify-center gap-3">
+                  <Icon size={22} strokeWidth={isActive ? 2.5 : 2} className="flex-shrink-0" />
+                  
+                  <span className={`text-sm font-semibold whitespace-nowrap transition-all duration-500 ${
+                      isActive ? 'opacity-100 max-w-[100px] translate-x-0' : 'opacity-0 max-w-0 -translate-x-4 absolute'
+                  }`}>
+                      {label}
+                  </span>
+              </div>
           </button>
       );
   };
@@ -348,7 +350,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
       {/* --- MAIN CONTENT --- */}
       <main className="flex-1 flex flex-col h-screen overflow-y-auto custom-scrollbar relative bg-[#F0F4F8] dark:bg-slate-900 transition-colors duration-300">
           {/* Mobile Header */}
-          <div className="md:hidden sticky top-0 bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+0.25rem)]">
+          <div className="md:hidden sticky top-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl border-b border-slate-200/50 dark:border-slate-700/50 z-30 shadow-sm pt-[calc(env(safe-area-inset-top)+0.25rem)]">
              <div className="px-4 py-3 flex justify-between items-center">
                  <div className="flex items-center gap-3">
                      <img 
@@ -462,11 +464,11 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
             <div className="relative pointer-events-auto p-[2px] rounded-full overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.12)] max-w-[95vw] group">
                 {/* Animated Glow Border */}
                 <div className="absolute inset-[-100%] z-0 animate-[spin_4s_linear_infinite]" style={{ background: 'conic-gradient(from 0deg, transparent 0 340deg, #3b82f6 360deg)' }}></div>
-                <nav className="relative z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-full flex items-center p-2 gap-2 w-full h-full border border-slate-200/50 dark:border-slate-700/50">
+                <nav className="relative z-10 bg-white/95 dark:bg-slate-800/95 backdrop-blur-xl rounded-full flex items-center p-2 gap-2 w-full h-full border border-slate-200/50 dark:border-slate-700/50 shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
                 <BottomNavItem path="/dashboard" label="Beranda" icon={LayoutDashboard} />
 
                 {!isHeadmaster && (
-                    <BottomNavItem path="/apps" label="KBM" icon={Grid} />
+                    <BottomNavItem path="/apps" label="KBM" icon={LayoutGrid} />
                 )}
 
                 {isHeadmaster && (

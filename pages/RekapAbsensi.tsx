@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student, Profile } from '../types';
-import { Printer, Loader2, FileText, Search } from 'lucide-react';
+import {  Printer, Loader2, FileText, Search , UserCheck } from 'lucide-react';
 import { formatDateSignature } from '../utils/dateUtils';
 
 interface AttendanceSummary {
@@ -189,12 +189,12 @@ const RekapAbsensi: React.FC = () => {
       <div className="print:hidden space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
-                <div className="bg-blue-100 p-3 rounded-xl text-blue-600">
-                    <FileText size={24} />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-green-600 text-white flex items-center justify-center shadow-sm">
+                    <UserCheck size={20} />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Rekap Kehadiran</h2>
-                    <p className="text-gray-500 text-sm">Cetak laporan absensi per mata pelajaran.</p>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Rekap Kehadiran</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Laporan kehadiran murid per mapel.</p>
                 </div>
             </div>
         </div>

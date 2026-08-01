@@ -37,6 +37,7 @@ const Kedisiplinan: React.FC = () => {
   // Filters
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
+  const [isStartDateInitialized, setIsStartDateInitialized] = useState(false);
   const [startDate, setStartDate] = useState(() => {
       const d = new Date();
       d.setDate(1); // Awal bulan ini
@@ -64,6 +65,13 @@ const Kedisiplinan: React.FC = () => {
   const [studentsCache, setStudentsCache] = useState<Record<string, Student[]>>({});
 
   useEffect(() => {
+    if (semesterStart && !isStartDateInitialized) {
+        setStartDate(semesterStart);
+        setIsStartDateInitialized(true);
+    }
+  }, [semesterStart, isStartDateInitialized]);
+
+useEffect(() => {
     fetchInitData();
   }, []);
 
@@ -421,14 +429,14 @@ const Kedisiplinan: React.FC = () => {
          {/* HEADER */}
          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
              <div className="flex items-center gap-3">
-                <div className="bg-orange-100 p-3 rounded-2xl text-orange-600">
-                    <ShieldAlert size={28} />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 text-white flex items-center justify-center shadow-sm">
+                    <ShieldAlert size={20} />
                 </div>
                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800">Data Kedisiplinan & Pelanggaran</h2>
-                    <p className="text-gray-500 text-sm">Monitoring Alpa dan catatan perilaku siswa.</p>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Laporan Kedisiplinan</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Temuan pelanggaran di luar jam KBM.</p>
                 </div>
-             </div>
+            </div>
              
              {!isHeadmaster && (
                  <button 

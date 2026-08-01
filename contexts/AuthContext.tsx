@@ -132,6 +132,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const email = `${idOnly}@sekolah.id`; 
     
     const result = await supabase.auth.signInWithPassword({ email, password });
+    if (result.data?.session) {
+       setSession(result.data.session);
+       setIsLoading(true); // set loading so ProtectedRoute waits for profile
+       await fetchProfile(result.data.session.user.id);
+    }
     return result;
   };
 

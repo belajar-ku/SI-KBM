@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Printer, Loader2, BookOpen, CheckSquare, Square } from 'lucide-react';
+import {  Printer, Loader2, BookOpen, CheckSquare, Square , TrendingUp } from 'lucide-react';
 import { formatDateIndo, formatDateSignature } from '../utils/dateUtils';
 
 interface JournalReportItem {
@@ -107,12 +107,12 @@ const LaporanJurnal: React.FC = () => {
     <Layout>
       <div className="print:hidden space-y-6 mb-8">
          <div className="flex items-center gap-3">
-            <div className="bg-orange-100 p-3 rounded-xl text-orange-600">
-                <BookOpen size={24} />
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 text-white flex items-center justify-center shadow-sm">
+                <TrendingUp size={20} />
             </div>
             <div>
-                <h2 className="text-2xl font-bold text-gray-800">Laporan Jurnal Guru</h2>
-                <p className="text-gray-500 text-sm">Rekapitulasi agenda kegiatan belajar mengajar.</p>
+                <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Laporan Jurnal Guru</h2>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Rekapitulasi agenda kegiatan belajar mengajar.</p>
             </div>
          </div>
 

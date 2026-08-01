@@ -4,7 +4,7 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
-import { Printer, Loader2, Sunset, CalendarDays, Search, Eye, X } from 'lucide-react';
+import { Printer, Sun, Loader2, Sunset, CalendarDays, Search, Eye, X } from 'lucide-react';
 import { formatDateSignature, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 
 interface DhuhaDetail {
@@ -25,6 +25,7 @@ const RekapDhuha: React.FC = () => {
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   
+  const [isStartDateInitialized, setIsStartDateInitialized] = useState(false);
   const [startDate, setStartDate] = useState(() => {
       const d = new Date();
       d.setDate(1); 
@@ -47,7 +48,14 @@ const RekapDhuha: React.FC = () => {
 
   const componentRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { fetchInitData(); }, []);
+  useEffect(() => {
+    if (semesterStart && !isStartDateInitialized) {
+        setStartDate(semesterStart);
+        setIsStartDateInitialized(true);
+    }
+  }, [semesterStart, isStartDateInitialized]);
+
+useEffect(() => { fetchInitData(); }, []);
 
   useEffect(() => {
     if (selectedClass) { fetchReportData(); } else { setReportData([]); setTotalMeetings(0); }
@@ -111,7 +119,15 @@ const RekapDhuha: React.FC = () => {
     <Layout>
       <div className="print:hidden space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-3"><div className="bg-purple-100 p-3 rounded-xl text-purple-600"><Sunset size={24} /></div><div><h2 className="text-2xl font-bold text-gray-800">Rekap Salat Dhuha</h2><p className="text-gray-500 text-sm">Laporan ketidakhadiran kegiatan Salat Dhuha.</p></div></div>
+            <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 text-white flex items-center justify-center shadow-sm">
+                    <Sun size={20} />
+                </div>
+                <div>
+                    <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Presensi Dhuha</h2>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Rekapitulasi kehadiran sholat dhuha.</p>
+                </div>
+            </div>
         </div>
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
             <div className="grid md:grid-cols-4 gap-4 items-end">
