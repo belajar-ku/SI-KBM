@@ -25,10 +25,18 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
   const [hasUnfilled, setHasUnfilled] = useState(false);
   const [showNotifModal, setShowNotifModal] = useState(false);
   const [showTeacherSplash, setShowTeacherSplash] = useState(false);
+  const pendingSplashCheck = React.useRef(false);
+
+  const openNotifModal = () => {
+      openNotifModal();
+      const notifCount = notifications.filter(n => !n.isFilled).length + waliNotifications.length;
+      const todayStr = new Date().toLocaleDateString('id-ID');
+      localStorage.setItem(`lastSeenNotifCount_${profile?.id}_${todayStr}`, notifCount.toString());
+  };
 
   useEffect(() => {
      if (location.state?.justLoggedIn && profile?.role === 'user') {
-        setShowTeacherSplash(true);
+        pendingSplashCheck.current = true;
         const timer = setTimeout(() => {
             navigate(location.pathname, { replace: true, state: {} });
         }, 100);
@@ -170,6 +178,17 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         }
                     }
                     waliNotifs.sort((a,b) => b.createdAt - a.createdAt);
+                    
+                    const finalNotifCount = notifs.filter((n: any) => !n.isFilled).length + waliNotifs.length;
+                    if (pendingSplashCheck.current) {
+                        const todayStr = new Date().toLocaleDateString('id-ID');
+                        const lsKey = `lastSeenNotifCount_${profile.id}_${todayStr}`;
+                        const lastSeen = parseInt(localStorage.getItem(lsKey) || '0', 10);
+                        if (finalNotifCount > 0 && finalNotifCount !== lastSeen) {
+                            setShowTeacherSplash(true);
+                        }
+                        pendingSplashCheck.current = false;
+                    }
                     setWaliNotifications(waliNotifs);
                     
                     
@@ -371,7 +390,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                                     
                                 </div>
                             )}
-                            <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-9 h-9 m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-[#475569] dark:text-gray-300 transition-transform active:scale-95 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
+                            <button onClick={() => openNotifModal()} className="relative z-10 w-9 h-9 m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-[#475569] dark:text-gray-300 transition-transform active:scale-95 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
                                 <Bell size={18} strokeWidth={2.5} />
                             </button>
                             {(hasUnfilled || waliNotifications.length > 0) && (
@@ -382,7 +401,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                         </div>
                     )}
                     {!isAdmin && !isOperator && !isHeadmaster && notifications.length === 0 && waliNotifications.length === 0 && (
-                        <button onClick={() => setShowNotifModal(true)} className="relative w-9 h-9 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center text-[#475569] dark:text-gray-300 transition-transform active:scale-95 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
+                        <button onClick={() => openNotifModal()} className="relative w-9 h-9 bg-white dark:bg-slate-700 rounded-full flex items-center justify-center text-[#475569] dark:text-gray-300 transition-transform active:scale-95 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
                             <Bell size={18} strokeWidth={2.5} />
                         </button>
                     )}
@@ -428,7 +447,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                                   
                               </div>
                           )}
-                          <button onClick={() => setShowNotifModal(true)} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
+                          <button onClick={() => openNotifModal()} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
                               <Bell size={16} />
                           </button>
                           {(hasUnfilled || waliNotifications.length > 0) && (
@@ -439,7 +458,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                       </div>
                   )}
                   {!isAdmin && !isOperator && !isHeadmaster && notifications.length === 0 && waliNotifications.length === 0 && (
-                      <button onClick={() => setShowNotifModal(true)} className="relative w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform hover:scale-105 active:scale-95">
+                      <button onClick={() => openNotifModal()} className="relative w-9 h-9 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-gray-500 dark:text-gray-300 border border-slate-200 dark:border-slate-600 transition-transform hover:scale-105 active:scale-95">
                           <Bell size={18} />
                       </button>
                   )}

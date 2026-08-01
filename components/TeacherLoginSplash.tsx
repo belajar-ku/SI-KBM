@@ -39,14 +39,15 @@ export const TeacherLoginSplash: React.FC<{ onFinish: () => void, hasUnfilled: b
         transition={{ duration: 4.5, times: [0, 0.1, 0.15, 0.7, 1], ease: "easeInOut" }}
         className="flex flex-col items-center"
       >
-         <motion.h1 
+         <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: [0, 1, 1, 0] }}
             transition={{ duration: 4.5, times: [0, 0.1, 0.6, 0.7] }}
-            className="text-3xl font-extrabold text-white text-center tracking-wide leading-tight mb-8 drop-shadow-lg max-w-lg"
+            className="text-white text-center tracking-wide leading-tight mb-8 drop-shadow-lg"
          >
-             Anda Memiliki {notifCount} Pemberitahuan. Klik Icon berikut!
-         </motion.h1>
+             <h1 className="text-2xl md:text-3xl font-extrabold whitespace-nowrap mb-2">Anda Memiliki {notifCount} Pemberitahuan.</h1>
+             <p className="text-lg md:text-xl font-bold whitespace-nowrap">Silakan klik icon berikut!</p>
+         </motion.div>
          <div className="relative">
              <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-[0_0_40px_rgba(59,130,246,0.5)]">
                  <Bell size={48} className="text-blue-600" />
