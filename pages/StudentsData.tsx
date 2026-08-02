@@ -48,8 +48,7 @@ const StudentsData: React.FC = () => {
              let { data, error } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', mutasiKeluarData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
           if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
               const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', mutasiKeluarData.kelas).order('name');
-              if (academicYear === '2025/2026') data = res.data;
-              else data = [];
+              data = res.data;
           }
              setStudentsForDropdown(data || []);
         };
@@ -70,11 +69,7 @@ const StudentsData: React.FC = () => {
           const res = await fallbackQuery.order('kelas', { ascending: true }).order('name', { ascending: true });
           
           // Assume old data belongs to 2025/2026
-          if (academicYear === '2025/2026') {
-             data = res.data;
-          } else {
-             data = [];
-          }
+          data = res.data;
           error = res.error;
       }
       if (error) throw error;

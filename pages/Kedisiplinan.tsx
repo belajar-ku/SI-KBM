@@ -87,8 +87,8 @@ useEffect(() => {
               let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', inputClass).eq('academic_year', academicYear || '2025/2026').order('name');
               if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
                   const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', inputClass).order('name');
-                  if (academicYear === '2025/2026') data = res.data;
-                  else data = [];
+                  data = res.data;
+                  
               }
               setStudents(data || []);
               if(disciplineRows.length === 0) addRow();
@@ -131,8 +131,8 @@ useEffect(() => {
               let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).eq('academic_year', academicYear || '2025/2026').order('name');
               if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
                   const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
-                  if (academicYear === '2025/2026') data = res.data;
-                  else data = [];
+                  data = res.data;
+                  
               }
               if (data) {
                   targetStudents = data;
@@ -286,8 +286,8 @@ useEffect(() => {
       let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', className).eq('academic_year', academicYear || '2025/2026').order('name');
       if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
           const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', className).order('name');
-          if (academicYear === '2025/2026') data = res.data;
-          else data = [];
+          data = res.data;
+          
       }
       setStudentsCache(prev => ({ ...prev, [className]: data || [] }));
   };

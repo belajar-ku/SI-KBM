@@ -104,8 +104,8 @@ useEffect(() => {
           let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).eq('academic_year', settings.academic_year || '2025/2026').order('name');
           if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
               const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
-              if (settings.academic_year === '2025/2026' || !settings.academic_year) students = res.data;
-              else students = [];
+              students = res.data;
+              
           }
           
           if(!students || students.length === 0) {

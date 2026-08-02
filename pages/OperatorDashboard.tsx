@@ -119,7 +119,11 @@ const OperatorDashboard: React.FC = () => {
               supabase.from('attendance_logs').select('student_id, student_name, status, created_at').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay).lte('created_at', endOfDay).neq('status', 'D'),
               supabase.from('students').select('id, kelas, name').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
-                      return supabase.from('students').select('id, kelas, name').eq('academic_year', academicYear || '2025/2026');
+                      return supabase.from('students').select('id, kelas, name');
+                  }
+                  if (res.data && res.data.length === 0) {
+                      const allStudents = await supabase.from('students').select('id, kelas, name');
+                      return allStudents;
                   }
                   return res;
               }),

@@ -169,8 +169,8 @@ const JurnalForm: React.FC = () => {
         let { data: studentData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
         if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
             const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
-            if (academicYear === '2025/2026') studentData = res.data;
-            else studentData = [];
+            studentData = res.data;
+            
         }
         if (studentData) { const unique = Array.from(new Set(studentData.map((s: any) => s.kelas))).sort() as string[]; setAllClasses(unique); }
     } catch (err) { console.error(err); } finally { setInitLoading(false); }
@@ -183,8 +183,8 @@ const JurnalForm: React.FC = () => {
         let { data: studentsData, error: errSt2 } = await supabase.from('students').select('id, name').eq('academic_year', academicYear || '2025/2026').eq('kelas', formData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
         if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
             const res = await supabase.from('students').select('id, name').eq('academic_year', academicYear || '2025/2026').eq('kelas', formData.kelas).order('name');
-            if (academicYear === '2025/2026') studentsData = res.data;
-            else studentsData = [];
+            studentsData = res.data;
+            
         }
         if (studentsData) {
             setStudents(studentsData as Student[]);

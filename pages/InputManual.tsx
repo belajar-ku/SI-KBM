@@ -119,8 +119,8 @@ const InputManual: React.FC = () => {
           let { data: allStudents, error: errSt } = await supabase.from('students').select('id, name, kelas').eq('academic_year', academicYear || '2025/2026');
           if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
               const res = await supabase.from('students').select('id, name, kelas').eq('academic_year', academicYear || '2025/2026');
-              if (academicYear === '2025/2026') allStudents = res.data;
-              else allStudents = [];
+              allStudents = res.data;
+              
           }
           const studentLookup: Record<string, string> = {}; // "nama|kelas" -> id
           allStudents?.forEach(s => {

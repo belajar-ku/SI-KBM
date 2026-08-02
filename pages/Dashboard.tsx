@@ -281,9 +281,8 @@ const Dashboard: React.FC = () => {
         if (profile?.wali_kelas) {
             let { data: students, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', profile.wali_kelas).eq('academic_year', academicYear || '2025/2026').order('name');
             if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-                const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', profile.wali_kelas).order('name');
-                if (academicYear === '2025/2026') students = res.data;
-                else students = [];
+                const res = await supabase.from('students').select('*').eq('kelas', profile.wali_kelas).order('name');
+                students = res.data;
             }
             
             if (students && students.length > 0) {
@@ -361,11 +360,13 @@ const Dashboard: React.FC = () => {
           // Open: Fetch Data
           setSavingAttendance(true); 
           try {
-              let { data: students, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', profile?.wali_kelas).eq('academic_year', academicYear || '2025/2026').order('name');
+              let { data: students, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', profile?.wali_kelas).order('name');
               if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-                  const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', profile?.wali_kelas).order('name');
-                  if (academicYear === '2025/2026') students = res.data;
-                  else students = [];
+                  const res = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).order('name');
+                  students = res.data;
+              } else if (students && students.length === 0) {
+                  const res = await supabase.from('students').select('*').eq('kelas', profile?.wali_kelas).order('name');
+                  if (res.data && res.data.length > 0) students = res.data;
               }
               setModalStudents(students || []);
 

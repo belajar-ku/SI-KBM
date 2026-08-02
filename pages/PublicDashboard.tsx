@@ -79,7 +79,7 @@ const PublicDashboard: React.FC = () => {
     else if (jsDay === 5) jpPerClass = 5;
     else if (jsDay === 6) jpPerClass = 6;
     
-    if (jpPerClass === 0 || !isSupabaseConfigured) {
+    if (!isSupabaseConfigured) {
         useMockData(); return;
     }
 
@@ -87,7 +87,12 @@ const PublicDashboard: React.FC = () => {
         const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
             supabase.from('students').select('id, kelas, gender').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
-                      return supabase.from('students').select('id, kelas, gender').eq('academic_year', academicYear || '2025/2026');
+                      return supabase.from('students').select('id, kelas, gender');
+                  }
+                  // If it succeeded but returned empty, they might be old records with null academic_year.
+                  if (res.data && res.data.length === 0) {
+                      const allStudents = await supabase.from('students').select('id, kelas, gender');
+                      return allStudents;
                   }
                   return res;
             }),

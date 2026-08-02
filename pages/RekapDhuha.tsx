@@ -70,8 +70,8 @@ useEffect(() => { fetchInitData(); }, []);
       let { data: studentsData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
       if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
           const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
-          if (settings.academic_year === '2025/2026' || !settings.academic_year) studentsData = res.data;
-          else studentsData = [];
+          studentsData = res.data;
+          
       }
       if (studentsData) {
         const uniqueClasses = Array.from(new Set(studentsData.map((s:any) => s.kelas))).sort();
@@ -86,8 +86,8 @@ useEffect(() => { fetchInitData(); }, []);
         let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
         if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
             const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
-            if (settings.academic_year === '2025/2026' || !settings.academic_year) students = res.data;
-            else students = [];
+            students = res.data;
+            
         }
         if (!students) throw new Error("Tidak ada siswa");
         const start = `${startDate}T00:00:00+07:00`;
