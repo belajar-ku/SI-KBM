@@ -216,6 +216,19 @@
           transform: translateX(100%);
         }
       }
+    
+      @keyframes bell-ring {
+        0%, 100% { transform: rotate(0deg); }
+        10% { transform: rotate(15deg); }
+        20% { transform: rotate(-10deg); }
+        30% { transform: rotate(5deg); }
+        40% { transform: rotate(-5deg); }
+        50% { transform: rotate(0deg); }
+      }
+      .animate-bell-ring {
+        animation: bell-ring 2s ease-in-out infinite;
+        transform-origin: top center;
+      }
     </style>
   <script type="importmap">
 {
