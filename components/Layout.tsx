@@ -389,7 +389,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                                 <div className="w-full h-full bg-blue-400 animate-ping opacity-30"></div>
                             </div>
                             <button onClick={() => openNotifModal()} className="relative z-10 w-9 h-9 m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-[#475569] dark:text-gray-300 transition-transform active:scale-95 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] border border-slate-100 dark:border-slate-700">
-                                <Bell size={18} strokeWidth={2.5} className="animate-bell-ring text-blue-500" />
+                                <div className="animate-bell-ring flex items-center justify-center text-blue-500"><Bell size={18} strokeWidth={2.5} /></div>
                             </button>
                             {((notifications.filter(n => !n.isFilled).length > 0) || waliNotifications.length > 0) && (
                                 <span className="absolute -top-1 -right-1 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-white dark:border-slate-800 rounded-full px-[3px] bg-red-500">
@@ -439,7 +439,7 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                               <div className="w-full h-full bg-blue-400 animate-ping opacity-30"></div>
                           </div>
                           <button onClick={() => openNotifModal()} className="relative z-10 w-[34px] h-[34px] m-[2px] bg-white dark:bg-slate-800 rounded-full flex items-center justify-center text-blue-500 dark:text-blue-400 border border-slate-200 dark:border-slate-600 transition-transform active:scale-95">
-                              <Bell size={16} className="animate-bell-ring" />
+                              <div className="animate-bell-ring flex items-center justify-center text-blue-500 dark:text-blue-400"><Bell size={16} /></div>
                           </button>
                           {((notifications.filter(n => !n.isFilled).length > 0) || waliNotifications.length > 0) && (
                               <span className="absolute -top-1 -right-1 z-20 min-w-[16px] h-[16px] flex items-center justify-center text-[10px] font-bold text-white border-2 border-white dark:border-slate-800 rounded-full px-[3px] bg-red-500">

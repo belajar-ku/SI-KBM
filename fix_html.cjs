@@ -1,4 +1,7 @@
-<!DOCTYPE html>
+const fs = require('fs');
+let code = fs.readFileSync('index.html', 'utf8');
+
+const correctHtml = `<!DOCTYPE html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
@@ -185,4 +188,7 @@
     <!-- Entry point untuk Vite -->
     <script type="module" src="/index.tsx"></script>
   </body>
-</html>
+</html>`;
+
+fs.writeFileSync('index.html', correctHtml);
+console.log("Fixed index.html");
