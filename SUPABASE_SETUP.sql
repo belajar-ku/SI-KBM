@@ -329,3 +329,19 @@ BEGIN
     ALTER TABLE public.students ADD CONSTRAINT students_academic_year_nisn_key UNIQUE (academic_year, nisn);
   END IF;
 END $$;
+
+
+-- UPDATE ANY NULL ACADEMIC_YEAR DATA TO 2025/2026
+DO $$
+BEGIN
+  UPDATE public.students SET academic_year = '2025/2026' WHERE academic_year IS NULL;
+  UPDATE public.schedules SET academic_year = '2025/2026' WHERE academic_year IS NULL;
+  UPDATE public.journals SET academic_year = '2025/2026' WHERE academic_year IS NULL;
+  UPDATE public.homeroom_attendance SET academic_year = '2025/2026' WHERE academic_year IS NULL;
+  UPDATE public.journal_notes SET academic_year = '2025/2026' WHERE academic_year IS NULL;
+  UPDATE public.attendance_logs SET academic_year = '2025/2026' WHERE academic_year IS NULL;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Ignore if tables don't exist yet
+END $$;
+

@@ -121,13 +121,15 @@ const OperatorDashboard: React.FC = () => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                       return supabase.from('students').select('id, kelas, name');
                   }
-                  if (res.data && res.data.length === 0) {
-                      const allStudents = await supabase.from('students').select('id, kelas, name');
-                      return allStudents;
-                  }
+                  
                   return res;
               }),
-              supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').eq('date', filterDate)
+              supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('date', filterDate).then(async (res) => {
+                  if (res.data) {
+                      return { data: res.data.filter((h: any) => h.academic_year === (academicYear || '2025/2026') || !h.academic_year || h.academic_year === '2025/2026'), error: res.error };
+                  }
+                  return res;
+              })
           ]);
 
           const schedules = schedulesRes.data || [];
@@ -172,8 +174,20 @@ const OperatorDashboard: React.FC = () => {
           setStudentClassCounts(classCounts);
 
           const uniqueAbsenceMap: Record<string, {name: string, status: string, kelas: string}> = {};
-          homeroomLogs.forEach((h: any) => { if (['S', 'I', 'A'].includes(h.status)) { uniqueAbsenceMap[h.student_id] = { name: studentNameMap[h.student_id] || 'Siswa', status: h.status, kelas: studentClassMap[h.student_id] || h.kelas || '?' }; } });
-          attendanceLogs.forEach((log: any) => { if (!uniqueAbsenceMap[log.student_id]) { if (['S', 'I', 'A'].includes(log.status)) { uniqueAbsenceMap[log.student_id] = { name: log.student_name, status: log.status, kelas: studentClassMap[log.student_id] || '?' }; } } });
+          const waliProcessed = new Set<string>();
+          homeroomLogs.forEach((h: any) => { 
+              waliProcessed.add(h.student_id);
+              if (['S', 'I', 'A'].includes(h.status)) { 
+                  uniqueAbsenceMap[h.student_id] = { name: studentNameMap[h.student_id] || 'Siswa', status: h.status, kelas: studentClassMap[h.student_id] || h.kelas || '?' }; 
+              } 
+          });
+          attendanceLogs.forEach((log: any) => { 
+              if (!waliProcessed.has(log.student_id) && !uniqueAbsenceMap[log.student_id]) { 
+                  if (['S', 'I', 'A'].includes(log.status)) { 
+                      uniqueAbsenceMap[log.student_id] = { name: log.student_name, status: log.status, kelas: studentClassMap[log.student_id] || '?' }; 
+                  } 
+              } 
+          });
 
           const absenceListFinal = Object.values(uniqueAbsenceMap).sort((a,b) => a.kelas.localeCompare(b.kelas) || a.name.localeCompare(b.name));
           let sCount = 0, iCount = 0, aCount = 0;

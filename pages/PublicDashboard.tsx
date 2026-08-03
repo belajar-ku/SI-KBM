@@ -85,20 +85,23 @@ const PublicDashboard: React.FC = () => {
 
     try {
         const [studentsRes, journalsRes, attendanceRes, homeroomRes] = await Promise.all([
-            supabase.from('students').select('id, kelas, gender').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
+            supabase.from('students').select('id, kelas, gender, name').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
-                      return supabase.from('students').select('id, kelas, gender');
+                      return supabase.from('students').select('id, kelas, gender, name');
                   }
-                  // If it succeeded but returned empty, they might be old records with null academic_year.
-                  if (res.data && res.data.length === 0) {
-                      const allStudents = await supabase.from('students').select('id, kelas, gender');
-                      return allStudents;
-                  }
+                  
                   return res;
             }),
             supabase.from('journals').select('hours, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
             supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
-            supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').eq('date', todayStr)
+            supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('date', todayStr).then(async (res) => {
+                if (res.data) {
+                    // Client-side filter to be safe, but actually we just want today's data regardless of academic_year since it's today
+                    // The bug was that Wali input didn't have academic_year set, so it defaulted to 2025/2026, while the dashboard might be querying 2024/2025
+                    return { data: res.data.filter((h: any) => h.academic_year === (academicYear || '2025/2026') || !h.academic_year || h.academic_year === '2025/2026'), error: res.error };
+                }
+                return res;
+            })
         ]);
 
         const classCounts: Record<string, number> = {};
@@ -141,11 +144,20 @@ const PublicDashboard: React.FC = () => {
         }
 
         const combinedAttendance: Record<string, {name: string, status: string, source: 'Wali' | 'Guru'}> = {};
+        
+        const studentNameMap: Record<string, string> = {};
+        if (studentsRes.data) {
+            studentsRes.data.forEach((s: any) => {
+                studentNameMap[s.id] = s.name || 'Unknown';
+            });
+        }
 
+        const waliProcessed = new Set<string>();
         if (homeroomRes.data) {
             homeroomRes.data.forEach((h: any) => {
+                waliProcessed.add(h.student_id);
                 if (['S', 'I', 'A'].includes(h.status)) {
-                    combinedAttendance[h.student_id] = { name: 'Loading...', status: h.status, source: 'Wali' };
+                    combinedAttendance[h.student_id] = { name: studentNameMap[h.student_id] || 'Unknown', status: h.status, source: 'Wali' };
                 }
             });
         }
@@ -153,7 +165,8 @@ const PublicDashboard: React.FC = () => {
         if (attendanceRes.data) {
             attendanceRes.data.forEach((log: any) => {
                 if (['S', 'I', 'A'].includes(log.status)) {
-                    if (!combinedAttendance[log.student_id]) {
+                    // Ignore guru's input if wali already processed this student
+                    if (!waliProcessed.has(log.student_id) && !combinedAttendance[log.student_id]) {
                         combinedAttendance[log.student_id] = { name: log.student_name, status: log.status, source: 'Guru' };
                     }
                 }

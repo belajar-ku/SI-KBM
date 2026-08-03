@@ -401,8 +401,8 @@ const Dashboard: React.FC = () => {
               student_id: studentId,
               status: status,
               created_by: profile.id,
-              
-              
+              academic_year: academicYear || '2025/2026',
+              semester: semester || 'Ganjil'
           }));
 
           if (inserts.length > 0) {
@@ -455,8 +455,8 @@ const Dashboard: React.FC = () => {
                       student_id: item.student_id,
                       status: item.newStatus,
                       created_by: profile.id,
-                      
-                      
+                      academic_year: academicYear || '2025/2026',
+                      semester: semester || 'Ganjil'
                   };
                   const { error } = await supabase.from('homeroom_attendance').upsert(payload, { onConflict: 'date, student_id' });
                   if (error) console.error("Failed update", error);
@@ -704,7 +704,7 @@ const Dashboard: React.FC = () => {
                                     ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800 text-orange-600 dark:text-orange-400' 
                                     : 'bg-emerald-50 dark:bg-emerald-900/30 border-emerald-100 dark:border-emerald-800 text-emerald-600 dark:text-emerald-400'
                                 }`}>
-                                     {homeroomAbsences.length > 0 ? <Bell size={20} className="animate-pulse" /> : <CheckCircle2 size={22} />}
+                                     <Bell size={20} className="animate-pulse" />
                                 </div>
                                 <div className="flex-1">
                                     <h3 className="font-extrabold text-slate-800 dark:text-white text-xs uppercase tracking-wide leading-relaxed">Rekap Absensi <br className="hidden md:block"/>Kelas {profile.wali_kelas}</h3>
