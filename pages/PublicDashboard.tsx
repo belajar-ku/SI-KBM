@@ -63,7 +63,7 @@ const PublicDashboard: React.FC = () => {
           classDetails: {}, classGenderDetails: {},
           totalJpRequired: 100, completedJp: 0,
           absenceCount: 0, absenceDetails: {S:0, I:0, A:0},
-          absencePerClass: {}, unfilledKbm: []
+          absencePerClass: {}, filledClasses: [], unfilledKbm: []
       });
   };
 
@@ -96,7 +96,7 @@ const PublicDashboard: React.FC = () => {
                   }
                   return res;
             }),
-            supabase.from('journals').select('hours').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
+            supabase.from('journals').select('hours, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
             supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay),
             supabase.from('homeroom_attendance').select('student_id, status, kelas').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').eq('date', todayStr)
         ]);
@@ -123,12 +123,20 @@ const PublicDashboard: React.FC = () => {
         setStudentClassMap(sClassMap);
 
         let completedJp = 0;
+        const filledClassesSet = new Set<string>();
         if (journalsRes.data) {
             journalsRes.data.forEach((j: any) => {
+                if (j.kelas) filledClassesSet.add(j.kelas);
                 if (typeof j.hours === 'string') {
                     const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
                     completedJp += parts.length;
                 }
+            });
+        }
+        
+        if (homeroomRes.data) {
+            homeroomRes.data.forEach((h: any) => {
+                if (h.kelas) filledClassesSet.add(h.kelas);
             });
         }
 
@@ -185,6 +193,7 @@ const PublicDashboard: React.FC = () => {
             absenceCount: sCount + iCount + aCount,
             absenceDetails: { S: sCount, I: iCount, A: aCount },
             absencePerClass: absencePerClass,
+            filledClasses: Array.from(filledClassesSet),
             unfilledKbm: []
         });
     } catch (err) { console.error(err); }
@@ -577,6 +586,10 @@ const PublicDashboard: React.FC = () => {
                                         const absentCount = modalContent.data.absencePerClass[cls] || 0;
                                         const presentCount = totalStudents - absentCount;
                                         const isExpanded = expandedClass === cls;
+                                        
+                                        const isFilled = modalContent.data.filledClasses?.includes(cls);
+                                        const showAsEmpty = absentCount === 0 && !isFilled;
+
                                         return (
                                             <div key={cls} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
                                                 <button onClick={() => setExpandedClass(isExpanded ? null : cls)} className="w-full flex items-center p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left">
@@ -585,7 +598,7 @@ const PublicDashboard: React.FC = () => {
                                                     </div>
                                                     <div className="flex-1 px-1">
                                                         <div className="flex items-center gap-2 text-xs font-bold">
-                                                            <span className="text-green-600 dark:text-green-400">{presentCount} Hadir</span>
+                                                            <span className={showAsEmpty ? "text-gray-400 dark:text-gray-500" : "text-green-600 dark:text-green-400"}>{presentCount} Hadir</span>
                                                             <span className="text-gray-300 dark:text-gray-600">|</span>
                                                             <span className={absentCount > 0 ? "text-red-500 dark:text-red-400" : "text-gray-400 dark:text-gray-500"}>
                                                                 {absentCount} Tidak Hadir
@@ -612,8 +625,8 @@ const PublicDashboard: React.FC = () => {
                                                     </div>
                                                 )}
                                                 {isExpanded && absentCount === 0 && (
-                                                    <div className="bg-green-50 dark:bg-green-900/20 p-3 text-center text-xs text-green-700 dark:text-green-400 font-bold border-t border-green-100 dark:border-green-900/30">
-                                                        Semua murid hadir.
+                                                    <div className={showAsEmpty ? "bg-gray-50 dark:bg-slate-800 p-3 text-center text-xs text-gray-500 dark:text-gray-400 font-bold border-t border-gray-100 dark:border-slate-700" : "bg-green-50 dark:bg-green-900/20 p-3 text-center text-xs text-green-700 dark:text-green-400 font-bold border-t border-green-100 dark:border-green-900/30"}>
+                                                        {showAsEmpty ? "Belum ada laporan absen/jurnal." : "Semua murid hadir."}
                                                     </div>
                                                 )}
                                             </div>
