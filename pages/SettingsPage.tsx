@@ -4,6 +4,13 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { Settings, Save, Plus, Trash2, Calendar, Loader2, Info, Clock, CheckSquare, Square, User, BookOpen, AlertCircle, Sparkles, Gavel } from 'lucide-react';
 import { AppSetting, NonEffectiveDay, Profile } from '../types';
+export interface SchoolActivity {
+  id?: string;
+  date: string;
+  name: string;
+  academic_year?: string;
+  semester?: string;
+}
 import { showAlert, showConfirm } from '../utils/alert';
 
 const SettingsPage: React.FC = () => {
@@ -14,6 +21,9 @@ const SettingsPage: React.FC = () => {
     headmaster_nip: ''
   });
   const [nonEffectiveDays, setNonEffectiveDays] = useState<NonEffectiveDay[]>([]);
+  const [schoolActivities, setSchoolActivities] = useState<SchoolActivity[]>([]);
+  const [newActivityDate, setNewActivityDate] = useState('');
+  const [newActivityName, setNewActivityName] = useState('');
   const [availableYears, setAvailableYears] = useState<string[]>(['2025/2026']);
   const [teachers, setTeachers] = useState<Profile[]>([]); // List Guru for Dropdown
   
@@ -42,11 +52,16 @@ const SettingsPage: React.FC = () => {
   useEffect(() => {
     const initData = async () => {
         setLoading(true);
-        await Promise.all([fetchSettings(), fetchTeachers()]);
+        await Promise.all([fetchSettings(), fetchTeachers(), fetchActivities()]);
         setLoading(false);
     };
     initData();
   }, []);
+
+  const fetchActivities = async () => {
+      const { data } = await supabase.from('school_activities').select('*').order('date');
+      if (data) setSchoolActivities(data);
+  };
 
   const fetchTeachers = async () => {
       try {
@@ -401,6 +416,81 @@ const SettingsPage: React.FC = () => {
                             </div>
                         </div>
 
+                    </div>
+                 </div>
+
+                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                    <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                        <Calendar size={18} className="text-indigo-500"/> Kegiatan Sekolah
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-4">Atur jadwal kegiatan (KBM Ditiadakan, Wali Kelas mengisi presensi)</p>
+                    
+                    <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 mb-4 space-y-4">
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1">Tanggal</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full border rounded-lg p-2 text-sm"
+                                    value={newActivityDate}
+                                    onChange={e => setNewActivityDate(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[10px] font-bold text-gray-500 mb-1">Nama Kegiatan</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full border rounded-lg p-2 text-sm"
+                                    placeholder="Contoh: Lomba 17an"
+                                    value={newActivityName}
+                                    onChange={e => setNewActivityName(e.target.value)}
+                                />
+                            </div>
+                        </div>
+
+                        <button 
+                           onClick={async () => {
+                               if(!newActivityDate || !newActivityName) return showAlert('Error', 'Isi tanggal dan nama kegiatan');
+                               const { error } = await supabase.from('school_activities').insert({ date: newActivityDate, name: newActivityName, academic_year: settings.academic_year || '2025/2026', semester: settings.semester || 'Ganjil' });
+                               if(error) return showAlert('Error', error.message);
+                               setNewActivityDate(''); setNewActivityName('');
+                               const { data } = await supabase.from('school_activities').select('*').order('date');
+                               if (data) setSchoolActivities(data);
+                           }}
+                           className="w-full bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 font-bold flex items-center justify-center gap-2"
+                        >
+                            <Plus size={18} /> Tambah Kegiatan
+                        </button>
+                    </div>
+
+                    <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
+                        {schoolActivities.length === 0 ? (
+                            <p className="text-center text-gray-400 text-sm py-4">Tidak ada kegiatan diinput.</p>
+                        ) : (
+                            schoolActivities.map((act) => (
+                                <div key={act.id} className="flex items-center justify-between p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                                    <div>
+                                        <div className="font-bold text-gray-800 text-sm">{act.name}</div>
+                                        <div className="text-xs text-gray-500 flex gap-2 items-center mt-1">
+                                            <Calendar size={12}/>
+                                            <span>{new Date(act.date).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
+                                        </div>
+                                    </div>
+                                    <button 
+                                        onClick={async () => {
+                                            const conf = await showConfirm('Hapus', 'Yakin ingin menghapus kegiatan ini?');
+                                            if(!conf) return;
+                                            const { error } = await supabase.from('school_activities').delete().eq('id', act.id);
+                                            if(error) return showAlert('Error', error.message);
+                                            setSchoolActivities(schoolActivities.filter(a => a.id !== act.id));
+                                        }}
+                                        className="text-gray-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-full transition-colors"
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
+                                </div>
+                            ))
+                        )}
                     </div>
                  </div>
 

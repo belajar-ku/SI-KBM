@@ -234,7 +234,7 @@ const Dashboard: React.FC = () => {
         const todayStart = `${todayStr}T00:00:00+07:00`;
         const todayEnd = `${todayStr}T23:59:59+07:00`;
 
-        const [todaySchedRes, todayJournalRes] = await Promise.all([
+        const [todaySchedRes, todayJournalRes, activityRes] = await Promise.all([
             supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
                 if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                     const fallback = await supabase.from('schedules').select('*').eq('teacher_id', profile?.id).eq('day_of_week', dbDay);
@@ -245,8 +245,22 @@ const Dashboard: React.FC = () => {
                 }
                 return res;
             }),
-            supabase.from('journals').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile?.id).gte('created_at', todayStart).lte('created_at', todayEnd)
+            supabase.from('journals').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile?.id).gte('created_at', todayStart).lte('created_at', todayEnd),
+            supabase.from('school_activities').select('*').eq('date', todayStr).single()
         ]);
+
+        if (activityRes.data) {
+            // Jika ada kegiatan sekolah, jadwal normal ditiadakan
+            if (todaySchedRes.data) todaySchedRes.data = [];
+            
+            // Jika wali kelas, tambahkan jadwal kegiatan khusus
+            if (profile?.wali_kelas) {
+                todaySchedRes.data = [
+                    { id: 'act-pagi', hour: '1', kelas: profile.wali_kelas, subject: 'Presensi Pagi - ' + activityRes.data.name, teacher_id: profile.id, day_of_week: dbDay },
+                    { id: 'act-pulang', hour: '2', kelas: profile.wali_kelas, subject: 'Presensi Pulang - ' + activityRes.data.name, teacher_id: profile.id, day_of_week: dbDay }
+                ];
+            }
+        }
 
         const hoursList: KbmStatus[] = [];
         for(let i = 1; i <= 8; i++) {
