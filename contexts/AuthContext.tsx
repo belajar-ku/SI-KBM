@@ -38,11 +38,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data } = await supabase.from('app_settings').select('key, value').in('key', ['academic_year', 'semester', 'active_schedule_version', 'semester_start', 'semester_end']);
         if (data) {
            data.forEach(item => {
-               if (item.key === 'academic_year' && item.value) setAcademicYear(item.value);
-               if (item.key === 'semester' && item.value) setSemester(item.value);
-               if (item.key === 'active_schedule_version' && item.value) setActiveScheduleVersion(item.value);
-               if (item.key === 'semester_start' && item.value) setSemesterStart(item.value);
-               if (item.key === 'semester_end' && item.value) setSemesterEnd(item.value);
+               if (item.key === 'academic_year') setAcademicYear(item.value || '2025/2026');
+               if (item.key === 'semester') setSemester(item.value || 'Genap');
+               if (item.key === 'active_schedule_version') setActiveScheduleVersion(item.value || 'Utama');
+               if (item.key === 'semester_start') setSemesterStart(item.value || '');
+               if (item.key === 'semester_end') setSemesterEnd(item.value || '');
            });
         }
       } catch (e) {

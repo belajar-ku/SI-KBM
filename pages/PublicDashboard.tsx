@@ -144,7 +144,7 @@ const PublicDashboard: React.FC = () => {
             });
         }
 
-        const combinedAttendance: Record<string, {name: string, status: string, source: 'Wali' | 'Guru'}> = {};
+        const combinedAttendance: Record<string, {name: string, status: string, source: 'Wali Kelas' | 'Guru Mapel'}> = {};
         
         const studentNameMap: Record<string, string> = {};
         if (studentsRes.data) {
@@ -158,7 +158,7 @@ const PublicDashboard: React.FC = () => {
             homeroomRes.data.forEach((h: any) => {
                 waliProcessed.add(h.student_id);
                 if (['S', 'I', 'A'].includes(h.status)) {
-                    combinedAttendance[h.student_id] = { name: studentNameMap[h.student_id] || 'Unknown', status: h.status, source: 'Wali' };
+                    combinedAttendance[h.student_id] = { name: studentNameMap[h.student_id] || 'Unknown', status: h.status, source: 'Wali Kelas' };
                 }
             });
         }
@@ -168,7 +168,7 @@ const PublicDashboard: React.FC = () => {
                 if (['S', 'I', 'A'].includes(log.status) && log.subject !== 'Salat Dhuha') {
                     // Ignore guru's input if wali already processed this student
                     if (!waliProcessed.has(log.student_id) && !combinedAttendance[log.student_id]) {
-                        combinedAttendance[log.student_id] = { name: log.student_name, status: log.status, source: 'Guru' };
+                        combinedAttendance[log.student_id] = { name: log.student_name, status: log.status, source: 'Guru Mapel' };
                     }
                 }
             });
@@ -266,7 +266,7 @@ const PublicDashboard: React.FC = () => {
   const getAbsentStudentsForStatus = (status: string) => {
       const absentStudents = rawAttendance.filter(log => log.status === status);
       return absentStudents.map(s => ({
-          name: s.name === 'Loading...' ? 'Siswa (Data Wali)' : s.name, 
+          name: s.name === 'Loading...' ? 'Siswa (Data Wali Kelas)' : s.name, 
           status: s.status,
           source: s.source,
           kelas: studentClassMap[s.student_id] || '?'
@@ -276,7 +276,7 @@ const PublicDashboard: React.FC = () => {
   const getAbsentStudentsForClass = (cls: string) => {
       const absentStudents = rawAttendance.filter(log => studentClassMap[log.student_id] === cls);
       return absentStudents.map(s => ({
-          name: s.name === 'Loading...' ? 'Siswa (Data Wali)' : s.name, 
+          name: s.name === 'Loading...' ? 'Siswa (Data Wali Kelas)' : s.name, 
           status: s.status,
           source: s.source
       }));
@@ -586,99 +586,25 @@ const PublicDashboard: React.FC = () => {
                       ) : (
                         <>
                             <div className="grid grid-cols-3 gap-3">
-                                <button onClick={() => setExpandedStatus(expandedStatus === 'S' ? null : 'S')} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${expandedStatus === 'S' ? 'bg-yellow-100 dark:bg-yellow-900/50 border-yellow-300 dark:border-yellow-600 ring-2 ring-yellow-200 dark:ring-yellow-800' : 'bg-yellow-50 dark:bg-yellow-900/30 border-yellow-100 dark:border-yellow-800/50 hover:bg-yellow-100 dark:hover:bg-yellow-900/40'}`}>
-                                    <span className="text-yellow-700 dark:text-yellow-400 font-bold text-[10px] uppercase mb-1">Sakit</span>
-                                    <span className="text-3xl font-extrabold text-yellow-600 dark:text-yellow-400">{modalContent.data.absenceDetails.S}</span>
-                                </button>
-                                <button onClick={() => setExpandedStatus(expandedStatus === 'I' ? null : 'I')} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${expandedStatus === 'I' ? 'bg-blue-100 dark:bg-blue-900/50 border-blue-300 dark:border-blue-600 ring-2 ring-blue-200 dark:ring-blue-800' : 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/40'}`}>
-                                    <span className="text-blue-700 dark:text-blue-400 font-bold text-[10px] uppercase mb-1">Izin</span>
-                                    <span className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">{modalContent.data.absenceDetails.I}</span>
-                                </button>
-                                <button onClick={() => setExpandedStatus(expandedStatus === 'A' ? null : 'A')} className={`flex flex-col items-center justify-center p-3 rounded-2xl border transition-all active:scale-95 ${expandedStatus === 'A' ? 'bg-red-100 dark:bg-red-900/50 border-red-300 dark:border-red-600 ring-2 ring-red-200 dark:ring-red-800' : 'bg-red-50 dark:bg-red-900/30 border-red-100 dark:border-red-800/50 hover:bg-red-100 dark:hover:bg-red-900/40'}`}>
-                                    <span className="text-red-700 dark:text-red-400 font-bold text-[10px] uppercase mb-1">Alpa</span>
-                                    <span className="text-3xl font-extrabold text-red-600 dark:text-red-400">{modalContent.data.absenceDetails.A}</span>
-                                </button>
+                                <div className="flex flex-col items-center justify-center p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-2xl border border-yellow-100 dark:border-yellow-800/50"><span className="text-yellow-700 dark:text-yellow-500 font-bold text-[10px] uppercase mb-1">Sakit</span><span className="text-3xl font-extrabold text-yellow-600 dark:text-yellow-400">{modalContent.data.absenceDetails.S}</span></div>
+                                <div className="flex flex-col items-center justify-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border border-blue-100 dark:border-blue-800/50"><span className="text-blue-700 dark:text-blue-500 font-bold text-[10px] uppercase mb-1">Izin</span><span className="text-3xl font-extrabold text-blue-600 dark:text-blue-400">{modalContent.data.absenceDetails.I}</span></div>
+                                <div className="flex flex-col items-center justify-center p-3 bg-red-50 dark:bg-red-900/20 rounded-2xl border border-red-100 dark:border-red-800/50"><span className="text-red-700 dark:text-red-500 font-bold text-[10px] uppercase mb-1">Alpa</span><span className="text-3xl font-extrabold text-red-600 dark:text-red-400">{modalContent.data.absenceDetails.A}</span></div>
                             </div>
-                            <div className="p-3 bg-slate-50 dark:bg-slate-700/30 border border-slate-100 dark:border-slate-600 rounded-xl text-center">
-                                <span className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase">*Termasuk input dari Wali Kelas & Guru Mapel.</span>
-                            </div>
-                            
-                            {expandedStatus && (
-                                <div className="bg-gray-50 dark:bg-slate-800/50 p-3 rounded-xl border border-gray-100 dark:border-slate-700 space-y-2 animate-fade-in mt-3">
-                                    <div className="text-[11px] font-bold text-slate-500 dark:text-slate-400 mb-2 uppercase">
-                                        Daftar Murid {expandedStatus === 'S' ? 'Sakit' : expandedStatus === 'I' ? 'Izin' : 'Alpa'}
-                                    </div>
-                                    {getAbsentStudentsForStatus(expandedStatus).length > 0 ? getAbsentStudentsForStatus(expandedStatus).map((s: any, idx: number) => (
-                                        <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-700 p-3 rounded-xl border border-gray-100 dark:border-slate-600 text-xs shadow-sm">
-                                            <div className="flex flex-col">
-                                                <span className="font-bold text-slate-700 dark:text-white">{s.name}</span>
-                                                <span className="text-[10px] font-semibold text-slate-500 mt-0.5">Kelas {s.kelas}</span>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                {s.source === 'Wali' && <span className="text-[9px] bg-purple-100 text-purple-600 px-1 rounded border border-purple-200">Wali</span>}
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100' : s.status === 'I' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100'}`}>
-                                                    {s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div className="text-center text-xs text-slate-500 font-medium py-2">Tidak ada data</div>
-                                    )}
-                                </div>
-                            )}
-
-                            <hr className="border-gray-100 dark:border-slate-700 my-4" />
+                            <hr className="border-gray-100 dark:border-slate-700" />
                             <div>
-                                <h3 className="text-[11px] font-extrabold text-slate-600 dark:text-slate-300 uppercase mb-3 flex items-center gap-2"><School size={14}/> Per Kelas</h3>
+                                <div className="flex items-center gap-2 mb-4"><Bookmark size={16} className="text-orange-500 fill-orange-500"/><h4 className="font-bold text-slate-700 dark:text-white text-sm">Rincian Per Kelas</h4></div>
                                 <div className="space-y-3">
                                     {Object.keys(modalContent.data.classDetails).sort().map(cls => {
+                                        const absentStudents = getAbsentStudentsForClass(cls);
                                         const totalStudents = modalContent.data.classDetails[cls] || 0;
-                                        const absentCount = modalContent.data.absencePerClass[cls] || 0;
+                                        const absentCount = absentStudents.length;
                                         const presentCount = totalStudents - absentCount;
                                         const isExpanded = expandedClass === cls;
-                                        
-                                        const isFilled = modalContent.data.filledClasses?.includes(cls);
-                                        const showAsEmpty = absentCount === 0 && !isFilled;
-
+                                        const hasAbsence = absentCount > 0;
                                         return (
-                                            <div key={cls} className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl overflow-hidden shadow-sm">
-                                                <button onClick={() => setExpandedClass(isExpanded ? null : cls)} className="w-full flex items-center p-3 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors text-left">
-                                                    <div className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 flex items-center justify-center font-black text-slate-700 dark:text-white mr-3 shrink-0 text-sm">
-                                                        {cls}
-                                                    </div>
-                                                    <div className="flex-1 px-1">
-                                                        <div className="flex items-center gap-2 text-xs font-bold">
-                                                            <span className={showAsEmpty ? "text-gray-400 dark:text-gray-500" : "text-green-600 dark:text-green-400"}>{presentCount} Hadir</span>
-                                                            <span className="text-gray-300 dark:text-gray-600">|</span>
-                                                            <span className={absentCount > 0 ? "text-red-500 dark:text-red-400" : "text-gray-400 dark:text-gray-500"}>
-                                                                {absentCount} Tidak Hadir
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                    <div className="text-gray-300 dark:text-gray-600">
-                                                        {isExpanded ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}
-                                                    </div>
-                                                </button>
-                                                {isExpanded && absentCount > 0 && (
-                                                    <div className="bg-gray-50 dark:bg-slate-800 p-3 border-t border-gray-100 dark:border-slate-700 space-y-2 animate-fade-in">
-                                                        {getAbsentStudentsForClass(cls).map((s: any, idx: number) => (
-                                                            <div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-700 p-3 rounded-xl border border-gray-100 dark:border-slate-600 text-xs shadow-sm">
-                                                                <span className="font-bold text-slate-700 dark:text-white">{s.name}</span>
-                                                                <div className="flex items-center gap-2">
-                                                                    {s.source === 'Wali' && <span className="text-[9px] bg-purple-100 text-purple-600 px-1 rounded border border-purple-200">Wali</span>}
-                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-100' : s.status === 'I' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-100' : 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-100'}`}>
-                                                                        {s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                                {isExpanded && absentCount === 0 && (
-                                                    <div className={showAsEmpty ? "bg-gray-50 dark:bg-slate-800 p-3 text-center text-xs text-gray-500 dark:text-gray-400 font-bold border-t border-gray-100 dark:border-slate-700" : "bg-green-50 dark:bg-green-900/20 p-3 text-center text-xs text-green-700 dark:text-green-400 font-bold border-t border-green-100 dark:border-green-900/30"}>
-                                                        {showAsEmpty ? "Belum ada laporan absen/jurnal." : "Semua murid hadir."}
-                                                    </div>
-                                                )}
+                                            <div key={cls} className="border border-gray-100 dark:border-slate-700 rounded-2xl overflow-hidden transition-all hover:shadow-sm">
+                                                <button onClick={() => hasAbsence && setExpandedClass(isExpanded ? null : cls)} className={`w-full flex items-center justify-between p-3 bg-white dark:bg-slate-800 ${!hasAbsence ? 'cursor-default' : ''}`}><div className="flex items-center gap-3"><div className={`w-10 h-10 flex items-center justify-center rounded-xl font-bold text-sm shadow-sm ${hasAbsence ? 'bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 text-red-700 dark:text-red-400' : 'bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-800 text-green-700 dark:text-green-400'}`}>{cls}</div><div className="text-xs font-bold text-slate-700 dark:text-slate-300"><span className="text-green-600 dark:text-green-400">{presentCount} Hadir</span><span className="text-gray-300 dark:text-gray-600 mx-2">|</span><span className={hasAbsence ? 'text-red-500 dark:text-red-400' : 'text-slate-300 dark:text-slate-600'}>{absentCount} Tidak Hadir</span></div></div>{hasAbsence && (<div className="text-gray-300 dark:text-gray-500">{isExpanded ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}</div>)}</button>
+                                                {isExpanded && hasAbsence && (<div className="bg-gray-50 dark:bg-slate-900/50 p-3 border-t border-gray-100 dark:border-slate-700 space-y-2 animate-fade-in">{absentStudents.map((s: any, idx: number) => (<div key={idx} className="flex justify-between items-center bg-white dark:bg-slate-800 p-3 rounded-xl border border-gray-100 dark:border-slate-700 text-xs shadow-sm"><div className="flex flex-col gap-0.5"><span className="font-bold text-slate-700 dark:text-white">{s.name}</span>{s.source === 'Wali Kelas' && <span className="text-[9px] bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 px-1 rounded border border-purple-200 dark:border-purple-800 self-start">Wali Kelas</span>}</div><span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400' : s.status === 'I' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400' : 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400'}`}>{s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}</span></div>))}</div>)}
                                             </div>
                                         );
                                     })}

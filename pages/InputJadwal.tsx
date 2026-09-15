@@ -85,24 +85,52 @@ const InputJadwal: React.FC = () => {
       if (copyCurrentVersion) {
           setLoading(true);
           try {
-              // Get all schedules for the current working version
-              const { data: currentSchedules, error: fetchErr } = await supabase
+              let currentSchedules: any = null;
+              let fetchErr: any = null;
+              
+              const res = await supabase
                   .from('schedules')
                   .select('*')
                   .eq('academic_year', academicYear || '2025/2026')
                   .eq('semester', semester || 'Ganjil')
                   .eq('schedule_version', workingVersion);
                   
+              currentSchedules = res.data;
+              fetchErr = res.error;
+              
+              if (fetchErr && (fetchErr.code === '42703' || fetchErr.message?.includes('schedule_version'))) {
+                  // Fallback if schedule_version doesn't exist yet
+                  const fallbackRes = await supabase
+                      .from('schedules')
+                      .select('*')
+                      .eq('academic_year', academicYear || '2025/2026')
+                      .eq('semester', semester || 'Ganjil');
+                      
+                  currentSchedules = fallbackRes.data;
+                  fetchErr = fallbackRes.error;
+                  
+                  if (fetchErr && (fetchErr.code === '42703' || fetchErr.message?.includes('academic_year'))) {
+                       const ultimateFallback = await supabase.from('schedules').select('*');
+                       currentSchedules = ultimateFallback.data;
+                       fetchErr = ultimateFallback.error;
+                  }
+              }
+
               if (fetchErr) throw fetchErr;
               
               if (currentSchedules && currentSchedules.length > 0) {
-                  const newSchedules = currentSchedules.map(s => {
+                  const newSchedules = currentSchedules.map((s: any) => {
                       const { id, created_at, ...rest } = s; // remove id and created_at
                       return { ...rest, schedule_version: vName };
                   });
                   
                   const { error: insertErr } = await supabase.from('schedules').insert(newSchedules);
-                  if (insertErr) throw insertErr;
+                  if (insertErr && (insertErr.code === '42703' || insertErr.message?.includes('schedule_version'))) {
+                      // If inserting schedule_version fails, the column needs to be created first!
+                      throw new Error('Kolom schedule_version belum ada di database Supabase Anda. Anda perlu menjalankan pembaruan SQL melalui file SUPABASE_SETUP.sql di SQL Editor Supabase Anda terlebih dahulu agar fitur versi jadwal dapat digunakan.');
+                  } else if (insertErr) {
+                      throw insertErr;
+                  }
               }
               
               showAlert(`Berhasil menyalin jadwal ke versi baru: ${vName}.`);

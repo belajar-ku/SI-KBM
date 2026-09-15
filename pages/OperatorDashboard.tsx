@@ -103,7 +103,7 @@ const OperatorDashboard: React.FC = () => {
           const [schedulesRes, journalsRes, attendanceRes, studentsRes, homeroomRes] = await Promise.all([
               supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year') || res.error.message?.includes('schedule_version'))) {
-                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Genap');
+                      const fallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay).eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil');
                       if (fallback.error) {
                           const ultraFallback = await supabase.from('schedules').select('*').eq('day_of_week', dbDay);
                           if (ultraFallback.data) {
@@ -116,7 +116,7 @@ const OperatorDashboard: React.FC = () => {
                   return res;
               }),
               supabase.from('journals').select('teacher_id, kelas, subject, hours, cleanliness').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay).lte('created_at', endOfDay),
-              supabase.from('attendance_logs').select('student_id, student_name, status, created_at').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay).lte('created_at', endOfDay).neq('status', 'D'),
+              supabase.from('attendance_logs').select('student_id, student_name, status, created_at, subject').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', startOfDay).lte('created_at', endOfDay).neq('status', 'D'),
               supabase.from('students').select('id, kelas, name').eq('academic_year', academicYear || '2025/2026').then(async (res) => {
                   if (res.error && (res.error.code === '42703' || res.error.message?.includes('academic_year'))) {
                       return supabase.from('students').select('id, kelas, name');
@@ -173,18 +173,18 @@ const OperatorDashboard: React.FC = () => {
           studentsData.forEach((s: any) => { studentClassMap[s.id] = s.kelas; studentNameMap[s.id] = s.name; if (s.kelas) { classCounts[s.kelas] = (classCounts[s.kelas] || 0) + 1; } });
           setStudentClassCounts(classCounts);
 
-          const uniqueAbsenceMap: Record<string, {name: string, status: string, kelas: string}> = {};
+          const uniqueAbsenceMap: Record<string, {name: string, status: string, kelas: string, source?: string}> = {};
           const waliProcessed = new Set<string>();
           homeroomLogs.forEach((h: any) => { 
               waliProcessed.add(h.student_id);
               if (['S', 'I', 'A'].includes(h.status)) { 
-                  uniqueAbsenceMap[h.student_id] = { name: studentNameMap[h.student_id] || 'Siswa', status: h.status, kelas: studentClassMap[h.student_id] || h.kelas || '?' }; 
+                  uniqueAbsenceMap[h.student_id] = { name: studentNameMap[h.student_id] || 'Siswa', status: h.status, kelas: studentClassMap[h.student_id] || h.kelas || '?', source: 'Wali Kelas' }; 
               } 
           });
           attendanceLogs.forEach((log: any) => { 
               if (!waliProcessed.has(log.student_id) && !uniqueAbsenceMap[log.student_id]) { 
                   if (['S', 'I', 'A'].includes(log.status) && log.subject !== 'Salat Dhuha') { 
-                      uniqueAbsenceMap[log.student_id] = { name: log.student_name, status: log.status, kelas: studentClassMap[log.student_id] || '?' }; 
+                      uniqueAbsenceMap[log.student_id] = { name: log.student_name, status: log.status, kelas: studentClassMap[log.student_id] || '?', source: 'Guru Mapel' }; 
                   } 
               } 
           });
@@ -269,6 +269,7 @@ const OperatorDashboard: React.FC = () => {
                     <div className="flex items-center gap-2 mt-1">
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-100 text-blue-700">T.A: {academicYear}</span>
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-700">Semester: {semester}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">Jadwal: {activeScheduleVersion || 'Utama'}</span>
                     </div><div className="flex items-center gap-3 mt-0.5"><div className="flex items-center gap-1.5 bg-white px-2 py-0.5 rounded border border-slate-200 text-xs font-bold text-slate-600"><CalendarDays size={12}/><input type="date" className="bg-transparent border-none p-0 text-xs font-bold text-slate-700 focus:ring-0 cursor-pointer" value={filterDate} onChange={(e) => setFilterDate(e.target.value)}/></div><span className="text-[10px] text-slate-400 font-mono hidden md:inline">Live Update</span></div></div>
             </div>
             <div className="flex-1 overflow-hidden relative bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5 flex items-center gap-2 min-h-[42px]">
@@ -324,7 +325,7 @@ const OperatorDashboard: React.FC = () => {
                                         return (
                                             <div key={cls} className="border border-gray-100 rounded-2xl overflow-hidden transition-all hover:shadow-sm">
                                                 <button onClick={() => hasAbsence && setExpandedClass(isExpanded ? null : cls)} className={`w-full flex items-center justify-between p-3 bg-white ${!hasAbsence ? 'cursor-default' : ''}`}><div className="flex items-center gap-3"><div className={`w-10 h-10 flex items-center justify-center rounded-xl font-bold text-sm shadow-sm ${hasAbsence ? 'bg-red-50 border border-red-100 text-red-700' : 'bg-green-50 border border-green-100 text-green-700'}`}>{cls}</div><div className="text-xs font-bold text-slate-700"><span className="text-green-600">{presentCount} Hadir</span><span className="text-gray-300 mx-2">|</span><span className={hasAbsence ? 'text-red-500' : 'text-slate-300'}>{absentCount} Tidak Hadir</span></div></div>{hasAbsence && (<div className="text-gray-300">{isExpanded ? <ChevronDown size={18}/> : <ChevronRight size={18}/>}</div>)}</button>
-                                                {isExpanded && hasAbsence && (<div className="bg-gray-50 p-3 border-t border-gray-100 space-y-2 animate-fade-in">{studentsInClass.map((s: any, idx: number) => (<div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 text-xs shadow-sm"><span className="font-bold text-slate-700">{s.name}</span><span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 text-yellow-700' : s.status === 'I' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}</span></div>))}</div>)}
+                                                {isExpanded && hasAbsence && (<div className="bg-gray-50 p-3 border-t border-gray-100 space-y-2 animate-fade-in">{studentsInClass.map((s: any, idx: number) => (<div key={idx} className="flex justify-between items-center bg-white p-3 rounded-xl border border-gray-100 text-xs shadow-sm"><div className="flex flex-col gap-0.5"><span className="font-bold text-slate-700">{s.name}</span>{s.source === 'Wali Kelas' && <span className="text-[9px] bg-purple-100 text-purple-600 px-1 rounded border border-purple-200 self-start">Wali Kelas</span>}</div><span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${s.status === 'S' ? 'bg-yellow-100 text-yellow-700' : s.status === 'I' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>{s.status === 'S' ? 'Sakit' : s.status === 'I' ? 'Izin' : 'Alpa'}</span></div>))}</div>)}
                                             </div>
                                         );
                                     })}

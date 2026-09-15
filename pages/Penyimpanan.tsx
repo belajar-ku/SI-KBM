@@ -51,6 +51,18 @@ const Penyimpanan: React.FC = () => {
                 const { data: semEnd } = await supabase.from('app_settings').select('value').eq('key', 'semester_end').single();
                 if (semEnd?.value) setSemesterEnd(semEnd.value);
     
+                const { data: schedVerData } = await supabase.from('app_settings').select('value').eq('key', 'active_schedule_version').single();
+                let currentActiveVer = schedVerData?.value || '';
+                
+                const { data: uniqueScheds } = await supabase.from('schedules').select('schedule_version');
+                if (uniqueScheds) {
+                    const unique = Array.from(new Set(uniqueScheds.map(s => s.schedule_version).filter(Boolean)));
+                    if (unique.length > 0) {
+                        setAvailableScheduleVersions(unique as string[]);
+                        if (!currentActiveVer) currentActiveVer = unique[0] as string;
+                    }
+                }
+                setActiveScheduleVersion(currentActiveVer || 'Utama');
             } catch(e) {
                 console.error("Error fetching settings:", e);
             }

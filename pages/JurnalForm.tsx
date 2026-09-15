@@ -202,7 +202,7 @@ const JurnalForm: React.FC = () => {
             setLoading(false); 
             const studentIds = studentsData.map(s => s.id);
             if (studentIds.length > 0) {
-                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('schedule_version', activeScheduleVersion || 'Utama').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
+                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
                 let { data: recentAtt, error: recError } = await query;
                 if (recError && (recError.code === '42703' || recError.message?.includes('academic_year') || recError.message?.includes('semester'))) {
                     const fallbackQuery = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);

@@ -55,6 +55,7 @@ const UsersData: React.FC = () => {
   const [resetData, setResetData] = useState({
       userId: '',
       userName: '',
+      nip: '',
       newPassword: ''
   });
 
@@ -104,7 +105,7 @@ const UsersData: React.FC = () => {
   };
 
   const handleOpenReset = (user: Profile) => {
-      setResetData({ userId: user.id, userName: user.full_name, newPassword: '' });
+      setResetData({ userId: user.id, userName: user.full_name, nip: user.nip || '', newPassword: '' });
       setResetModalOpen(true);
   };
 
@@ -151,7 +152,7 @@ const UsersData: React.FC = () => {
               }
           }
 
-          const SUPABASE_URL = 'https://aobgqejpjomgwxiosgin.supabase.co'; 
+          const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://aobgqejpjomgwxiosgin.supabase.co'; 
           const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
           const email = `${newUser.nip}@sekolah.id`;
@@ -166,7 +167,7 @@ const UsersData: React.FC = () => {
           if (!authData.user) throw new Error("Gagal mendapatkan data user baru.");
           const userId = authData.user.id;
 
-          const { error: profileError } = await supabase.from('profiles').insert({
+          const { error: profileError } = await supabase.from('profiles').upsert({
               id: userId, nip: newUser.nip, full_name: newUser.fullName, role: newUser.role,
               mengajar_mapel: typeof finalMapelNew !== 'undefined' ? finalMapelNew : newUser.mapel, wali_kelas: newUser.waliKelas, password_info: newUser.password
           });
@@ -185,10 +186,10 @@ const UsersData: React.FC = () => {
       if(!resetData.newPassword || !serviceKey) { showAlert("Password baru dan Service Key wajib diisi."); return; }
       setSaving(true);
       try {
-          const SUPABASE_URL = 'https://aobgqejpjomgwxiosgin.supabase.co'; 
+          const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://aobgqejpjomgwxiosgin.supabase.co'; 
           const adminClient = createClient(SUPABASE_URL, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
 
-          const { error: authError } = await adminClient.auth.admin.updateUserById(resetData.userId, { password: resetData.newPassword });
+          const { error: authError } = await adminClient.auth.admin.updateUserById(resetData.userId, { password: resetData.newPassword, email: `${resetData.nip}@sekolah.id`, email_confirm: true });
           if (authError) throw new Error("Gagal update Auth: " + authError.message);
 
           const { error: profileError } = await supabase.from('profiles').update({ password_info: resetData.newPassword }).eq('id', resetData.userId);
@@ -197,7 +198,7 @@ const UsersData: React.FC = () => {
           showAlert("Password berhasil direset!");
           setProfiles(prev => prev.map(p => p.id === resetData.userId ? { ...p, password_info: resetData.newPassword } : p));
           setResetModalOpen(false);
-          setResetData({ userId: '', userName: '', newPassword: '' });
+          setResetData({ userId: '', userName: '', nip: '', newPassword: '' });
       } catch(e: any) { showAlert(e.message); } finally { setSaving(false); }
   };
 

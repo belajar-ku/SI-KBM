@@ -346,6 +346,48 @@ EXCEPTION
 END $$;
 
 
+DO $$
+BEGIN
+  BEGIN
+    ALTER TABLE public.schedules ADD COLUMN schedule_version text DEFAULT 'Utama';
+  EXCEPTION
+    WHEN duplicate_column THEN null;
+  END;
+  BEGIN
+    ALTER TABLE public.journals ADD COLUMN schedule_version text DEFAULT 'Utama';
+  EXCEPTION
+    WHEN duplicate_column THEN null;
+  END;
+  BEGIN
+    ALTER TABLE public.attendance_logs ADD COLUMN schedule_version text DEFAULT 'Utama';
+  EXCEPTION
+    WHEN duplicate_column THEN null;
+  END;
+  BEGIN
+    ALTER TABLE public.journal_notes ADD COLUMN schedule_version text DEFAULT 'Utama';
+  EXCEPTION
+    WHEN duplicate_column THEN null;
+  END;
+  BEGIN
+    ALTER TABLE public.homeroom_attendance ADD COLUMN schedule_version text DEFAULT 'Utama';
+  EXCEPTION
+    WHEN duplicate_column THEN null;
+  END;
+END $$;
+
+-- UPDATE NULL VALUES
+DO $$
+BEGIN
+  UPDATE public.schedules SET schedule_version = 'Utama' WHERE schedule_version IS NULL;
+  UPDATE public.journals SET schedule_version = 'Utama' WHERE schedule_version IS NULL;
+  UPDATE public.homeroom_attendance SET schedule_version = 'Utama' WHERE schedule_version IS NULL;
+  UPDATE public.journal_notes SET schedule_version = 'Utama' WHERE schedule_version IS NULL;
+  UPDATE public.attendance_logs SET schedule_version = 'Utama' WHERE schedule_version IS NULL;
+EXCEPTION
+  WHEN OTHERS THEN
+    -- Ignore if tables don't exist yet
+END $$;
+
 -- ==========================================
 -- TABLE: school_activities
 -- ==========================================
