@@ -183,7 +183,7 @@ const OperatorDashboard: React.FC = () => {
           });
           attendanceLogs.forEach((log: any) => { 
               if (!waliProcessed.has(log.student_id) && !uniqueAbsenceMap[log.student_id]) { 
-                  if (['S', 'I', 'A'].includes(log.status)) { 
+                  if (['S', 'I', 'A'].includes(log.status) && log.subject !== 'Salat Dhuha') { 
                       uniqueAbsenceMap[log.student_id] = { name: log.student_name, status: log.status, kelas: studentClassMap[log.student_id] || '?' }; 
                   } 
               } 

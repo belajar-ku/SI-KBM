@@ -36,6 +36,7 @@ const InputJadwal: React.FC = () => {
   
   const [showNewVersionModal, setShowNewVersionModal] = useState(false);
   const [newVersionName, setNewVersionName] = useState('');
+  const [copyCurrentVersion, setCopyCurrentVersion] = useState(false);
 
   const [formData, setFormData] = useState({
     hari: 'Senin',
@@ -73,18 +74,58 @@ const InputJadwal: React.FC = () => {
   }, [workingVersion]);
 
   
-  const handleCreateNewVersion = () => {
+  const handleCreateNewVersion = async () => {
       if (!newVersionName.trim()) {
           showAlert("Nama versi tidak boleh kosong!");
           return;
       }
       
       const vName = newVersionName.trim();
+      
+      if (copyCurrentVersion) {
+          setLoading(true);
+          try {
+              // Get all schedules for the current working version
+              const { data: currentSchedules, error: fetchErr } = await supabase
+                  .from('schedules')
+                  .select('*')
+                  .eq('academic_year', academicYear || '2025/2026')
+                  .eq('semester', semester || 'Ganjil')
+                  .eq('schedule_version', workingVersion);
+                  
+              if (fetchErr) throw fetchErr;
+              
+              if (currentSchedules && currentSchedules.length > 0) {
+                  const newSchedules = currentSchedules.map(s => {
+                      const { id, created_at, ...rest } = s; // remove id and created_at
+                      return { ...rest, schedule_version: vName };
+                  });
+                  
+                  const { error: insertErr } = await supabase.from('schedules').insert(newSchedules);
+                  if (insertErr) throw insertErr;
+              }
+              
+              showAlert(`Berhasil menyalin jadwal ke versi baru: ${vName}.`);
+          } catch (err: any) {
+              console.error(err);
+              showAlert('Error', 'Gagal menyalin jadwal: ' + err.message);
+          } finally {
+              setLoading(false);
+          }
+      } else {
+          showAlert(`Berhasil membuat versi jadwal kosong baru: ${vName}.`);
+      }
+      
       setAvailableVersions(prev => Array.from(new Set([...prev, vName])));
       setWorkingVersion(vName);
       setNewVersionName('');
+      setCopyCurrentVersion(false);
       setShowNewVersionModal(false);
-      showAlert(`Berhasil membuat versi jadwal baru: ${vName}. Silakan tambahkan jadwal.`);
+      
+      // Refresh teacher schedules if a teacher is selected
+      if (selectedTeacher) {
+          fetchTeacherSchedules(selectedTeacher.id);
+      }
   };
 
 
@@ -407,14 +448,26 @@ const InputJadwal: React.FC = () => {
                                     autoFocus
                                 />
                             </div>
+                            <div className="flex items-center gap-2 mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl">
+                                <input 
+                                    type="checkbox" 
+                                    id="copySchedule"
+                                    checked={copyCurrentVersion}
+                                    onChange={(e) => setCopyCurrentVersion(e.target.checked)}
+                                    className="w-5 h-5 text-indigo-600 rounded border-gray-300 focus:ring-indigo-500"
+                                />
+                                <label htmlFor="copySchedule" className="text-sm font-medium text-indigo-900 cursor-pointer">
+                                    Salin jadwal dari versi <strong>{workingVersion}</strong>
+                                </label>
+                            </div>
                         </div>
 
                         <div className="flex justify-end gap-3 mt-8">
                             <button onClick={() => setShowNewVersionModal(false)} className="px-5 py-2.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">
                                 Batal
                             </button>
-                            <button onClick={handleCreateNewVersion} className="px-5 py-2.5 rounded-xl font-bold text-white bg-purple-600 hover:bg-purple-700 transition-colors">
-                                Buat Jadwal Baru
+                            <button onClick={handleCreateNewVersion} disabled={loading} className="px-5 py-2.5 rounded-xl font-bold text-white bg-purple-600 hover:bg-purple-700 transition-colors disabled:opacity-50">
+                                {loading ? 'Memproses...' : 'Buat Jadwal Baru'}
                             </button>
                         </div>
                     </div>
