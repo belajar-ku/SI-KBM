@@ -10,6 +10,7 @@ import {
 import { getWIBDate, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
 import { Student, Profile } from '../types';
 import { showAlert, showConfirm } from '../utils/alert';
+import { fetchNonEffectiveData, calculateTeacherTargetJp } from '../utils/performanceUtils';
 
 interface MonthlyStats {
     totalJp: number;
@@ -211,19 +212,34 @@ const Dashboard: React.FC = () => {
         }
 
         let targetJp = 0;
-        if (mySchedules) {
-            const dayCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
-            for (let d = 1; d <= date.getDate(); d++) {
-                const tempDate = new Date(currentYear, currentMonth, d);
-                const jsDay = tempDate.getDay(); 
-                const dbDay = jsDay === 0 ? 7 : jsDay;
-                dayCounts[dbDay]++;
+        if (mySchedules && mySchedules.length > 0) {
+            try {
+                const { nonEffectiveDays, schoolActivities } = await fetchNonEffectiveData();
+                const res = calculateTeacherTargetJp(
+                    mySchedules,
+                    currentYear,
+                    currentMonth,
+                    date.getDate(),
+                    nonEffectiveDays,
+                    schoolActivities
+                );
+                targetJp = res.targetJp;
+            } catch (err) {
+                console.error("Error calculating target JP:", err);
+                // Fallback to basic calculation
+                const dayCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
+                for (let d = 1; d <= date.getDate(); d++) {
+                    const tempDate = new Date(currentYear, currentMonth, d);
+                    const jsDay = tempDate.getDay(); 
+                    const dbDay = jsDay === 0 ? 7 : jsDay;
+                    dayCounts[dbDay]++;
+                }
+                mySchedules.forEach(s => {
+                    const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
+                    const occurrences = dayCounts[s.day_of_week] || 0;
+                    targetJp += (jpCount * occurrences);
+                });
             }
-            mySchedules.forEach(s => {
-                const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
-                const occurrences = dayCounts[s.day_of_week] || 0;
-                targetJp += (jpCount * occurrences);
-            });
         }
 
         setStats({ totalJp: jp, targetJp: targetJp, totalMeetings: meetings, monthJournals });

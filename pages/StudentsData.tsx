@@ -9,6 +9,8 @@ import { showAlert, showConfirm } from '../utils/alert';
 
 const StudentsData: React.FC = () => {
   const { academicYear } = useAuth();
+  const [currentYear, setCurrentYear] = useState<string>(() => academicYear || localStorage.getItem('app_academic_year') || '2026/2027');
+  const [availableYears, setAvailableYears] = useState<string[]>(['2026/2027', '2025/2026']);
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -39,36 +41,57 @@ const StudentsData: React.FC = () => {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    if (academicYear) {
+      setCurrentYear(academicYear);
+    }
+  }, [academicYear]);
+
+  useEffect(() => {
+    const fetchYears = async () => {
+      try {
+        const { data } = await supabase.from('app_settings').select('value').eq('key', 'available_years').single();
+        if (data?.value) {
+          const parsed = JSON.parse(data.value);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setAvailableYears(parsed);
+          }
+        }
+      } catch (e) {
+        // use default
+      }
+    };
+    fetchYears();
+  }, []);
+
+  useEffect(() => {
     fetchStudents();
-  }, [filterClass]); 
+  }, [filterClass, currentYear]); 
 
   useEffect(() => {
     if (modalType === 'keluar' && mutasiKeluarData.kelas) {
         const fetchClassStudents = async () => {
-             let { data, error } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', mutasiKeluarData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
+             let { data, error } = await supabase.from('students').select('*').eq('academic_year', currentYear).eq('kelas', mutasiKeluarData.kelas).order('name');
           if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
-              const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', mutasiKeluarData.kelas).order('name');
+              const res = await supabase.from('students').select('*').eq('kelas', mutasiKeluarData.kelas).order('name');
               data = res.data;
           }
              setStudentsForDropdown(data || []);
         };
         fetchClassStudents();
     }
-  }, [modalType, mutasiKeluarData.kelas]);
+  }, [modalType, mutasiKeluarData.kelas, currentYear]);
 
   const fetchStudents = async () => {
     setLoading(true);
     try {
-      let query = supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026');
+      let query = supabase.from('students').select('*').eq('academic_year', currentYear);
       if (filterClass) query = query.eq('kelas', filterClass);
       let { data, error } = await query.order('kelas', { ascending: true }).order('name', { ascending: true });
       if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
           // Fallback if column missing
-          let fallbackQuery = supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026');
+          let fallbackQuery = supabase.from('students').select('*');
           if (filterClass) fallbackQuery = fallbackQuery.eq('kelas', filterClass);
           const res = await fallbackQuery.order('kelas', { ascending: true }).order('name', { ascending: true });
-          
-          // Assume old data belongs to 2025/2026
           data = res.data;
           error = res.error;
       }
@@ -86,7 +109,15 @@ const StudentsData: React.FC = () => {
   const handleMutasiSelection = (type: 'masuk' | 'keluar') => {
       setModalType(type);
       setEditingId(null);
-      setFormData({ nisn: '', nis: '', name: '', kelas: filterClass || '7A', gender: 'L', jenjang: '7' });
+      const defaultClass = filterClass || '7A';
+      setFormData({ 
+        nisn: '', 
+        nis: '', 
+        name: '', 
+        kelas: defaultClass, 
+        gender: 'L', 
+        jenjang: defaultClass.charAt(0) || '7' 
+      });
       setMutasiKeluarData({ kelas: '', studentId: '', status: 'aktif' });
   };
 
@@ -98,7 +129,7 @@ const StudentsData: React.FC = () => {
           name: s.name,
           kelas: s.kelas,
           gender: (s.gender as any) || 'L',
-          jenjang: s.jenjang || '7'
+          jenjang: s.jenjang || (s.kelas ? s.kelas.charAt(0) : '7')
       });
       setModalType('masuk');
       setIsModalOpen(true);
@@ -182,41 +213,87 @@ const StudentsData: React.FC = () => {
       }
   };
 
+  const [saveYear, setSaveYear] = useState<string>(() => currentYear || academicYear || '2026/2027');
+
   const handleSaveMasuk = async () => {
-      if (!formData.nisn || !formData.name || !formData.kelas) {
-          showAlert("NISN, Nama, dan Kelas wajib diisi!");
+      const cleanName = formData.name.trim();
+      const cleanNisn = formData.nisn.trim();
+      const cleanNis = formData.nis ? formData.nis.trim() : '';
+      const cleanClass = formData.kelas.trim();
+
+      if (!cleanName || !cleanClass) {
+          showAlert("Nama dan Kelas wajib diisi!");
           return;
       }
+
+      // If NISN is empty, generate an automatic placeholder NISN so admin is never blocked
+      const finalNisn = cleanNisn || `MUT-${Date.now().toString().slice(-8)}`;
+      const derivedJenjang = cleanClass ? cleanClass.charAt(0) : '7';
+      const targetYearToSave = saveYear || currentYear || academicYear || '2026/2027';
+
       setSaving(true);
       try {
           const payload = { 
-                nisn: formData.nisn, 
-                nis: formData.nis, 
-                name: formData.name, 
-                kelas: formData.kelas,
-                gender: formData.gender,
-                jenjang: formData.jenjang,
-                academic_year: academicYear || '2025/2026'
+                nisn: finalNisn, 
+                nis: cleanNis || null, 
+                name: cleanName.toUpperCase(), 
+                kelas: cleanClass,
+                gender: formData.gender || 'L',
+                jenjang: derivedJenjang,
+                academic_year: targetYearToSave
             };
 
           if (editingId) {
-              const { error } = await supabase.from('students').update(payload).eq('id', editingId);
+              const { data, error } = await supabase.from('students').update(payload).eq('id', editingId).select().single();
               if (error) throw error;
-              setStudents(prev => prev.map(s => s.id === editingId ? { ...s, ...payload } as Student : s));
+              showAlert(`Data murid "${cleanName}" berhasil diperbarui.`);
           } else {
-              let { data, error } = await supabase.from('students').insert(payload).select().single();
-              if (error && (error.code === '42703' || error.message?.includes('academic_year'))) {
-                  const { academic_year, ...rest } = payload as any;
-                  const res = await supabase.from('students').insert(rest).select().single();
-                  data = res.data;
-                  error = res.error;
+              // 1. First check if a student with the same academic year and NISN already exists
+              const { data: existingStudent } = await supabase
+                  .from('students')
+                  .select('id')
+                  .eq('academic_year', targetYearToSave)
+                  .eq('nisn', finalNisn)
+                  .maybeSingle();
+
+              if (existingStudent?.id) {
+                  // Update existing record
+                  const { error: updateErr } = await supabase
+                      .from('students')
+                      .update(payload)
+                      .eq('id', existingStudent.id);
+                  if (updateErr) throw updateErr;
+              } else {
+                  // Insert fresh record
+                  let { error: insertErr } = await supabase.from('students').insert(payload);
+                  
+                  // If conflict occurs, fallback to upsert
+                  if (insertErr && (insertErr.code === '23505' || insertErr.message?.includes('duplicate'))) {
+                      const { error: upsertErr } = await supabase
+                          .from('students')
+                          .upsert(payload, { onConflict: 'academic_year,nisn' });
+                      if (upsertErr) throw upsertErr;
+                  } else if (insertErr && (insertErr.code === '42703' || insertErr.message?.includes('academic_year'))) {
+                      const { academic_year, ...rest } = payload as any;
+                      const { error: fallbackErr } = await supabase.from('students').insert(rest);
+                      if (fallbackErr) throw fallbackErr;
+                  } else if (insertErr) {
+                      throw insertErr;
+                  }
               }
-              if (error) throw error;
-              if (data) setStudents(prev => [...prev, data].sort((a,b) => a.kelas.localeCompare(b.kelas) || a.name.localeCompare(b.name)));
+
+              showAlert(`Data murid "${cleanName.toUpperCase()}" berhasil disimpan ke Kelas ${cleanClass} (T.A. ${targetYearToSave})!`);
           }
+
           setIsModalOpen(false);
+          // Sync current view to match the class and year of the saved student so it is immediately visible
+          setCurrentYear(targetYearToSave);
+          setFilterClass(cleanClass);
+          setSearchTerm('');
+          await fetchStudents();
       } catch (err: any) {
-          showAlert("Gagal menyimpan: " + err.message);
+          console.error("Error saving student:", err);
+          showAlert("Gagal menyimpan ke Supabase: " + (err.message || 'Terjadi kesalahan sistem'));
       } finally {
           setSaving(false);
       }
@@ -262,7 +339,7 @@ const StudentsData: React.FC = () => {
             <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
               <GraduationCap className="text-blue-600" /> Data Murid
             </h2>
-            <p className="text-slate-500 text-sm">Kelola data murid, mutasi masuk dan keluar.</p>
+            <p className="text-slate-500 text-sm">Kelola data murid, mutasi masuk dan keluar (Tahun Ajaran {currentYear}).</p>
           </div>
           <button onClick={openMutasiModal} className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-xl font-bold flex items-center gap-2 shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5 transition-all">
              <UserPlus size={18} /> Mutasi Murid
@@ -275,7 +352,12 @@ const StudentsData: React.FC = () => {
                 <Search className="absolute left-4 top-3.5 text-slate-400" size={18} />
                 <input type="text" placeholder="Cari Nama / NISN..." className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-medium" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
             </div>
-            <div className="w-full md:w-64 relative">
+            <div className="w-full md:w-56 relative">
+                 <select className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm font-bold text-slate-700" value={currentYear} onChange={e => setCurrentYear(e.target.value)}>
+                    {availableYears.map(yr => <option key={yr} value={yr}>T.A. {yr}</option>)}
+                 </select>
+            </div>
+            <div className="w-full md:w-56 relative">
                  <Filter className="absolute left-4 top-3.5 text-slate-400" size={18} />
                  <select className="w-full pl-11 pr-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-sm font-bold text-slate-700 appearance-none" value={filterClass} onChange={e => setFilterClass(e.target.value)}>
                     <option value="">Semua Kelas</option>
@@ -299,7 +381,7 @@ const StudentsData: React.FC = () => {
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-50">
-                 {loading ? <tr><td colSpan={5} className="px-6 py-12 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr> : filteredStudents.length === 0 ? <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada data murid ditemukan.</td></tr> : (
+                 {loading ? <tr><td colSpan={5} className="px-6 py-12 text-center"><Loader2 className="animate-spin mx-auto text-blue-500"/></td></tr> : filteredStudents.length === 0 ? <tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Tidak ada data murid ditemukan di Tahun Ajaran {currentYear}.</td></tr> : (
                    filteredStudents.map((s) => (
                      <tr key={s.id} className="hover:bg-blue-50/30 transition-colors group">
                        <td className="px-6 py-4 font-bold text-slate-700">{s.name}</td>
@@ -314,7 +396,7 @@ const StudentsData: React.FC = () => {
              </table>
            </div>
            <div className="p-4 bg-slate-50/50 text-xs text-slate-400 font-medium border-t border-slate-100 flex justify-between">
-               <span>Total: {filteredStudents.length} Murid</span>
+               <span>Total: {filteredStudents.length} Murid (T.A. {currentYear})</span>
                <span>Database: public.students</span>
            </div>
         </div>
@@ -348,15 +430,32 @@ const StudentsData: React.FC = () => {
 
                         {modalType === 'masuk' && (
                              <div className="space-y-4">
-                                <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nama Lengkap</label><input className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Nama Murid" /></div>
+                                <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3 flex items-center justify-between text-xs">
+                                    <span className="text-slate-600 font-medium">Tahun Ajaran:</span>
+                                    <span className="font-bold text-blue-700 bg-white px-2.5 py-1 rounded-lg border border-blue-200">{currentYear}</span>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Nama Lengkap</label>
+                                    <input className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500 font-medium" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="Nama Murid" />
+                                </div>
                                 <div className="grid grid-cols-2 gap-4">
-                                    <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">NISN</label><input className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500" value={formData.nisn} onChange={e => setFormData({...formData, nisn: e.target.value})} placeholder="001xxxx" /></div>
-                                    <div><label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">NIS (Opsional)</label><input className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500" value={formData.nis} onChange={e => setFormData({...formData, nis: e.target.value})} placeholder="1234" /></div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">
+                                            NISN <span className="text-[10px] text-slate-400 font-normal">(opsional)</span>
+                                        </label>
+                                        <input className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500" value={formData.nisn} onChange={e => setFormData({...formData, nisn: e.target.value})} placeholder="Otomatis jika kosong" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">NIS (Opsional)</label>
+                                        <input className="w-full border border-slate-200 rounded-xl p-3 focus:ring-2 focus:ring-blue-500" value={formData.nis} onChange={e => setFormData({...formData, nis: e.target.value})} placeholder="1234" />
+                                    </div>
                                 </div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Kelas</label>
-                                        <select className="w-full border border-slate-200 rounded-xl p-3 bg-white focus:ring-2 focus:ring-blue-500" value={formData.kelas} onChange={e => setFormData({...formData, kelas: e.target.value})}>{availableClasses.map(c => <option key={c} value={c}>{c}</option>)}</select>
+                                        <select className="w-full border border-slate-200 rounded-xl p-3 bg-white focus:ring-2 focus:ring-blue-500 font-bold text-slate-700" value={formData.kelas} onChange={e => { const k = e.target.value; setFormData({...formData, kelas: k, jenjang: k ? k.charAt(0) : '7'}); }}>
+                                            {availableClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
                                     </div>
                                     <div>
                                         <label className="block text-xs font-bold text-slate-500 mb-1.5 ml-1">Jenis Kelamin</label>

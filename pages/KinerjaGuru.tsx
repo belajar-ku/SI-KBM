@@ -3,18 +3,22 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from '../components/Layout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../services/supabase';
-import { Activity, Calendar, Search, Loader2, X } from 'lucide-react';
+import { Activity, Calendar, Search, Loader2, X, Table, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Profile, Schedule } from '../types';
+import { useNavigate } from 'react-router-dom';
+import { fetchNonEffectiveData, calculateTeacherTargetJp, getMonthEfficiencyStats } from '../utils/performanceUtils';
 
 interface TeacherPerformanceData extends Profile {
     targetJp: number;
     actualJp: number;
+    deductedJp: number;
     statusKinerja: string;
     statusColor: string;
 }
 
 const KinerjaGuru: React.FC = () => {
-  const { academicYear, semester , activeScheduleVersion , semesterStart, semesterEnd } = useAuth();
+  const { academicYear, semester, activeScheduleVersion, semesterStart, semesterEnd } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [teachersData, setTeachersData] = useState<TeacherPerformanceData[]>([]);
   const [filteredTeachers, setFilteredTeachers] = useState<TeacherPerformanceData[]>([]);
@@ -22,6 +26,7 @@ const KinerjaGuru: React.FC = () => {
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth()); 
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [nonEffectiveCount, setNonEffectiveCount] = useState(0);
 
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedTeacherSchedule, setSelectedTeacherSchedule] = useState<{teacher: Profile, schedules: Schedule[] } | null>(null);
@@ -29,7 +34,7 @@ const KinerjaGuru: React.FC = () => {
   const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
   const dayName = (num: number) => ['', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'][num];
 
-  useEffect(() => { fetchHeadmasterData(); }, [selectedMonth, selectedYear]);
+  useEffect(() => { fetchHeadmasterData(); }, [selectedMonth, selectedYear, academicYear, semester, activeScheduleVersion]);
 
   useEffect(() => {
       if (hmSearch) {
@@ -50,6 +55,11 @@ const KinerjaGuru: React.FC = () => {
           if (selectedYear === today.getFullYear() && selectedMonth === today.getMonth()) endCalculationDay = today.getDate(); 
           else if (selectedYear > today.getFullYear() || (selectedYear === today.getFullYear() && selectedMonth > today.getMonth())) endCalculationDay = lastDayDate.getDate(); 
 
+          // Fetch Non-effective days and school activities from DB
+          const { nonEffectiveDays, schoolActivities } = await fetchNonEffectiveData();
+          const efficiency = getMonthEfficiencyStats(selectedYear, selectedMonth, endCalculationDay, nonEffectiveDays, schoolActivities);
+          setNonEffectiveCount(efficiency.nonEffectiveCount);
+
           const [profilesRes, schedulesRes, journalsRes] = await Promise.all([
               supabase.from('profiles').select('*').neq('role', 'operator').order('full_name'),
               supabase.from('schedules').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').eq('schedule_version', activeScheduleVersion || 'Utama').then(async (res) => {
@@ -69,33 +79,32 @@ const KinerjaGuru: React.FC = () => {
           const allTeachers = (profilesRes.data || []).filter(t => !excludedNames.includes(t.full_name));
           const allSchedules = schedulesRes.data || [];
           const allJournals = journalsRes.data || [];
-          const dayCounts: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
-          
-          for (let d = 1; d <= endCalculationDay; d++) {
-              const tempDate = new Date(selectedYear, selectedMonth, d);
-              const jsDay = tempDate.getDay(); const dbDay = jsDay === 0 ? 7 : jsDay; dayCounts[dbDay]++;
-          }
 
           const processed: TeacherPerformanceData[] = allTeachers.map(t => {
               const mySchedules = allSchedules.filter(s => s.teacher_id === t.id);
-              let target = 0;
-              mySchedules.forEach(s => {
-                  const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
-                  const occurrences = dayCounts[s.day_of_week] || 0;
-                  target += (jpCount * occurrences);
-              });
+
+              // Target calculation synchronously excluding non-effective days and activities
+              const { targetJp, deductedJp } = calculateTeacherTargetJp(
+                  mySchedules,
+                  selectedYear,
+                  selectedMonth,
+                  endCalculationDay,
+                  nonEffectiveDays,
+                  schoolActivities
+              );
+
               const myJournals = allJournals.filter(j => j.teacher_id === t.id);
               let actual = 0;
               myJournals.forEach(j => {
                   const parts = j.hours.split(',').filter((h: string) => h.trim().length > 0);
                   actual += parts.length;
               });
-              const percentage = target > 0 ? (actual / target) * 100 : 0;
+              const percentage = targetJp > 0 ? (actual / targetJp) * 100 : 0;
               let status = "Di Bawah Ekspektasi"; let color = "text-red-600 bg-red-50 border-red-100";
-              if (target === 0 && actual === 0) { status = "Tidak Ada Jadwal"; color = "text-gray-500 bg-gray-50 border-gray-100"; } 
+              if (targetJp === 0 && actual === 0) { status = "Tidak Ada Jadwal"; color = "text-gray-500 bg-gray-50 border-gray-100"; } 
               else if (percentage > 85) { status = "Di Atas Ekspektasi"; color = "text-emerald-600 bg-emerald-50 border-emerald-100"; } 
               else if (percentage >= 70) { status = "Sesuai Ekspektasi"; color = "text-blue-600 bg-blue-50 border-blue-100"; }
-              return { ...t, targetJp: target, actualJp: actual, statusKinerja: status, statusColor: color };
+              return { ...t, targetJp, actualJp: actual, deductedJp, statusKinerja: status, statusColor: color };
           });
           setTeachersData(processed);
       } catch(e) { console.error("Headmaster Fetch Error", e); } finally { setLoading(false); }
@@ -122,13 +131,50 @@ const KinerjaGuru: React.FC = () => {
     <Layout>
         <div className="space-y-6 animate-fade-in">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div><h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><Activity className="text-blue-600" /> Monitoring Kinerja Guru</h2><p className="text-slate-500 text-sm mt-1">Evaluasi pemenuhan jam mengajar (JP) guru.</p></div>
-                <div className="flex flex-wrap gap-2 items-center bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
-                    <div className="relative"><Search className="absolute left-3 top-2.5 text-slate-400" size={16}/><input type="text" placeholder="Cari Guru..." className="pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 w-40" value={hmSearch} onChange={(e) => setHmSearch(e.target.value)}/></div>
-                    <div className="h-6 w-px bg-slate-200 mx-1"></div>
-                    <select className="py-2 px-3 border border-slate-200 rounded-lg text-sm bg-white font-bold text-slate-700" value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>{monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
-                    <select className="py-2 px-3 border border-slate-200 rounded-lg text-sm bg-white font-bold text-slate-700" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>{[2024, 2025, 2026].map(y => <option key={y} value={y}>{y}</option>)}</select>
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
+                        <Activity className="text-blue-600" /> Monitoring Kinerja Guru
+                    </h2>
+                    <p className="text-slate-500 text-sm mt-1">Evaluasi pemenuhan jam mengajar (JP) guru.</p>
                 </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                    <button
+                        onClick={() => navigate('/rekap-kinerja')}
+                        className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                    >
+                        <Table size={15} />
+                        <span>Tabel Rekap Bulanan</span>
+                    </button>
+                    <div className="flex items-center bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm gap-2">
+                        <div className="relative">
+                            <Search className="absolute left-3 top-2.5 text-slate-400" size={16}/>
+                            <input type="text" placeholder="Cari Guru..." className="pl-9 pr-3 py-1.5 border border-slate-200 dark:border-slate-600 rounded-lg text-xs focus:ring-2 focus:ring-blue-500 w-36 bg-transparent" value={hmSearch} onChange={(e) => setHmSearch(e.target.value)}/>
+                        </div>
+                        <div className="h-5 w-px bg-slate-200 dark:bg-slate-700"></div>
+                        <select className="py-1.5 px-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-transparent font-bold text-slate-700 dark:text-slate-200" value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>
+                            {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                        </select>
+                        <select className="py-1.5 px-2.5 border border-slate-200 dark:border-slate-600 rounded-lg text-xs bg-transparent font-bold text-slate-700 dark:text-slate-200" value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
+                            {[2024, 2025, 2026, 2027].map(y => <option key={y} value={y}>{y}</option>)}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            {/* Non Effective Day Banner */}
+            <div className="bg-emerald-50 dark:bg-slate-800 border border-emerald-200 dark:border-slate-700 rounded-xl px-4 py-2.5 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                    <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                    <span>
+                        Target JP dihitung otomatis dengan <strong>mengecualikan {nonEffectiveCount} hari non-efektif</strong> yang telah diatur oleh admin pada bulan {monthNames[selectedMonth]} {selectedYear}.
+                    </span>
+                </div>
+                <button
+                    onClick={() => navigate('/rekap-kinerja')}
+                    className="text-blue-600 dark:text-blue-400 hover:underline font-bold text-xs shrink-0 ml-3"
+                >
+                    Lihat Rincian Rekap &rarr;
+                </button>
             </div>
 
             {loading ? <div className="flex justify-center py-20"><Loader2 className="animate-spin text-blue-500" size={40}/></div> : filteredTeachers.length === 0 ? <div className="text-center py-20 text-slate-400 italic">Tidak ada data guru ditemukan.</div> : (

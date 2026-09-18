@@ -25,11 +25,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [academicYear, setAcademicYear] = useState<string>('2025/2026');
-  const [semester, setSemester] = useState<string>('Genap');
+  const [academicYear, setAcademicYear] = useState<string>(() => localStorage.getItem('app_academic_year') || '2026/2027');
+  const [semester, setSemester] = useState<string>(() => localStorage.getItem('app_semester') || 'Ganjil');
   const [semesterStart, setSemesterStart] = useState<string>('');
   const [semesterEnd, setSemesterEnd] = useState<string>('');
-  const [activeScheduleVersion, setActiveScheduleVersion] = useState<string>('Utama');
+  const [activeScheduleVersion, setActiveScheduleVersion] = useState<string>(() => localStorage.getItem('app_active_schedule_version') || 'Utama');
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -38,9 +38,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const { data } = await supabase.from('app_settings').select('key, value').in('key', ['academic_year', 'semester', 'active_schedule_version', 'semester_start', 'semester_end']);
         if (data) {
            data.forEach(item => {
-               if (item.key === 'academic_year') setAcademicYear(item.value || '2025/2026');
-               if (item.key === 'semester') setSemester(item.value || 'Genap');
-               if (item.key === 'active_schedule_version') setActiveScheduleVersion(item.value || 'Utama');
+               if (item.key === 'academic_year' && item.value) {
+                   setAcademicYear(item.value);
+                   localStorage.setItem('app_academic_year', item.value);
+               }
+               if (item.key === 'semester' && item.value) {
+                   setSemester(item.value);
+                   localStorage.setItem('app_semester', item.value);
+               }
+               if (item.key === 'active_schedule_version' && item.value) {
+                   setActiveScheduleVersion(item.value);
+                   localStorage.setItem('app_active_schedule_version', item.value);
+               }
                if (item.key === 'semester_start') setSemesterStart(item.value || '');
                if (item.key === 'semester_end') setSemesterEnd(item.value || '');
            });
@@ -83,6 +92,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!isSupabaseConfigured) return;
 
+    const settingsChannel = supabase.channel('realtime-app-settings-auth')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'app_settings' }, () => {
+        fetchSettings();
+      })
+      .subscribe();
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) fetchProfile(session.user.id);
@@ -92,7 +107,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+      supabase.removeChannel(settingsChannel);
+    };
   }, []);
 
   const fetchProfile = async (userId: string) => {

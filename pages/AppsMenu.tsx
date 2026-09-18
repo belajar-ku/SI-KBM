@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 import { supabase } from '../services/supabase';
 import { getWIBDate, getWIBISOString } from '../utils/dateUtils';
+import { fetchNonEffectiveData, calculateTeacherTargetJp } from '../utils/performanceUtils';
 import { User, ChevronRight, BookOpenText, TrendingUp, UserCheck, ShieldAlert, ScanLine, Compass, Database, UserCog, CalendarRange, GraduationCap, Settings, UserMinus, Keyboard, Sun, BookOpen, Users, FileText, Star, Clock, Check } from 'lucide-react';
 
 const AppsMenu: React.FC = () => {
@@ -63,19 +64,33 @@ const AppsMenu: React.FC = () => {
         }
 
         let targetJp = 0;
-        if (mySchedules) {
-            const dayCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
-            for (let d = 1; d <= date.getDate(); d++) {
-                const tempDate = new Date(currentYear, currentMonth, d);
-                const jsDay = tempDate.getDay(); 
-                const dbDay = jsDay === 0 ? 7 : jsDay;
-                dayCounts[dbDay as keyof typeof dayCounts]++;
+        if (mySchedules && mySchedules.length > 0) {
+            try {
+                const { nonEffectiveDays, schoolActivities } = await fetchNonEffectiveData();
+                const res = calculateTeacherTargetJp(
+                    mySchedules,
+                    currentYear,
+                    currentMonth,
+                    date.getDate(),
+                    nonEffectiveDays,
+                    schoolActivities
+                );
+                targetJp = res.targetJp;
+            } catch (err) {
+                console.error("Error calculating target in AppsMenu:", err);
+                const dayCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0 };
+                for (let d = 1; d <= date.getDate(); d++) {
+                    const tempDate = new Date(currentYear, currentMonth, d);
+                    const jsDay = tempDate.getDay(); 
+                    const dbDay = jsDay === 0 ? 7 : jsDay;
+                    dayCounts[dbDay as keyof typeof dayCounts]++;
+                }
+                mySchedules.forEach(s => {
+                    const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
+                    const occurrences = dayCounts[s.day_of_week as keyof typeof dayCounts] || 0;
+                    targetJp += (jpCount * occurrences);
+                });
             }
-            mySchedules.forEach(s => {
-                const jpCount = s.hour.split(',').filter((h: string) => h.trim()).length;
-                const occurrences = dayCounts[s.day_of_week as keyof typeof dayCounts] || 0;
-                targetJp += (jpCount * occurrences);
-            });
         }
         setStats({ totalJp: jp, targetJp: targetJp, totalMeetings: meetings });
     } catch (err) {

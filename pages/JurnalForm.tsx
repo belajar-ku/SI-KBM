@@ -168,22 +168,22 @@ const JurnalForm: React.FC = () => {
         const startOfDay = `${todayStr}T00:00:00+07:00`;
         const endOfDay = `${todayStr}T23:59:59+07:00`;
 
-        const { data: journals } = await supabase.from('journals').select('*').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile.id).gte('created_at', startOfDay).lte('created_at', endOfDay);
+        const activeAcademicYear = academicYear || localStorage.getItem('app_academic_year') || '2026/2027';
+        const { data: journals } = await supabase.from('journals').select('*').eq('academic_year', activeAcademicYear).eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile.id).gte('created_at', startOfDay).lte('created_at', endOfDay);
         if (journals) setExistingJournals(journals);
         
-        const { data: historyJournals } = await supabase.from('journals').select('kelas, subject, material').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile.id).lt('created_at', startOfDay).order('created_at', { ascending: false }).limit(50);
+        const { data: historyJournals } = await supabase.from('journals').select('kelas, subject, material').eq('academic_year', activeAcademicYear).eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('teacher_id', profile.id).lt('created_at', startOfDay).order('created_at', { ascending: false }).limit(50);
         const materialMap: Record<string, string> = {};
         if (historyJournals) { historyJournals.forEach(j => { const key = `${j.kelas}-${j.subject}`; if (!materialMap[key]) materialMap[key] = j.material; }); }
         setLastMaterials(materialMap);
 
         if (schedules && schedules.length > 0) { setTodaySchedules(schedules); setInputMode('auto'); } else { setInputMode('manual'); }
-        let { data: studentData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
-        if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-            const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
-            studentData = res.data;
-            
+        let { data: studentData } = await supabase.from('students').select('kelas').eq('academic_year', activeAcademicYear);
+        if (!studentData || studentData.length === 0) {
+            const resFallback = await supabase.from('students').select('kelas');
+            studentData = resFallback.data;
         }
-        if (studentData) { const unique = Array.from(new Set(studentData.map((s: any) => s.kelas))).sort() as string[]; setAllClasses(unique); }
+        if (studentData) { const unique = Array.from(new Set(studentData.map((s: any) => s.kelas))).filter(Boolean).sort() as string[]; if (unique.length > 0) setAllClasses(unique); }
     } catch (err) { console.error(err); } finally { setInitLoading(false); }
   };
 
@@ -191,18 +191,26 @@ const JurnalForm: React.FC = () => {
     if (formData.kelas && profile) {
       const loadStudentsAndStats = async () => {
         setLoading(true); 
-        let { data: studentsData, error: errSt2 } = await supabase.from('students').select('id, name').eq('academic_year', academicYear || '2025/2026').eq('kelas', formData.kelas).eq('academic_year', academicYear || '2025/2026').order('name');
-        if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
-            const res = await supabase.from('students').select('id, name').eq('academic_year', academicYear || '2025/2026').eq('kelas', formData.kelas).order('name');
-            studentsData = res.data;
-            
+        const activeAcademicYear = academicYear || localStorage.getItem('app_academic_year') || '2026/2027';
+        let query = supabase.from('students').select('id, name').eq('kelas', formData.kelas);
+        if (activeAcademicYear) {
+            query = query.eq('academic_year', activeAcademicYear);
+        }
+        let { data: studentsData } = await query.order('name');
+        
+        // Fallback: if no student is found with the academic_year filter, load all students registered in this class
+        if (!studentsData || studentsData.length === 0) {
+            const resAll = await supabase.from('students').select('id, name').eq('kelas', formData.kelas).order('name');
+            if (resAll.data && resAll.data.length > 0) {
+                studentsData = resAll.data;
+            }
         }
         if (studentsData) {
             setStudents(studentsData as Student[]);
             setLoading(false); 
             const studentIds = studentsData.map(s => s.id);
             if (studentIds.length > 0) {
-                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
+                let query = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').eq('academic_year', activeAcademicYear).eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
                 let { data: recentAtt, error: recError } = await query;
                 if (recError && (recError.code === '42703' || recError.message?.includes('academic_year') || recError.message?.includes('semester'))) {
                     const fallbackQuery = supabase.from('attendance_logs').select('student_id, status, journal_id, journals!inner(teacher_id, subject)').in('status', ['A', 'D']).in('student_id', studentIds).eq('journals.teacher_id', profile.id);
@@ -328,6 +336,123 @@ const JurnalForm: React.FC = () => {
       );
   };
 
+  const renderStudentAttendanceTable = () => {
+    if (loading) {
+      return (
+        <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center">
+          <Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...
+        </div>
+      );
+    }
+
+    if (!students || students.length === 0) {
+      return (
+        <div className="text-center py-8 text-slate-400 text-sm italic bg-slate-50 rounded-2xl border border-slate-200">
+          Belum ada data murid untuk kelas {formData.kelas || '-'}.
+        </div>
+      );
+    }
+
+    return (
+      <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white shadow-sm">
+        <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          <span className="text-sm font-bold text-slate-700">Daftar Murid Kelas {formData.kelas} ({students.length})</span>
+          <span className="text-[10px] text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 font-bold whitespace-nowrap">Default: Hadir</span>
+        </div>
+        <div className="overflow-x-auto w-full">
+          <div className="max-h-[500px] overflow-y-auto custom-scrollbar min-w-[300px]">
+            <table className="w-full text-sm table-auto sm:table-fixed">
+              <thead className="bg-slate-50 sticky top-0 z-10 border-b border-slate-200">
+                <tr className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">
+                  <th className="p-2.5 sm:p-3 text-left pl-3 sm:pl-4 whitespace-normal font-bold">Nama / Pekan Lalu</th>
+                  {isDhuha ? (
+                    <>
+                      <th className="p-2 sm:p-3 w-14 sm:w-16 text-center font-bold" title="Tidak Hadir (Alpa)">TH</th>
+                      <th className="p-2 sm:p-3 w-14 sm:w-16 text-center font-bold" title="Dispensasi">D</th>
+                    </>
+                  ) : (
+                    <>
+                      <th className="p-2 sm:p-3 w-10 sm:w-12 text-center font-bold text-yellow-700" title="Sakit">S</th>
+                      <th className="p-2 sm:p-3 w-10 sm:w-12 text-center font-bold text-blue-700" title="Izin">I</th>
+                      <th className="p-2 sm:p-3 w-10 sm:w-12 text-center font-bold text-red-700" title="Alpa">A</th>
+                      <th className="p-2 sm:p-3 w-10 sm:w-12 text-center font-bold text-purple-700" title="Dispensasi">D</th>
+                    </>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {students.map(student => {
+                  let prevStatusDisplay = 'H';
+                  let prevStatusColor = 'bg-green-100 text-green-700 border-green-200';
+                  if (hasPrevMeeting) {
+                    const rawStatus = prevMeetingStats[student.id];
+                    if (!rawStatus) { prevStatusDisplay = 'H'; prevStatusColor = 'bg-green-100 text-green-700 border-green-200'; } 
+                    else if (rawStatus === 'D') { prevStatusDisplay = 'D'; prevStatusColor = 'bg-purple-100 text-purple-700 border-purple-200'; } 
+                    else if (isDhuha && ['S', 'I', 'A'].includes(rawStatus)) { prevStatusDisplay = 'TH'; prevStatusColor = 'bg-red-100 text-red-700 border-red-200'; } 
+                    else { 
+                      prevStatusDisplay = rawStatus; 
+                      if (rawStatus === 'S') prevStatusColor = 'bg-yellow-100 text-yellow-700 border-yellow-200'; 
+                      else if (rawStatus === 'I') prevStatusColor = 'bg-blue-100 text-blue-700 border-blue-200'; 
+                      else if (rawStatus === 'A') prevStatusColor = 'bg-red-100 text-red-700 border-red-200'; 
+                    }
+                  }
+                  const stats = studentStats[student.id] || { A: 0, D: 0 };
+                  return (
+                    <tr key={student.id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="p-2.5 sm:p-3 pl-3 sm:pl-4 align-top whitespace-normal break-words">
+                        <div className="font-bold text-slate-800 text-xs sm:text-sm whitespace-normal break-words leading-relaxed select-text">
+                          <span className="whitespace-normal break-words block">{student.name}</span>
+                          {lockedAttendance.includes(student.id) && (
+                            <span title="Diisi & dikunci oleh Wali Kelas" className="inline-flex items-center gap-1 mt-0.5 text-slate-400 font-normal text-[10px]">
+                              <Lock size={11} className="shrink-0" /> Dikunci Wali Kelas
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          {stats.A > 0 && <span className="text-red-600 text-[10px] font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap">A: {stats.A}</span>}
+                          {isDhuha && stats.D > 0 && <span className="text-purple-600 text-[10px] font-extrabold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 whitespace-nowrap">D: {stats.D}</span>}
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${prevStatusColor} whitespace-nowrap`}>{prevStatusDisplay}</span>
+                        </div>
+                      </td>
+                      {isDhuha ? (
+                        <>
+                          <td className="p-1 sm:p-2 text-center align-middle w-14 sm:w-16">
+                            <div className="flex justify-center">
+                              <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled={lockedAttendance.includes(student.id)} checked={formData.attendance[student.id] === 'A'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'A') delete newAtt[student.id]; else newAtt[student.id] = 'A'; setFormData({...formData, attendance: newAtt}); }} />
+                            </div>
+                          </td>
+                          <td className="p-1 sm:p-2 text-center align-middle w-14 sm:w-16">
+                            <div className="flex justify-center">
+                              <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled={lockedAttendance.includes(student.id)} checked={formData.attendance[student.id] === 'D'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'D') delete newAtt[student.id]; else newAtt[student.id] = 'D'; setFormData({...formData, attendance: newAtt}); }} />
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        ['S', 'I', 'A', 'D'].map((status) => (
+                          <td key={status} className="p-1 sm:p-2 text-center align-middle w-10 sm:w-12">
+                            <div className="flex justify-center">
+                              <input 
+                                type="checkbox" 
+                                disabled={lockedAttendance.includes(student.id)}
+                                className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' : status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' : status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' : 'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'}`} 
+                                checked={formData.attendance[student.id] === status} 
+                                onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === status) delete newAtt[student.id]; else newAtt[student.id] = status as any; setFormData({...formData, attendance: newAtt}); }} 
+                              />
+                            </div>
+                          </td>
+                        ))
+                      )}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderStep1 = () => (
     <div className="bg-white dark:bg-slate-800 rounded-3xl p-4 md:p-6 shadow-sm border border-slate-200 dark:border-slate-700 animate-fade-in">
       <div className="flex justify-between items-start mb-6">
@@ -392,101 +517,9 @@ const JurnalForm: React.FC = () => {
                       </div>
                     </div>
                     {isSelected && (
-                       <div className="animate-fade-in mt-2">
-                           {loading ? (
-                               <div className="text-center py-8 text-slate-500 text-sm flex flex-col items-center"><Loader2 className="animate-spin mb-2" size={24}/> Mengambil data siswa...</div>
-                           ) : (
-                               <div className="animate-fade-in border rounded-2xl overflow-hidden border-slate-200 bg-white">
-                                   <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                                       <span className="text-sm font-bold text-slate-700">Daftar Murid ({students.length})</span>
-                                       <span className="text-[10px] text-slate-500 bg-white px-2 py-1 rounded border border-slate-200 font-bold whitespace-nowrap">Default: Hadir</span>
-                                   </div>
-                                   <div className="overflow-x-auto w-full">
-                                       <div className="max-h-[500px] overflow-y-auto custom-scrollbar min-w-[320px]">
-                                           <table className="w-full text-sm table-fixed">
-                                               <thead className="bg-white sticky top-0 z-10 shadow-sm">
-                                                   <tr className="text-[10px] sm:text-xs text-slate-500 uppercase tracking-wide">
-                                                       <th className="p-2 sm:p-3 text-left pl-3 sm:pl-4 w-[50%]">Nama / Pekan Lalu</th>
-                                                       {isDhuha ? (
-                                                           <>
-                                                               <th className="p-2 sm:p-3 w-[25%] text-center" title="Tidak Hadir (Alpa)">TH</th>
-                                                               <th className="p-2 sm:p-3 w-[25%] text-center" title="Dispensasi">D</th>
-                                                           </>
-                                                       ) : (
-                                                           <>
-                                                               <th className="p-2 sm:p-3 w-[12.5%] text-center">S</th>
-                                                               <th className="p-2 sm:p-3 w-[12.5%] text-center">I</th>
-                                                               <th className="p-2 sm:p-3 w-[12.5%] text-center">A</th>
-                                                               <th className="p-2 sm:p-3 w-[12.5%] text-center">D</th>
-                                                           </>
-                                                       )}
-                                                   </tr>
-                                               </thead>
-                                               <tbody className="divide-y divide-slate-100">
-                                                   {students.map(student => {
-                                                       let prevStatusDisplay = 'H';
-                                                       let prevStatusColor = 'bg-green-100 text-green-700 border-green-200';
-                                                       if (hasPrevMeeting) {
-                                                           const rawStatus = prevMeetingStats[student.id];
-                                                           if (!rawStatus) { prevStatusDisplay = 'H'; prevStatusColor = 'bg-green-100 text-green-700 border-green-200'; } 
-                                                           else if (rawStatus === 'D') { prevStatusDisplay = 'D'; prevStatusColor = 'bg-purple-100 text-purple-700 border-purple-200'; } 
-                                                           else if (isDhuha && ['S', 'I', 'A'].includes(rawStatus)) { prevStatusDisplay = 'TH'; prevStatusColor = 'bg-red-100 text-red-700 border-red-200'; } 
-                                                           else { 
-                                                               prevStatusDisplay = rawStatus; 
-                                                               if (rawStatus === 'S') prevStatusColor = 'bg-yellow-100 text-yellow-700 border-yellow-200'; 
-                                                               else if (rawStatus === 'I') prevStatusColor = 'bg-blue-100 text-blue-700 border-blue-200'; 
-                                                               else if (rawStatus === 'A') prevStatusColor = 'bg-red-100 text-red-700 border-red-200'; 
-                                                           }
-                                                       }
-                                                       const stats = studentStats[student.id] || { A: 0, D: 0 };
-                                                       return (
-                                                           <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                                                               <td className="p-2 sm:p-3 pl-3 sm:pl-4 overflow-hidden">
-                                                                   <div className="font-bold text-slate-700 text-xs sm:text-sm truncate w-full flex items-center gap-1" title={student.name}>{student.name}{lockedAttendance.includes(student.id) && <span title="Diisi & dikunci oleh Wali Kelas" className="flex items-center"><Lock size={12} className="text-slate-400" /></span>}</div>
-                                                                   <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                                                       {stats.A > 0 && <span className="text-red-600 text-[10px] font-extrabold bg-red-50 px-1.5 py-0.5 rounded border border-red-100 whitespace-nowrap">A: {stats.A}</span>}
-                                                                       {isDhuha && stats.D > 0 && <span className="text-purple-600 text-[10px] font-extrabold bg-purple-50 px-1.5 py-0.5 rounded border border-purple-100 whitespace-nowrap">D: {stats.D}</span>}
-                                                                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${prevStatusColor} whitespace-nowrap`}>{prevStatusDisplay}</span>
-                                                                   </div>
-                                                               </td>
-                                                               {isDhuha ? (
-                                                                   <>
-                                                                       <td className="p-1 sm:p-2 text-center align-middle">
-                                                                           <div className="flex justify-center">
-                                                                               <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-red-500 focus:ring-red-500 checked:bg-red-500 checked:border-red-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled={lockedAttendance.includes(student.id)} checked={formData.attendance[student.id] === 'A'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'A') delete newAtt[student.id]; else newAtt[student.id] = 'A'; setFormData({...formData, attendance: newAtt}); }} />
-                                                                           </div>
-                                                                       </td>
-                                                                       <td className="p-1 sm:p-2 text-center align-middle">
-                                                                           <div className="flex justify-center">
-                                                                               <input type="checkbox" className="w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer text-purple-500 focus:ring-purple-500 checked:bg-purple-500 checked:border-purple-500 disabled:opacity-50 disabled:cursor-not-allowed" disabled={lockedAttendance.includes(student.id)} checked={formData.attendance[student.id] === 'D'} onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === 'D') delete newAtt[student.id]; else newAtt[student.id] = 'D'; setFormData({...formData, attendance: newAtt}); }} />
-                                                                           </div>
-                                                                       </td>
-                                                                   </>
-                                                               ) : (
-                                                                   ['S', 'I', 'A', 'D'].map((status) => (
-                                                                       <td key={status} className="p-1 sm:p-2 text-center align-middle">
-                                                                           <div className="flex justify-center">
-                                                                               <input 
-                                                                                   type="checkbox" 
-                                                                                   disabled={lockedAttendance.includes(student.id)}
-                                                                                   className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 border-slate-300 focus:ring-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${status === 'S' ? 'text-yellow-400 focus:ring-yellow-400 checked:bg-yellow-400 checked:border-yellow-400' : status === 'I' ? 'text-blue-400 focus:ring-blue-400 checked:bg-blue-400 checked:border-blue-400' : status === 'A' ? 'text-red-400 focus:ring-red-400 checked:bg-red-400 checked:border-red-400' : 'text-purple-400 focus:ring-purple-400 checked:bg-purple-400 checked:border-purple-400'}`} 
-                                                                                   checked={formData.attendance[student.id] === status} 
-                                                                                   onChange={() => { const newAtt = {...formData.attendance}; if (newAtt[student.id] === status) delete newAtt[student.id]; else newAtt[student.id] = status as any; setFormData({...formData, attendance: newAtt}); }} 
-                                                                               />
-                                                                           </div>
-                                                                       </td>
-                                                                   ))
-                                                               )}
-                                                           </tr>
-                                                       );
-                                                   })}
-                                               </tbody>
-                                           </table>
-                                       </div>
-                                   </div>
-                               </div>
-                           )}
-                       </div>
+                        <div className="animate-fade-in mt-2">
+                            {renderStudentAttendanceTable()}
+                        </div>
                     )}
                   </React.Fragment>
                 );
@@ -494,30 +527,45 @@ const JurnalForm: React.FC = () => {
             </div>
           </div>
         ) : (
-            <div className="p-10 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center text-center">
-                {inputMode === 'manual' ? (
-                    <div className="w-full max-w-md">
-                        <p className="font-bold text-slate-700 mb-4">Input Data Kelas Secara Manual</p>
-                        <div className="grid grid-cols-2 gap-4">
-                            <select className="border p-3 rounded-xl bg-white" value={formData.kelas} onChange={(e) => { setFormData({...formData, kelas: e.target.value}); }}>
-                                <option value="">- Pilih Kelas -</option>
-                                {allClasses.map(c => <option key={c} value={c}>{c}</option>)}
-                            </select>
-                            <input 
-                                type="text" 
-                                className="border p-3 rounded-xl" 
-                                placeholder="Mapel (Misal: IPA)" 
-                                value={formData.subject} 
-                                onChange={(e) => setFormData({...formData, subject: e.target.value})}
-                            />
+            <div className="p-6 md:p-8 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center">
+                {inputMode === "manual" ? (
+                    <div className="w-full max-w-lg space-y-4">
+                        <div className="text-center">
+                            <p className="font-bold text-slate-800 text-base">Input Data Kelas Secara Manual</p>
+                            <p className="text-xs text-slate-400 mt-0.5">Pilih kelas dan tentukan mata pelajaran</p>
                         </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 mb-1">Pilih Kelas</label>
+                                <select className="w-full border border-slate-200 p-3 rounded-xl bg-white font-bold text-slate-700 text-sm focus:ring-2 focus:ring-blue-500" value={formData.kelas} onChange={(e) => { setFormData({...formData, kelas: e.target.value}); }}>
+                                    <option value="">- Pilih Kelas -</option>
+                                    {allClasses.map(c => <option key={c} value={c}>{c}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-500 mb-1">Mata Pelajaran</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full border border-slate-200 p-3 rounded-xl font-medium text-slate-700 text-sm focus:ring-2 focus:ring-blue-500" 
+                                    placeholder="Misal: IPA" 
+                                    value={formData.subject} 
+                                    onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                                />
+                            </div>
+                        </div>
+
+                        {formData.kelas && (
+                            <div className="mt-4 pt-4 border-t border-slate-100 text-left">
+                                {renderStudentAttendanceTable()}
+                            </div>
+                        )}
                     </div>
                 ) : (
-                    <>
-                        <Clock size={48} className="text-slate-300 mb-3" />
+                    <div className="text-center py-6">
+                        <Clock size={48} className="text-slate-300 mx-auto mb-3" />
                         <p className="text-slate-500 font-bold">Tidak ada jadwal mengajar hari ini.</p>
-                        <p className="text-xs text-slate-400">Gunakan "Mode Manual" jika ingin mengisi jurnal di luar jadwal.</p>
-                    </>
+                        <p className="text-xs text-slate-400 mt-1">Gunakan "Mode Manual" jika ingin mengisi jurnal di luar jadwal.</p>
+                    </div>
                 )}
             </div>
         )}

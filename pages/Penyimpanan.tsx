@@ -118,7 +118,9 @@ const Penyimpanan: React.FC = () => {
                 }, { onConflict: 'key' });
             
             if (error) throw error;
+            localStorage.setItem('app_academic_year', year);
             setMessage({ type: 'success', text: `Tahun Ajaran Aktif berhasil diubah menjadi ${year}.` });
+            setTimeout(() => window.location.reload(), 800);
         } catch (e: any) {
             console.error("Error setting active year:", e);
             setMessage({ type: 'error', text: 'Gagal mengubah Tahun Ajaran aktif.' });
@@ -154,11 +156,12 @@ const Penyimpanan: React.FC = () => {
     
     const handleSetActiveScheduleVersion = async (val: string) => {
         try {
-            const { error } = await supabase.from('app_settings').upsert({ key: 'active_schedule_version', value: val });
+            const { error } = await supabase.from('app_settings').upsert({ key: 'active_schedule_version', value: val }, { onConflict: 'key' });
             if (error) throw error;
             setActiveScheduleVersion(val);
-            setMessage({ type: 'success', text: 'Versi Jadwal Aktif diperbarui!' });
-            setTimeout(() => window.location.reload(), 1000);
+            localStorage.setItem('app_active_schedule_version', val);
+            setMessage({ type: 'success', text: `Versi Jadwal Aktif berhasil diubah menjadi "${val}"!` });
+            setTimeout(() => window.location.reload(), 800);
         } catch (err: any) {
             setMessage({ type: 'error', text: 'Gagal update versi jadwal: ' + err.message });
         }
@@ -176,7 +179,9 @@ const Penyimpanan: React.FC = () => {
                 }, { onConflict: 'key' });
             
             if (error) throw error;
+            localStorage.setItem('app_semester', sem);
             setMessage({ type: 'success', text: `Semester Aktif berhasil diubah menjadi ${sem}.` });
+            setTimeout(() => window.location.reload(), 800);
         } catch (e: any) {
             console.error("Error setting active semester:", e);
             setMessage({ type: 'error', text: 'Gagal mengubah Semester aktif.' });
