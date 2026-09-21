@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Student, Profile } from '../types';
-import {  Printer, Loader2, FileText, Search , UserCheck } from 'lucide-react';
+import { Student } from '../types';
+import { Printer, Loader2, Search, UserCheck } from 'lucide-react';
 import { formatDateSignature } from '../utils/dateUtils';
 
 interface AttendanceSummary {
@@ -18,7 +17,7 @@ interface AttendanceSummary {
 }
 
 const RekapAbsensi: React.FC = () => {
-  const { profile, academicYear, semester , semesterStart, semesterEnd } = useAuth();
+  const { profile, academicYear, semester, semesterStart, semesterEnd } = useAuth();
   const [loading, setLoading] = useState(false);
   
   // Dropdown Data
@@ -35,19 +34,26 @@ const RekapAbsensi: React.FC = () => {
   
   // Settings Data (Kop Surat)
   const [settings, setSettings] = useState({
-    academic_year: '...',
-    semester: '...',
-    headmaster: '...',
+    academic_year: '',
+    semester: '',
+    headmaster: 'Agung Budiartati, M.Pd.',
     headmaster_nip: ''
   });
 
   const componentRef = useRef<HTMLDivElement>(null);
 
+  const activeAcademicYear = (settings.academic_year && settings.academic_year !== '...')
+    ? settings.academic_year
+    : (academicYear || localStorage.getItem('app_academic_year') || '2026/2027');
+  const activeSemester = (settings.semester && settings.semester !== '...')
+    ? settings.semester
+    : (semester || localStorage.getItem('app_semester') || 'Ganjil');
+
   useEffect(() => {
     if (profile) {
       fetchInitialData();
     }
-  }, [profile]);
+  }, [profile, academicYear, semester]);
 
   useEffect(() => {
     if (selectedClass && selectedSubject) {
@@ -56,53 +62,60 @@ const RekapAbsensi: React.FC = () => {
       setReportData([]);
       setTotalMeetings(0);
     }
-  }, [selectedClass, selectedSubject]);
+  }, [selectedClass, selectedSubject, activeAcademicYear, activeSemester]);
 
   const fetchInitialData = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Settings
+      // 1. Fetch Settings from app_settings
       const { data: settingsData } = await supabase.from('app_settings').select('*');
       const newSettings: any = {};
       settingsData?.forEach(item => newSettings[item.key] = item.value);
       setSettings(prev => ({ ...prev, ...newSettings }));
 
-      // 2. Fetch Guru Schedules
+      const currentActiveYear = newSettings.academic_year || academicYear || localStorage.getItem('app_academic_year') || '2026/2027';
+      const currentActiveSem = newSettings.semester || semester || localStorage.getItem('app_semester') || 'Ganjil';
+
+      // 2. Fetch Guru Schedules for Active Academic Year
       if (!profile) return;
       
-      let { data: schedules, error: schedError } = await supabase
+      let { data: schedules } = await supabase
         .from('schedules')
         .select('kelas, subject, academic_year, semester')
         .eq('teacher_id', profile.id)
-        .eq('academic_year', academicYear || '2025/2026')
-        .eq('semester', semester || 'Ganjil');
-        
-      if (schedError && (schedError.code === '42703' || schedError.message?.includes('academic_year'))) {
-          const fallback = await supabase.from('schedules').select('kelas, subject, academic_year, semester').eq('teacher_id', profile.id);
-          if (fallback.data && fallback.data.length > 0 && fallback.data[0].academic_year !== undefined) {
-              schedules = fallback.data.filter(s => s.academic_year === (academicYear || '2025/2026') && s.semester === (semester || 'Ganjil'));
-          } else {
-              schedules = fallback.data;
-          }
-      }
+        .eq('academic_year', currentActiveYear)
+        .eq('semester', currentActiveSem);
 
-      if (schedules) {
-        // FILTER: Exclude 'Salat Dhuha' from this report because it has its own dedicated menu.
-        // Only show academic subjects like PAI, Math, etc.
-        const validSchedules = schedules.filter(s => !s.subject.toLowerCase().includes('dhuha'));
+      // Also check journals entered by teacher in this academic year
+      const { data: teacherJournals } = await supabase
+        .from('journals')
+        .select('kelas, subject')
+        .eq('teacher_id', profile.id)
+        .eq('academic_year', currentActiveYear)
+        .eq('semester', currentActiveSem);
 
-        const uniqueClasses = Array.from(new Set(validSchedules.map(s => s.kelas))).sort();
-        setClasses(uniqueClasses as string[]);
+      const classSet = new Set<string>();
+      const map: Record<string, string> = {};
 
-        const map: Record<string, string> = {};
-        validSchedules.forEach(s => {
-            // Determine subject for the class (non-Dhuha)
-            if (!map[s.kelas]) map[s.kelas] = s.subject;
-        });
-        setSubjectsMap(map);
-      }
+      schedules?.forEach(s => {
+        if (s.kelas && !s.subject?.toLowerCase().includes('dhuha')) {
+          classSet.add(s.kelas);
+          if (!map[s.kelas]) map[s.kelas] = s.subject;
+        }
+      });
+
+      teacherJournals?.forEach(j => {
+        if (j.kelas && !j.subject?.toLowerCase().includes('dhuha')) {
+          classSet.add(j.kelas);
+          if (!map[j.kelas]) map[j.kelas] = j.subject;
+        }
+      });
+
+      const uniqueClasses = Array.from(classSet).sort();
+      setClasses(uniqueClasses);
+      setSubjectsMap(map);
     } catch (err) {
-      console.error(err);
+      console.error("fetchInitialData error:", err);
     } finally {
       setLoading(false);
     }
@@ -119,26 +132,55 @@ const RekapAbsensi: React.FC = () => {
   };
 
   const fetchReportData = async () => {
-    if (!profile) return;
+    if (!profile || !selectedClass) return;
     setLoading(true);
     
     try {
-        const { data: students } = await supabase
+        // Resolve active academic year and semester directly from settings / context
+        let currentYear = settings.academic_year;
+        let currentSem = settings.semester;
+        if (!currentYear || currentYear === '...') {
+            const { data: sData } = await supabase.from('app_settings').select('key, value').in('key', ['academic_year', 'semester']);
+            sData?.forEach(item => {
+                if (item.key === 'academic_year') currentYear = item.value;
+                if (item.key === 'semester') currentSem = item.value;
+            });
+        }
+        if (!currentYear || currentYear === '...') {
+            currentYear = academicYear || localStorage.getItem('app_academic_year') || '2026/2027';
+        }
+        if (!currentSem || currentSem === '...') {
+            currentSem = semester || localStorage.getItem('app_semester') || 'Ganjil';
+        }
+
+        // STRICTLY load students belonging ONLY to the active academic year
+        const { data: students, error: errStudents } = await supabase
             .from('students')
             .select('*')
             .eq('kelas', selectedClass)
+            .eq('academic_year', currentYear)
             .order('name');
         
-        if (!students) throw new Error("Tidak ada siswa");
+        if (errStudents) {
+            console.error("Error fetching students for class and academic year:", errStudents);
+        }
 
+        if (!students || students.length === 0) {
+            setReportData([]);
+            setTotalMeetings(0);
+            setLoading(false);
+            return;
+        }
+
+        // Fetch journals for this teacher, class, subject, and active academic year
         const { data: journals } = await supabase
             .from('journals')
             .select('id')
             .eq('teacher_id', profile.id)
             .eq('kelas', selectedClass)
             .eq('subject', selectedSubject)
-            .eq('academic_year', academicYear || '2025/2026')
-            .eq('semester', semester || 'Ganjil')
+            .eq('academic_year', currentYear)
+            .eq('semester', currentSem)
             .gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00')
             .lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00');
         
@@ -148,11 +190,15 @@ const RekapAbsensi: React.FC = () => {
 
         let attendanceLogs: any[] = [];
         if (meetingsCount > 0) {
-            const { data: logs } = await supabase
-                .from('attendance_logs')
-                .select('student_id, status')
-                .in('journal_id', journalIds);
-            attendanceLogs = logs || [];
+            // In case of large numbers of journals, batch by 100
+            for (let i = 0; i < journalIds.length; i += 100) {
+                const chunk = journalIds.slice(i, i + 100);
+                const { data: logs } = await supabase
+                    .from('attendance_logs')
+                    .select('student_id, status')
+                    .in('journal_id', chunk);
+                if (logs) attendanceLogs = attendanceLogs.concat(logs);
+            }
         }
 
         const summary: AttendanceSummary[] = students.map(student => {
@@ -162,7 +208,7 @@ const RekapAbsensi: React.FC = () => {
             const a = studentLogs.filter(l => l.status === 'A').length;
             const d = studentLogs.filter(l => l.status === 'D').length;
             
-            // Perubahan: Hanya Alpa ('A') yang dianggap tidak hadir untuk perhitungan persentase
+            // Perhitungan persentase: Alpa ('A') mengurangi kehadiran
             const nonPresentCount = a; 
             const presentCount = Math.max(0, meetingsCount - nonPresentCount);
             const percentage = meetingsCount > 0 ? Math.round((presentCount / meetingsCount) * 100) : 100;
@@ -171,9 +217,10 @@ const RekapAbsensi: React.FC = () => {
                 student, s, i, a, d, present: presentCount, percentage: `${percentage}%`
             };
         });
+
         setReportData(summary);
     } catch (err) {
-        console.error(err);
+        console.error("fetchReportData error:", err);
     } finally {
         setLoading(false);
     }
@@ -181,7 +228,6 @@ const RekapAbsensi: React.FC = () => {
 
   const handlePrint = () => window.print();
 
-  // Updated Date Format: "20 Januari 2026"
   const currentDateStr = formatDateSignature(new Date());
 
   return (
@@ -193,8 +239,13 @@ const RekapAbsensi: React.FC = () => {
                     <UserCheck size={20} />
                 </div>
                 <div>
-                    <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Rekap Kehadiran</h2>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Laporan kehadiran murid per mapel.</p>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Rekap Kehadiran</h2>
+                        <span className="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-full border border-emerald-200">
+                            TA: {activeAcademicYear} ({activeSemester})
+                        </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Laporan kehadiran murid per mapel sesuai tahun ajaran aktif.</p>
                 </div>
             </div>
         </div>
@@ -236,7 +287,7 @@ const RekapAbsensi: React.FC = () => {
             {loading && <div className="mt-4 flex items-center gap-2 text-blue-600 text-sm"><Loader2 className="animate-spin" size={16}/> Sedang memuat data absensi...</div>}
             {!loading && selectedClass && reportData.length === 0 && (
                 <div className="mt-4 p-3 bg-yellow-50 text-yellow-700 rounded-lg text-sm border border-yellow-200 flex items-center gap-2">
-                   <Search size={16}/> Belum ada data jurnal/absensi untuk kelas dan mapel ini.
+                   <Search size={16}/> Belum ada data murid atau jurnal absensi untuk kelas dan tahun ajaran aktif ini ({activeAcademicYear}).
                 </div>
             )}
         </div>
@@ -250,7 +301,7 @@ const RekapAbsensi: React.FC = () => {
                      <div>
                          <h1 className="text-md md:text-xl font-bold uppercase tracking-wide text-black leading-tight">UPT SMP NEGERI 1 PASURUAN</h1>
                          <h2 className="text-sm md:text-lg font-bold text-black leading-tight">Rekap Absensi Mata Pelajaran : {selectedSubject}</h2>
-                         <p className="text-xs md:text-sm text-gray-600">Semester {settings.semester} | Tahun Ajaran {settings.academic_year}</p>
+                         <p className="text-xs md:text-sm text-gray-600">Semester {settings.semester || activeSemester} | Tahun Ajaran {settings.academic_year || activeAcademicYear}</p>
                      </div>
                 </div>
                 <div className="border-4 border-black p-2 min-w-[50px] md:min-w-[60px] text-center">
@@ -280,11 +331,11 @@ const RekapAbsensi: React.FC = () => {
                         {reportData.map((item, index) => (
                             <tr key={item.student.id} className="text-center hover:bg-gray-50 print:hover:bg-transparent">
                                 <td className="border border-gray-400 p-1.5">{index + 1}</td>
-                                <td className="border border-gray-400 p-1.5 font-mono text-xs">{item.student.nisn}</td>
+                                <td className="border border-gray-400 p-1.5 font-mono text-xs">{item.student.nisn || '-'}</td>
                                 <td className="border border-gray-400 p-1.5 text-left pl-3">{item.student.name}</td>
                                 <td className="border border-gray-400 p-1.5">{item.s}</td>
                                 <td className="border border-gray-400 p-1.5">{item.i}</td>
-                                <td className="border border-gray-400 p-1.5">{item.a}</td>
+                                <td className="border border-gray-400 p-1.5 font-bold text-red-600">{item.a}</td>
                                 <td className="border border-gray-400 p-1.5">{item.d}</td>
                                 <td className="border border-gray-400 p-1.5 font-bold">{item.percentage}</td>
                             </tr>
@@ -296,14 +347,14 @@ const RekapAbsensi: React.FC = () => {
             <div className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0">
                 <div className="text-center md:text-left md:ml-4">
                     <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>
-                    <p className="font-bold underline">{settings.headmaster}</p>
-                    <p className="text-sm">NIP {settings.headmaster_nip || '........................'}</p> 
+                    <p className="font-bold underline">{settings.headmaster || 'Agung Budiartati, M.Pd.'}</p>
+                    <p className="text-sm">NIP {settings.headmaster_nip || '197104092000122003'}</p> 
                 </div>
 
                 <div className="text-center md:text-left md:mr-10">
                     <p className="mb-16">Kota Pasuruan, {currentDateStr}<br/>Guru Mata Pelajaran,</p>
                     <p className="font-bold underline">{profile?.full_name}</p>
-                    <p className="text-sm">NIP {profile?.nip}</p>
+                    <p className="text-sm">NIP {profile?.nip || '-'}</p>
                 </div>
             </div>
         </div>

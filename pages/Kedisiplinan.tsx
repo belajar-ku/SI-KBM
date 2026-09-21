@@ -1,12 +1,11 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, Filter, Search, Gavel, User, Calendar, ChevronUp } from 'lucide-react';
+import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, Filter, Search, Gavel, Calendar, ChevronUp } from 'lucide-react';
 import { Student } from '../types';
 import { getWIBISOString } from '../utils/dateUtils';
-import { showAlert, showConfirm } from '../utils/alert';
+import { showAlert } from '../utils/alert';
 
 interface NoteItem {
     category: string;
@@ -24,19 +23,56 @@ interface DisciplineData {
         date: string;
         category: string;
         note: string;
+        followUp?: string;
         reporter: string;
     }[];
 }
 
+async function fetchAllRows<T = any>(
+    queryFn: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: any }>
+): Promise<T[]> {
+    let all: T[] = [];
+    let page = 0;
+    const pageSize = 1000;
+    while (true) {
+        const { data, error } = await queryFn(page * pageSize, (page + 1) * pageSize - 1);
+        if (error) {
+            console.error("fetchAllRows error:", error);
+            break;
+        }
+        if (!data || data.length === 0) break;
+        all = all.concat(data);
+        if (data.length < pageSize) break;
+        page++;
+    }
+    return all;
+}
+
 const Kedisiplinan: React.FC = () => {
-  const { profile, academicYear, semester , semesterStart, semesterEnd } = useAuth();
+  const { profile, academicYear, semester, semesterStart, semesterEnd } = useAuth();
   const [loading, setLoading] = useState(false);
   
   const isHeadmaster = profile?.mengajar_mapel === 'Kepala Sekolah' || profile?.role === 'admin';
 
+  // Settings from app_settings
+  const [settings, setSettings] = useState({
+      academic_year: '',
+      semester: '',
+      semester_start: '',
+      semester_end: ''
+  });
+
+  const activeAcademicYear = (settings.academic_year && settings.academic_year !== '...') 
+      ? settings.academic_year 
+      : (academicYear || localStorage.getItem('app_academic_year') || '2026/2027');
+  const activeSemester = (settings.semester && settings.semester !== '...') 
+      ? settings.semester 
+      : (semester || localStorage.getItem('app_semester') || 'Ganjil');
+
   // Filters
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isStartDateInitialized, setIsStartDateInitialized] = useState(false);
   const [startDate, setStartDate] = useState(() => {
       const d = new Date();
@@ -50,7 +86,7 @@ const Kedisiplinan: React.FC = () => {
 
   // --- INPUT FORM STATE (ACCORDION) ---
   const [showInputForm, setShowInputForm] = useState(false);
-  const [inputMode, setInputMode] = useState<'single' | 'mass'>('single'); // New State
+  const [inputMode, setInputMode] = useState<'single' | 'mass'>('single');
   
   // Single Mode State
   const [students, setStudents] = useState<Student[]>([]); 
@@ -65,145 +101,218 @@ const Kedisiplinan: React.FC = () => {
   const [studentsCache, setStudentsCache] = useState<Record<string, Student[]>>({});
 
   useEffect(() => {
-    if (semesterStart && !isStartDateInitialized) {
-        setStartDate(semesterStart);
-        setIsStartDateInitialized(true);
-    }
-  }, [semesterStart, isStartDateInitialized]);
-
-useEffect(() => {
     fetchInitData();
-  }, []);
+  }, [academicYear, semester]);
 
   useEffect(() => {
-      // Auto fetch on load if dates are set
+    const sStart = settings.semester_start || semesterStart;
+    if (sStart && !isStartDateInitialized) {
+        setStartDate(sStart);
+        setIsStartDateInitialized(true);
+    }
+  }, [settings.semester_start, semesterStart, isStartDateInitialized]);
+
+  useEffect(() => {
       fetchReportData();
-  }, [selectedClass, startDate, endDate]); // Trigger on filter change
+  }, [selectedClass, startDate, endDate, activeAcademicYear, activeSemester]);
 
   // Fetch Students for Input Modal when class changes (Single Mode)
   useEffect(() => {
       if(inputClass && inputMode === 'single') {
           const loadStudents = async () => {
-              let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', inputClass).eq('academic_year', academicYear || '2025/2026').order('name');
+              let { data, error: errSt } = await supabase
+                .from('students')
+                .select('*')
+                .eq('academic_year', activeAcademicYear)
+                .eq('kelas', inputClass)
+                .order('name');
+              
               if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-                  const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', inputClass).order('name');
+                  const res = await supabase.from('students').select('*').eq('kelas', inputClass).order('name');
                   data = res.data;
-                  
               }
               setStudents(data || []);
               if(disciplineRows.length === 0) addRow();
-          }
+          };
           loadStudents();
       }
-  }, [inputClass, inputMode]);
+  }, [inputClass, inputMode, activeAcademicYear]);
 
   const fetchInitData = async () => {
     try {
-        const [classesRes, settingsRes] = await Promise.all([
-            supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026'),
-            supabase.from('app_settings').select('*')
-        ]);
+        const { data: settingsData } = await supabase.from('app_settings').select('*');
+        const newSettings: any = {};
+        if (settingsData) {
+            settingsData.forEach(item => {
+                newSettings[item.key] = item.value;
+                if (item.key === 'discipline_types' && item.value) {
+                    try { setDisciplineTypes(JSON.parse(item.value)); } catch (_) {}
+                }
+                if (item.key === 'follow_up_types' && item.value) {
+                    try { setFollowUpTypes(JSON.parse(item.value)); } catch (_) {}
+                }
+            });
+            setSettings(prev => ({ ...prev, ...newSettings }));
+        }
 
-        if (classesRes.data) {
+        const currentActiveYear = newSettings.academic_year || academicYear || localStorage.getItem('app_academic_year') || '2026/2027';
+
+        if (newSettings.semester_start && !isStartDateInitialized) {
+            setStartDate(newSettings.semester_start);
+            setIsStartDateInitialized(true);
+        }
+
+        const classesRes = await supabase.from('students').select('kelas').eq('academic_year', currentActiveYear);
+        if (classesRes.data && classesRes.data.length > 0) {
             const unique = Array.from(new Set(classesRes.data.map((s:any) => s.kelas))).sort();
             setClasses(unique as string[]);
+        } else {
+            // Fallback if no records found
+            const fallbackClasses = await supabase.from('students').select('kelas');
+            if (fallbackClasses.data) {
+                const unique = Array.from(new Set(fallbackClasses.data.map((s:any) => s.kelas))).sort();
+                setClasses(unique as string[]);
+            }
         }
-
-        if (settingsRes.data) {
-            settingsRes.data.forEach(item => {
-                if (item.key === 'discipline_types') setDisciplineTypes(item.value ? JSON.parse(item.value) : []);
-                if (item.key === 'follow_up_types') setFollowUpTypes(item.value ? JSON.parse(item.value) : []);
-            });
-        }
-    } catch (e) { console.error(e); }
+    } catch (e) { 
+        console.error("fetchInitData error:", e); 
+    }
   };
 
   const fetchReportData = async () => {
       setLoading(true);
       try {
+          const currentActiveYear = activeAcademicYear;
+          const currentActiveSem = activeSemester;
+          const currentSemesterStart = settings.semester_start || semesterStart;
+          const currentSemesterEnd = settings.semester_end || semesterEnd;
+
           const start = `${startDate}T00:00:00+07:00`;
           const end = `${endDate}T23:59:59+07:00`;
 
-          let targetStudents: Student[] = [];
-          let targetStudentIds: string[] = [];
-
+          // 1. Fetch Students according to active academic year and optional class filter
+          let studentsQuery = supabase
+            .from('students')
+            .select('*')
+            .eq('academic_year', currentActiveYear)
+            .order('kelas')
+            .order('name');
+          
           if (selectedClass) {
-              let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).eq('academic_year', academicYear || '2025/2026').order('name');
-              if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-                  const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
-                  data = res.data;
-                  
-              }
-              if (data) {
-                  targetStudents = data;
-                  targetStudentIds = data.map(s => s.id);
-              }
-          } else {
-              // ALL CLASSES: Scan Logs First to find relevant IDs
-              const [hRes, tRes, vRes] = await Promise.all([
-                  supabase.from('homeroom_attendance').select('student_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01').gte('date', startDate).lte('date', endDate).in('status', ['A']), // Only care about Alpa for query optimization
-                  supabase.from('attendance_logs').select('student_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').gte('created_at', start).lte('created_at', end).in('status', ['A']),
-                  supabase.from('journal_notes').select('student_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('type', 'kedisiplinan').gte('created_at', start).lte('created_at', end)
-              ]);
-
-              const ids = new Set<string>();
-              hRes.data?.forEach(x => ids.add(x.student_id));
-              tRes.data?.forEach(x => ids.add(x.student_id));
-              vRes.data?.forEach(x => ids.add(x.student_id));
-
-              targetStudentIds = Array.from(ids);
-
-              if (targetStudentIds.length > 0) {
-                  // Fetch only relevant students
-                  let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').in('id', targetStudentIds).order('kelas').order('name');
-                  if (data) targetStudents = data;
-              }
+              studentsQuery = studentsQuery.eq('kelas', selectedClass);
           }
 
-          if (targetStudentIds.length === 0) {
+          let { data: targetStudents, error: errSt } = await studentsQuery;
+          if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
+              let fbQuery = supabase.from('students').select('*').order('kelas').order('name');
+              if (selectedClass) fbQuery = fbQuery.eq('kelas', selectedClass);
+              const fbRes = await fbQuery;
+              targetStudents = fbRes.data;
+          }
+
+          if (!targetStudents || targetStudents.length === 0) {
               setReportData([]);
               setLoading(false);
               return;
           }
 
-          // 2. DATA ALPA (Logic Rapor: Aggregasi Wali Kelas & Guru Mapel)
-          // Fetch data only for target IDs to be efficient
-          const [hLogsRes, tLogsRes, violationNotesRes] = await Promise.all([
-              supabase.from('homeroom_attendance').select('student_id, date, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('date', semesterStart ? `${semesterStart}` : '2000-01-01').lte('date', semesterEnd ? `${semesterEnd}` : '2100-01-01')
-                .in('student_id', targetStudentIds).gte('date', startDate).lte('date', endDate),
-              supabase.from('attendance_logs').select('student_id, created_at, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00')
-                .in('student_id', targetStudentIds).in('status', ['S', 'I', 'A']).gte('created_at', start).lte('created_at', end),
-              supabase.from('journal_notes').select('id, student_id, category, note, created_at, journal_id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00')
-                .in('student_id', targetStudentIds).eq('type', 'kedisiplinan').gte('created_at', start).lte('created_at', end)
+          const targetStudentIds = targetStudents.map(s => s.id);
+          const studentIdsSet = new Set(targetStudentIds);
+
+          // 2. DATA ALPA & VIOLATIONS (Using fetchAllRows to prevent PostgREST 1000 row truncation)
+          const [hLogs, tLogs, violationNotes] = await Promise.all([
+              fetchAllRows((from, to) =>
+                  supabase.from('homeroom_attendance')
+                    .select('student_id, date, status')
+                    .eq('academic_year', currentActiveYear)
+                    .eq('semester', currentActiveSem)
+                    .gte('date', currentSemesterStart ? `${currentSemesterStart}` : '2000-01-01')
+                    .lte('date', currentSemesterEnd ? `${currentSemesterEnd}` : '2100-01-01')
+                    .gte('date', startDate)
+                    .lte('date', endDate)
+                    .range(from, to)
+              ),
+              fetchAllRows((from, to) =>
+                  supabase.from('attendance_logs')
+                    .select('student_id, created_at, status')
+                    .eq('academic_year', currentActiveYear)
+                    .eq('semester', currentActiveSem)
+                    .gte('created_at', currentSemesterStart ? `${currentSemesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00')
+                    .lte('created_at', currentSemesterEnd ? `${currentSemesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00')
+                    .in('status', ['S', 'I', 'A'])
+                    .gte('created_at', start)
+                    .lte('created_at', end)
+                    .range(from, to)
+              ),
+              fetchAllRows((from, to) =>
+                  supabase.from('journal_notes')
+                    .select('id, student_id, category, note, follow_up, created_at, journal_id')
+                    .eq('academic_year', currentActiveYear)
+                    .eq('semester', currentActiveSem)
+                    .eq('type', 'kedisiplinan')
+                    .gte('created_at', start)
+                    .lte('created_at', end)
+                    .range(from, to)
+              )
           ]);
 
-          const hLogs = hLogsRes.data || [];
-          const tLogs = tLogsRes.data || [];
-          const violationNotes = violationNotesRes.data || [];
+          // Filter to target students (when class is filtered)
+          const filteredHLogs = selectedClass ? hLogs.filter(l => studentIdsSet.has(l.student_id)) : hLogs;
+          const filteredTLogs = selectedClass ? tLogs.filter(l => studentIdsSet.has(l.student_id)) : tLogs;
+          const filteredVNotes = selectedClass ? violationNotes.filter(n => studentIdsSet.has(n.student_id)) : violationNotes;
 
-          // Get unique journal IDs to fetch teacher names for violations
-          const journalIds = Array.from(new Set(violationNotes.map(n => n.journal_id).filter(Boolean)));
-          
-          let journalMap: Record<string, string> = {};
+          // Fetch journal details (Teacher Name & Subject) for all unique journal IDs in batches
+          const journalIds = Array.from(new Set(filteredVNotes.map(n => n.journal_id).filter(Boolean)));
+          const journalMap: Record<string, { teacher: string; subject: string }> = {};
+
           if (journalIds.length > 0) {
-              const { data: journals } = await supabase
-                .from('journals')
-                .select('id, teacher_id, profiles:teacher_id (full_name)')
-                .in('id', journalIds);
-              
-              journals?.forEach((j: any) => {
-                  const teacherName = j.profiles?.full_name || 'Guru';
-                  journalMap[j.id] = teacherName;
-              });
+              for (let i = 0; i < journalIds.length; i += 100) {
+                  const chunk = journalIds.slice(i, i + 100);
+                  const { data: journals } = await supabase
+                    .from('journals')
+                    .select('id, subject, teacher_id, profiles:teacher_id (full_name)')
+                    .in('id', chunk);
+
+                  journals?.forEach((j: any) => {
+                      const teacherName = j.profiles?.full_name || 'Guru';
+                      const subject = j.subject || '';
+                      journalMap[j.id] = { teacher: teacherName, subject };
+                  });
+              }
           }
 
-          // 4. Process Data
-          const processed: DisciplineData[] = targetStudents.map(student => {
-              // --- CALCULATE ALPA (DAYS) ---
-              const studentHLogs = hLogs.filter(l => l.student_id === student.id);
-              const studentTLogs = tLogs.filter(l => l.student_id === student.id);
-              
-              // Get all unique dates relevant to this student
+          // Build index Maps for fast O(1) processing
+          const hMap = new Map<string, any[]>();
+          filteredHLogs.forEach(l => {
+              if (!hMap.has(l.student_id)) hMap.set(l.student_id, []);
+              hMap.get(l.student_id)!.push(l);
+          });
+
+          const tMap = new Map<string, any[]>();
+          filteredTLogs.forEach(l => {
+              if (!tMap.has(l.student_id)) tMap.set(l.student_id, []);
+              tMap.get(l.student_id)!.push(l);
+          });
+
+          const vMap = new Map<string, any[]>();
+          filteredVNotes.forEach(n => {
+              if (!vMap.has(n.student_id)) vMap.set(n.student_id, []);
+              vMap.get(n.student_id)!.push(n);
+          });
+
+          // 3. Process Data strictly conforming to Absensi Rapor calculation
+          const processed: DisciplineData[] = [];
+
+          targetStudents.forEach(student => {
+              const studentHLogs = hMap.get(student.id) || [];
+              const studentTLogs = tMap.get(student.id) || [];
+              const studentVNotes = vMap.get(student.id) || [];
+
+              if (studentHLogs.length === 0 && studentTLogs.length === 0 && studentVNotes.length === 0) {
+                  return;
+              }
+
+              // Get union of unique dates for this student
               const hDates = studentHLogs.map(l => l.date);
               const tDates = studentTLogs.map(l => l.created_at.split('T')[0]);
               const uniqueDates = Array.from(new Set([...hDates, ...tDates])).sort();
@@ -212,22 +321,24 @@ useEffect(() => {
 
               uniqueDates.forEach(date => {
                   let finalStatus = '';
-                  
-                  // Priority 1: Homeroom Teacher Input
+
+                  // Priority 1: Wali Kelas (Homeroom teacher)
                   const hLog = studentHLogs.find(l => l.date === date);
                   if (hLog) {
                       finalStatus = hLog.status;
                   } else {
-                      // Priority 2: Teacher Logs Aggregation (S > I > A)
-                      const dailyLogs = studentTLogs.filter(l => l.created_at.startsWith(date));
-                      if (dailyLogs.length > 0) {
-                          const statuses = dailyLogs.map(l => l.status);
+                      // Priority 2: Guru Mapel aggregation with priority: S > I > A > D
+                      const dayLogs = studentTLogs.filter(l => l.created_at.startsWith(date));
+                      if (dayLogs.length > 0) {
+                          const statuses = dayLogs.map(l => l.status);
                           if (statuses.includes('S')) finalStatus = 'S';
                           else if (statuses.includes('I')) finalStatus = 'I';
                           else if (statuses.includes('A')) finalStatus = 'A';
+                          else if (statuses.includes('D')) finalStatus = 'D';
                       }
                   }
 
+                  // Count as 1 Alpa Day if final status is 'A'
                   if (finalStatus === 'A') {
                       const dateObj = new Date(date);
                       const dateStr = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short' }).format(dateObj);
@@ -235,35 +346,48 @@ useEffect(() => {
                   }
               });
 
-              // --- PROCESS VIOLATIONS ---
-              const myViolations = violationNotes.filter(n => n.student_id === student.id).map(n => {
-                  const date = new Date(n.created_at);
-                  const dateStr = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short' }).format(date);
-                  const reporter = journalMap[n.journal_id] || 'Admin/Guru';
+              // Process Teacher Discipline Notes
+              const myViolations = studentVNotes.map(n => {
+                  const dateObj = new Date(n.created_at);
+                  const dateStr = new Intl.DateTimeFormat('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }).format(dateObj);
+                  const jInfo = n.journal_id ? journalMap[n.journal_id] : null;
+                  const reporter = jInfo
+                      ? `${jInfo.teacher}${jInfo.subject ? ` (${jInfo.subject})` : ''}`
+                      : (n.note?.includes('oleh ') ? n.note.replace(/^.*oleh\s+/i, '') : 'Guru / Admin');
+
                   return {
                       id: n.id,
                       date: dateStr,
                       category: n.category,
-                      note: n.note,
+                      note: n.note || '',
+                      followUp: n.follow_up || '',
                       reporter
                   };
               });
 
-              return {
-                  student,
-                  alpaCount: alpaDatesList.length, // Total Days Alpha
-                  alpaDates: alpaDatesList,
-                  violations: myViolations
-              };
+              if (alpaDatesList.length > 0 || myViolations.length > 0) {
+                  processed.push({
+                      student,
+                      alpaCount: alpaDatesList.length,
+                      alpaDates: alpaDatesList,
+                      violations: myViolations
+                  });
+              }
           });
 
-          const sorted = processed.filter(p => p.alpaCount > 0 || p.violations.length > 0)
-              .sort((a, b) => b.alpaCount - a.alpaCount || a.student.kelas.localeCompare(b.student.kelas) || a.student.name.localeCompare(b.student.name));
+          // SORTING: ALPA TERBANYAK DI URUTAN TERATAS
+          // Jika Alpa sama, urutkan berdasarkan jumlah catatan kedisiplinan guru terbanyak, lalu kelas, lalu nama murid
+          processed.sort((a, b) =>
+              b.alpaCount - a.alpaCount ||
+              b.violations.length - a.violations.length ||
+              a.student.kelas.localeCompare(b.student.kelas) ||
+              a.student.name.localeCompare(b.student.name)
+          );
 
-          setReportData(sorted);
+          setReportData(processed);
 
       } catch (e) {
-          console.error(e);
+          console.error("fetchReportData error:", e);
       } finally {
           setLoading(false);
       }
@@ -283,11 +407,16 @@ useEffect(() => {
   // --- MASS INPUT LOGIC ---
   const getStudentsForClass = async (className: string) => {
       if (studentsCache[className]) return;
-      let { data, error: errSt } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', className).eq('academic_year', academicYear || '2025/2026').order('name');
+      let { data, error: errSt } = await supabase
+        .from('students')
+        .select('*')
+        .eq('academic_year', activeAcademicYear)
+        .eq('kelas', className)
+        .order('name');
+
       if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-          const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', className).order('name');
+          const res = await supabase.from('students').select('*').eq('kelas', className).order('name');
           data = res.data;
-          
       }
       setStudentsCache(prev => ({ ...prev, [className]: data || [] }));
   };
@@ -299,7 +428,7 @@ useEffect(() => {
           await getStudentsForClass(value);
           setMassRows(prev => {
               const list = [...prev];
-              list[index] = { ...list[index], class: value, studentIds: [] }; // Reset students on class change
+              list[index] = { ...list[index], class: value, studentIds: [] };
               return list;
           });
       } else {
@@ -330,10 +459,8 @@ useEffect(() => {
                               category: row.category,
                               follow_up: row.followUp || '',
                               note: row.note || `Laporan Manual oleh ${profile.full_name}`,
-                              academic_year: academicYear || '2025/2026',
-                              semester: semester || 'Ganjil',
-                              
-                              
+                              academic_year: activeAcademicYear,
+                              semester: activeSemester,
                           });
                       });
                   }
@@ -357,10 +484,8 @@ useEffect(() => {
                               category: massCommonData.category,
                               follow_up: massCommonData.followUp || '',
                               note: massCommonData.note || `Laporan Massal oleh ${profile.full_name}`,
-                              academic_year: academicYear || '2025/2026',
-                              semester: semester || 'Ganjil',
-                              
-                              
+                              academic_year: activeAcademicYear,
+                              semester: activeSemester,
                           });
                       });
                   }
@@ -368,7 +493,15 @@ useEffect(() => {
           }
 
           if (notesInserts.length > 0) {
-              const { error } = await supabase.from('journal_notes').insert(notesInserts);
+              let { error } = await supabase.from('journal_notes').insert(notesInserts);
+              if (error && (error.code === '42703' || error.message?.includes('academic_year') || error.message?.includes('semester'))) {
+                  const fallbackNotes = notesInserts.map(n => {
+                      const { academic_year, semester, ...rest } = n as any;
+                      return rest;
+                  });
+                  const fb = await supabase.from('journal_notes').insert(fallbackNotes);
+                  error = fb.error;
+              }
               if (error) throw error;
               showAlert("Data pelanggaran berhasil disimpan.");
               setShowInputForm(false);
@@ -406,7 +539,7 @@ useEffect(() => {
 
       return (
           <div className="relative" ref={wrapperRef}>
-              <button onClick={() => setIsOpen(!isOpen)} className="w-full border border-slate-200 rounded-xl p-2.5 bg-white text-left flex justify-between items-center text-xs">
+              <button onClick={() => setIsOpen(!isOpen)} type="button" className="w-full border border-slate-200 rounded-xl p-2.5 bg-white text-left flex justify-between items-center text-xs">
                   <span className={`truncate ${selectedIds.length === 0 ? 'text-gray-400' : 'text-slate-700 font-bold'}`}>{selectedIds.length === 0 ? placeholder : `${selectedIds.length} Murid`}</span>
                   <ChevronDown size={14} className="text-gray-400" />
               </button>
@@ -423,6 +556,15 @@ useEffect(() => {
       );
   };
 
+  // Filtered by Search Query
+  const filteredReportData = reportData.filter(item => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return item.student.name.toLowerCase().includes(q) || 
+             (item.student.nisn && item.student.nisn.toLowerCase().includes(q)) ||
+             item.student.kelas.toLowerCase().includes(q);
+  });
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -433,8 +575,13 @@ useEffect(() => {
                     <ShieldAlert size={20} />
                 </div>
                 <div>
-                    <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Laporan Kedisiplinan</h2>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Temuan pelanggaran di luar jam KBM.</p>
+                    <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-bold text-slate-800 dark:text-white leading-tight">Laporan Kedisiplinan</h2>
+                        <span className="bg-orange-100 text-orange-800 text-[11px] font-bold px-2 py-0.5 rounded-full border border-orange-200">
+                            TA: {activeAcademicYear} ({activeSemester})
+                        </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">Rekapitulasi ketidakhadiran Alpa (sinkron dengan Absensi Rapor) dan catatan pelanggaran dari guru.</p>
                 </div>
             </div>
              
@@ -488,38 +635,38 @@ useEffect(() => {
 
                         {inputClass && (
                             <div className="space-y-4">
-                                {disciplineRows.map((row, idx) => (
-                                    <div key={idx} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative space-y-3 shadow-sm">
-                                        <div className="flex flex-col md:flex-row gap-3">
-                                            <div className="w-full md:w-1/2">
-                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
-                                                <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.category} onChange={e => updateRow(idx, 'category', e.target.value)}>
-                                                    <option value="">- Pilih -</option>
-                                                    {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                                </select>
-                                            </div>
-                                            <div className="w-full md:w-1/2">
-                                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
-                                                <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={row.followUp} onChange={e => updateRow(idx, 'followUp', e.target.value)}>
-                                                    <option value="">- Pilih -</option>
-                                                    {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                                </select>
-                                            </div>
+                                {disciplineRows.map((row, index) => (
+                                    <div key={index} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col md:flex-row gap-3 items-start md:items-center">
+                                        <div className="w-full md:w-1/4">
+                                            <label className="block text-[10px] font-bold text-slate-400 mb-1">JENIS PELANGGARAN</label>
+                                            <select className="w-full border p-2 rounded-xl text-xs bg-white" value={row.category} onChange={e => updateRow(index, 'category', e.target.value)}>
+                                                <option value="">Pilih Jenis</option>
+                                                {disciplineTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
                                         </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan</label>
-                                            <input type="text" className="w-full p-2.5 border rounded-lg text-xs bg-white" placeholder="Detail kejadian..." value={row.note} onChange={e => updateRow(idx, 'note', e.target.value)}/>
+
+                                        <div className="w-full md:w-1/3">
+                                            <label className="block text-[10px] font-bold text-slate-400 mb-1">PILIH MURID</label>
+                                            <MultiSelectDropdown options={students} selectedIds={row.studentIds} onChange={(ids: string[]) => updateRow(index, 'studentIds', ids)} placeholder="Pilih Murid..." />
                                         </div>
-                                        <div>
-                                            <label className="block text-[10px] font-bold text-slate-500 mb-1">Murid Terlibat</label>
-                                            <MultiSelectDropdown options={students} selectedIds={row.studentIds} onChange={(ids: string[]) => updateRow(idx, 'studentIds', ids)} placeholder="Pilih Murid" />
+
+                                        <div className="w-full md:w-1/4">
+                                            <label className="block text-[10px] font-bold text-slate-400 mb-1">TINDAK LANJUT</label>
+                                            <select className="w-full border p-2 rounded-xl text-xs bg-white" value={row.followUp} onChange={e => updateRow(index, 'followUp', e.target.value)}>
+                                                <option value="">Pilih Tindak Lanjut</option>
+                                                {followUpTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                            </select>
                                         </div>
-                                        <button onClick={() => removeRow(idx)} className="absolute top-2 right-2 text-red-400 hover:text-red-600 p-1.5 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+
+                                        <div className="w-full md:w-1/4">
+                                            <label className="block text-[10px] font-bold text-slate-400 mb-1">CATATAN</label>
+                                            <input type="text" className="w-full border p-2 rounded-xl text-xs bg-white" placeholder="Keterangan..." value={row.note || ''} onChange={e => updateRow(index, 'note', e.target.value)} />
+                                        </div>
+
+                                        <button onClick={() => removeRow(index)} className="text-red-500 hover:text-red-700 p-2 mt-4 md:mt-0"><Trash2 size={16} /></button>
                                     </div>
                                 ))}
-                                <div className="flex gap-3 pt-2">
-                                    <button onClick={addRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors border border-orange-200"><Plus size={14}/> Tambah Baris</button>
-                                </div>
+                                <button onClick={addRow} className="text-xs font-bold text-orange-600 flex items-center gap-1 hover:underline"><Plus size={14} /> Tambah Baris Pelanggaran</button>
                             </div>
                         )}
                     </>
@@ -527,69 +674,86 @@ useEffect(() => {
 
                   {/* MASS MODE FORM */}
                   {inputMode === 'mass' && (
-                    <div className="space-y-6">
-                        {/* Common Fields */}
-                        <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 space-y-3">
-                            <h4 className="text-sm font-bold text-orange-800 mb-2">Detail Pelanggaran (Berlaku untuk semua murid di bawah)</h4>
-                            <div className="flex flex-col md:flex-row gap-3">
-                                <div className="w-full md:w-1/2">
-                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Jenis Pelanggaran</label>
-                                    <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={massCommonData.category} onChange={e => setMassCommonData({...massCommonData, category: e.target.value})}>
-                                        <option value="">- Pilih Jenis Pelanggaran -</option>
-                                        {disciplineTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
-                                <div className="w-full md:w-1/2">
-                                    <label className="block text-[10px] font-bold text-slate-500 mb-1">Tindak Lanjut</label>
-                                    <select className="w-full p-2.5 border rounded-lg text-xs bg-white" value={massCommonData.followUp} onChange={e => setMassCommonData({...massCommonData, followUp: e.target.value})}>
-                                        <option value="">- Pilih Tindak Lanjut -</option>
-                                        {followUpTypes.map((t, i) => <option key={i} value={t}>{t}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label className="block text-[10px] font-bold text-slate-500 mb-1">Keterangan</label>
-                                <input type="text" className="w-full p-2.5 border rounded-lg text-xs bg-white" placeholder="Detail kejadian..." value={massCommonData.note} onChange={e => setMassCommonData({...massCommonData, note: e.target.value})}/>
-                            </div>
-                        </div>
+                      <div className="space-y-6">
+                          {/* Common Metadata */}
+                          <div className="p-4 bg-orange-50/50 rounded-2xl border border-orange-100 grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-700 mb-1">Jenis Pelanggaran (Sama untuk semua murid)</label>
+                                  <select 
+                                      className="w-full border p-2.5 rounded-xl text-xs bg-white focus:ring-2 focus:ring-orange-500 font-bold text-slate-800"
+                                      value={massCommonData.category}
+                                      onChange={e => setMassCommonData(prev => ({ ...prev, category: e.target.value }))}
+                                  >
+                                      <option value="">-- Pilih Jenis Pelanggaran --</option>
+                                      {disciplineTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                  </select>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-700 mb-1">Tindak Lanjut</label>
+                                  <select 
+                                      className="w-full border p-2.5 rounded-xl text-xs bg-white focus:ring-2 focus:ring-orange-500"
+                                      value={massCommonData.followUp}
+                                      onChange={e => setMassCommonData(prev => ({ ...prev, followUp: e.target.value }))}
+                                  >
+                                      <option value="">-- Pilih Tindak Lanjut --</option>
+                                      {followUpTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                                  </select>
+                              </div>
+                              <div className="md:col-span-2">
+                                  <label className="block text-xs font-bold text-slate-700 mb-1">Catatan Tambahan (Opsional)</label>
+                                  <input 
+                                      type="text" 
+                                      className="w-full border p-2.5 rounded-xl text-xs bg-white focus:ring-2 focus:ring-orange-500"
+                                      placeholder="Contoh: Terjaring razia seragam di gerbang depan..."
+                                      value={massCommonData.note}
+                                      onChange={e => setMassCommonData(prev => ({ ...prev, note: e.target.value }))}
+                                  />
+                              </div>
+                          </div>
 
-                        {/* Student Rows */}
-                        <div className="space-y-3">
-                            <label className="block text-xs font-bold text-slate-500">Daftar Murid Terlibat</label>
-                            {massRows.map((row, idx) => (
-                                <div key={idx} className="flex flex-col md:flex-row gap-3 items-start bg-white p-3 border rounded-xl shadow-sm relative pr-10">
-                                    <div className="w-full md:w-1/3">
-                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Pilih Kelas</label>
-                                        <select 
-                                            className="w-full p-2 border rounded-lg text-xs bg-slate-50 font-bold text-slate-700" 
-                                            value={row.class} 
-                                            onChange={e => updateMassRow(idx, 'class', e.target.value)}
-                                        >
-                                            <option value="">- Kelas -</option>
-                                            {classes.map(c => <option key={c} value={c}>{c}</option>)}
-                                        </select>
-                                    </div>
-                                    <div className="w-full md:w-2/3">
-                                        <label className="block text-[10px] font-bold text-slate-400 mb-1">Murid</label>
-                                        <MultiSelectDropdown 
-                                            options={studentsCache[row.class] || []} 
-                                            selectedIds={row.studentIds} 
-                                            onChange={(ids: string[]) => updateMassRow(idx, 'studentIds', ids)} 
-                                            placeholder={row.class ? "Pilih Murid" : "Pilih Kelas Dulu"} 
-                                        />
-                                    </div>
-                                    {massRows.length > 1 && (
-                                        <button onClick={() => removeMassRow(idx)} className="absolute top-3 right-2 text-slate-300 hover:text-red-500 transition-colors">
-                                            <X size={16}/>
-                                        </button>
-                                    )}
-                                </div>
-                            ))}
-                            <button onClick={addMassRow} className="text-orange-600 text-xs font-bold flex items-center gap-1 hover:bg-orange-50 px-3 py-2 rounded-lg transition-colors border border-orange-200 border-dashed w-full justify-center">
-                                <Plus size={14}/> Tambah Baris Murid
-                            </button>
-                        </div>
-                    </div>
+                          {/* Dynamic Rows: Class + Students */}
+                          <div className="space-y-3">
+                              <label className="block text-xs font-bold text-slate-500">Daftar Murid Pelanggar:</label>
+                              {massRows.map((row, index) => (
+                                  <div key={index} className="flex flex-col md:flex-row gap-3 items-center bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                                      <div className="w-full md:w-1/3">
+                                          <select 
+                                              className="w-full border p-2.5 rounded-xl text-xs bg-white font-bold text-slate-700"
+                                              value={row.class}
+                                              onChange={e => updateMassRow(index, 'class', e.target.value)}
+                                          >
+                                              <option value="">Pilih Kelas</option>
+                                              {classes.map(c => <option key={c} value={c}>{c}</option>)}
+                                          </select>
+                                      </div>
+
+                                      <div className="w-full md:w-2/3">
+                                          <MultiSelectDropdown 
+                                              options={studentsCache[row.class] || []}
+                                              selectedIds={row.studentIds}
+                                              onChange={(ids: string[]) => updateMassRow(index, 'studentIds', ids)}
+                                              placeholder={row.class ? "Pilih murid yang melanggar..." : "Pilih kelas terlebih dahulu"}
+                                          />
+                                      </div>
+
+                                      <button 
+                                          onClick={() => removeMassRow(index)} 
+                                          className="text-red-500 hover:text-red-700 p-2"
+                                          title="Hapus Baris"
+                                      >
+                                          <Trash2 size={16} />
+                                      </button>
+                                  </div>
+                              ))}
+
+                              <button 
+                                  onClick={addMassRow} 
+                                  className="text-xs font-bold text-orange-600 flex items-center gap-1 hover:underline mt-2"
+                              >
+                                  <Plus size={14} /> Tambah Kelas Lain
+                              </button>
+                          </div>
+                      </div>
                   )}
 
                   {/* SAVE BUTTON (SHARED) */}
@@ -601,9 +765,9 @@ useEffect(() => {
              </div>
          )}
 
-         {/* FILTER BAR */}
+         {/* FILTER & SEARCH BAR */}
          <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col md:flex-row gap-4 items-end md:items-center">
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 flex-1 w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 flex-1 w-full">
                 <div>
                     <label className="block text-[10px] font-bold text-slate-400 mb-1 ml-1 uppercase">Mulai Tanggal</label>
                     <div className="relative">
@@ -626,6 +790,19 @@ useEffect(() => {
                             <option value="">-- Semua Kelas --</option>
                             {classes.map(c => <option key={c} value={c}>{c}</option>)}
                         </select>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-[10px] font-bold text-slate-400 mb-1 ml-1 uppercase">Cari Murid / NISN</label>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-2.5 text-slate-400" size={14}/>
+                        <input 
+                            type="text" 
+                            className="w-full pl-9 border border-slate-200 rounded-xl p-2 text-sm focus:ring-2 focus:ring-orange-500" 
+                            placeholder="Ketik nama atau NISN..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                        />
                     </div>
                 </div>
             </div>
@@ -654,42 +831,69 @@ useEffect(() => {
                      <tbody className="divide-y divide-slate-100">
                          {loading ? (
                              <tr><td colSpan={4} className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-orange-500" /></td></tr>
-                         ) : reportData.length === 0 ? (
+                         ) : filteredReportData.length === 0 ? (
                              <tr><td colSpan={4} className="p-8 text-center text-slate-400 italic">Tidak ada data pelanggaran atau Alpa pada periode ini.</td></tr>
                          ) : (
-                             reportData.map((item, idx) => (
-                                 <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                     <td className="px-6 py-4 text-center font-medium text-slate-500">{idx + 1}</td>
+                             filteredReportData.map((item, idx) => (
+                                 <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                                     <td className="px-6 py-4 text-center font-bold text-slate-500">{idx + 1}</td>
                                      <td className="px-6 py-4 align-top">
                                          <div className="font-bold text-slate-800 text-base">{item.student.name}</div>
-                                         <div className="text-xs text-slate-400 font-mono mt-0.5">{item.student.nisn}</div>
+                                         <div className="text-xs text-slate-400 font-mono mt-0.5">{item.student.nisn || '-'}</div>
                                      </td>
                                      <td className="px-6 py-4 text-center align-top">
-                                         <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded-lg font-bold text-xs">{item.student.kelas}</span>
+                                         <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg font-bold text-xs border border-slate-200">{item.student.kelas}</span>
                                      </td>
-                                     <td className="px-6 py-4 align-top space-y-2">
-                                         {/* 1. ALPA */}
+                                     <td className="px-6 py-4 align-top space-y-2.5">
+                                         {/* 1. ALPA (Sinkron dengan Absensi Rapor) */}
                                          {item.alpaCount > 0 && (
-                                             <div className="flex flex-wrap items-start gap-1 text-sm leading-relaxed mb-2">
-                                                 <span className="font-bold text-red-600 bg-red-50 px-1.5 rounded border border-red-100 whitespace-nowrap">
-                                                     • Alpa ({item.alpaCount} Hari):
-                                                 </span>
-                                                 <span className="text-slate-600">
+                                             <div className="p-2.5 rounded-xl bg-red-50/80 border border-red-200/70 text-xs">
+                                                 <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                                                     <span className="font-extrabold text-red-700 bg-red-100 px-2 py-0.5 rounded-md border border-red-200">
+                                                         Alpa: {item.alpaCount} Hari
+                                                     </span>
+                                                     <span className="text-[11px] text-red-600 font-medium">(Berdasarkan Absensi Rapor)</span>
+                                                 </div>
+                                                 <div className="text-slate-600 leading-relaxed">
+                                                     <span className="font-semibold text-slate-700">Tanggal: </span>
                                                      {item.alpaDates.join(', ')}
-                                                 </span>
+                                                 </div>
                                              </div>
                                          )}
 
-                                         {/* 2. VIOLATIONS */}
-                                         {item.violations.map((v) => (
-                                             <div key={v.id} className="flex flex-col sm:flex-row sm:items-baseline gap-1 text-sm leading-tight text-slate-700">
-                                                 <span className="font-bold text-slate-800">• {v.category}</span>
-                                                 <span className="hidden sm:inline text-slate-300">-</span>
-                                                 <span>{v.date}</span>
-                                                 <span className="text-xs text-slate-400 italic">({v.reporter})</span>
-                                                 {v.note && <span className="text-xs text-slate-500 bg-slate-50 px-1 rounded truncate max-w-xs block sm:inline mt-1 sm:mt-0">"{v.note}"</span>}
+                                         {/* 2. CATATAN KEDISIPLINAN DARI IBU/BAPAK GURU */}
+                                         {item.violations.length > 0 && (
+                                             <div className="space-y-2">
+                                                 {item.violations.map((v) => (
+                                                     <div key={v.id} className="p-3 rounded-xl bg-amber-50/50 border border-amber-200/70 text-xs space-y-1.5">
+                                                         <div className="flex flex-wrap items-center justify-between gap-1">
+                                                             <div className="flex items-center gap-1.5 font-bold text-slate-800 text-[13px]">
+                                                                 <span className="w-2 h-2 rounded-full bg-amber-500 inline-block"></span>
+                                                                 <span>{v.category}</span>
+                                                             </div>
+                                                             <span className="text-slate-400 font-medium text-[11px]">{v.date}</span>
+                                                         </div>
+
+                                                         <div className="flex flex-wrap items-center gap-2 text-slate-600">
+                                                             <span className="text-[11px] text-slate-500">
+                                                                 Guru Pelapor: <strong className="text-slate-700">{v.reporter}</strong>
+                                                             </span>
+                                                             {v.followUp && (
+                                                                 <span className="bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 rounded-md text-[10px] border border-amber-300">
+                                                                     Tindak Lanjut: {v.followUp}
+                                                                 </span>
+                                                             )}
+                                                         </div>
+
+                                                         {v.note && !v.note.startsWith('Laporan Manual oleh') && !v.note.startsWith('Laporan Massal oleh') && (
+                                                             <p className="text-slate-700 italic bg-white p-2 rounded-lg border border-amber-100 mt-1">
+                                                                 "{v.note}"
+                                                             </p>
+                                                         )}
+                                                     </div>
+                                                 ))}
                                              </div>
-                                         ))}
+                                         )}
                                      </td>
                                  </tr>
                              ))
@@ -697,8 +901,13 @@ useEffect(() => {
                      </tbody>
                  </table>
              </div>
-             <div className="p-4 bg-slate-50 border-t border-slate-100 text-xs text-slate-400 text-center">
-                 Menampilkan {reportData.length} siswa dengan catatan kedisiplinan.
+             <div className="p-4 bg-slate-50 border-t border-slate-100 text-xs text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2">
+                 <span>
+                     Menampilkan {filteredReportData.length} siswa dengan catatan kedisiplinan / Alpa.
+                 </span>
+                 <span className="text-slate-400 italic">
+                     Urutan teratas: Murid dengan akumulasi Alpa terbanyak.
+                 </span>
              </div>
          </div>
       </div>

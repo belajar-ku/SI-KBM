@@ -78,10 +78,11 @@ useEffect(() => {
         const newSettings: any = {};
         settingsData?.forEach(item => newSettings[item.key] = item.value);
         setSettings(prev => ({ ...prev, ...newSettings }));
+        const activeYear = newSettings.academic_year || academicYear || localStorage.getItem('app_academic_year') || '2026/2027';
 
-        let { data, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
+        let { data, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', activeYear);
         if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-            const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
+            const res = await supabase.from('students').select('kelas').eq('academic_year', activeYear);
             data = res.data;
         }
         if(data) {
@@ -98,14 +99,16 @@ useEffect(() => {
       setLoading(true);
       setExpandedStudentId(null); // Reset accordion on new fetch
       try {
+          const activeYear = (settings.academic_year && settings.academic_year !== '...') 
+            ? settings.academic_year 
+            : (academicYear || localStorage.getItem('app_academic_year') || '2026/2027');
           const start = `${startDate}T00:00:00+07:00`;
           const end = `${endDate}T23:59:59+07:00`;
 
-          let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).eq('academic_year', settings.academic_year || '2025/2026').order('name');
+          let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', activeYear).order('name');
           if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
-              const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
+              const res = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', activeYear).order('name');
               students = res.data;
-              
           }
           
           if(!students || students.length === 0) {

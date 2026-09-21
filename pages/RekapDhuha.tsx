@@ -67,11 +67,12 @@ useEffect(() => { fetchInitData(); }, []);
       const newSettings: any = {};
       settingsData?.forEach(item => newSettings[item.key] = item.value);
       setSettings(prev => ({ ...prev, ...newSettings }));
-      let { data: studentsData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
+      const activeYear = newSettings.academic_year || academicYear || localStorage.getItem('app_academic_year') || '2026/2027';
+
+      let { data: studentsData, error: errSt } = await supabase.from('students').select('kelas').eq('academic_year', activeYear);
       if (errSt && (errSt.code === '42703' || errSt.message?.includes('academic_year'))) {
-          const res = await supabase.from('students').select('kelas').eq('academic_year', academicYear || '2025/2026');
+          const res = await supabase.from('students').select('kelas').eq('academic_year', activeYear);
           studentsData = res.data;
-          
       }
       if (studentsData) {
         const uniqueClasses = Array.from(new Set(studentsData.map((s:any) => s.kelas))).sort();
@@ -83,21 +84,27 @@ useEffect(() => { fetchInitData(); }, []);
   const fetchReportData = async () => {
     setLoading(true);
     try {
-        let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
+        const activeYear = (settings.academic_year && settings.academic_year !== '...') 
+          ? settings.academic_year 
+          : (academicYear || localStorage.getItem('app_academic_year') || '2026/2027');
+        const activeSem = (settings.semester && settings.semester !== '...') 
+          ? settings.semester 
+          : (semester || localStorage.getItem('app_semester') || 'Ganjil');
+
+        let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('academic_year', activeYear).eq('kelas', selectedClass).order('name');
         if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
-            const res = await supabase.from('students').select('*').eq('academic_year', academicYear || '2025/2026').eq('kelas', selectedClass).order('name');
+            const res = await supabase.from('students').select('*').eq('academic_year', activeYear).eq('kelas', selectedClass).order('name');
             students = res.data;
-            
         }
         if (!students) throw new Error("Tidak ada siswa");
         const start = `${startDate}T00:00:00+07:00`;
         const end = `${endDate}T23:59:59+07:00`;
-        const { data: journals } = await supabase.from('journals').select('id').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('kelas', selectedClass).ilike('subject', '%dhuha%').gte('created_at', start).lte('created_at', end);
+        const { data: journals } = await supabase.from('journals').select('id').eq('academic_year', activeYear).eq('semester', activeSem).gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').eq('kelas', selectedClass).ilike('subject', '%dhuha%').gte('created_at', start).lte('created_at', end);
         const journalIds = journals?.map(j => j.id) || [];
         setTotalMeetings(journalIds.length);
         let attendanceLogs: any[] = [];
         if (journalIds.length > 0) {
-            const { data: logs } = await supabase.from('attendance_logs').select('student_id, status, created_at').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').in('journal_id', journalIds);
+            const { data: logs } = await supabase.from('attendance_logs').select('student_id, status, created_at').eq('academic_year', activeYear).eq('semester', activeSem).gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').in('journal_id', journalIds);
             attendanceLogs = logs || [];
         }
         const summary: DhuhaSummary[] = students.map(student => {
