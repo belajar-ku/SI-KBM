@@ -22,7 +22,8 @@ export async function downloadPaginatedTablePdf(
   // Standard A4 dimensions at 96 DPI: Portrait 794x1123, Landscape 1123x794
   const pageWidth = isLandscape ? 1123 : 794;
   const pageHeight = isLandscape ? 794 : 1123;
-  const maxContentHeight = pageHeight - 95; // Leave breathing room for padding and footer
+  // Maximum usable height for contentArea inside one A4 sheet
+  const maxContentHeight = pageHeight - (isLandscape ? 85 : 95);
 
   options?.onProgress?.('Menganalisis konten dokumen...');
 
@@ -37,7 +38,9 @@ export async function downloadPaginatedTablePdf(
   }
 
   const theadNode = tableNode.querySelector('thead');
-  const rowNodes = Array.from(tableNode.querySelectorAll('tbody tr'));
+  const rowNodes = Array.from(tableNode.querySelectorAll('tbody tr')).filter(
+    r => !r.classList.contains('print:hidden')
+  );
 
   // Create isolated scratchpad container off-screen
   const scratchpad = document.createElement('div');
@@ -57,18 +60,16 @@ export async function downloadPaginatedTablePdf(
     const pages: HTMLElement[] = [];
 
     // Helper to generate a single clean A4 page
-    const createNewPage = (isFirstPage: boolean): { page: HTMLElement; tbody: HTMLElement } => {
+    const createNewPage = (isFirstPage: boolean): { page: HTMLElement; tbody: HTMLElement; contentArea: HTMLElement } => {
       const page = document.createElement('div');
       page.className = 'pdf-page-sheet';
       page.style.width = `${pageWidth}px`;
-      page.style.height = `${pageHeight}px`;
-      page.style.maxHeight = `${pageHeight}px`;
+      // DO NOT set fixed height during row calculation so contentArea.offsetHeight measures true content!
       page.style.boxSizing = 'border-box';
-      page.style.padding = isLandscape ? '35px 40px 25px 40px' : '40px 38px 25px 38px';
+      page.style.padding = isLandscape ? '32px 40px 25px 40px' : '38px 38px 25px 38px';
       page.style.backgroundColor = '#ffffff';
       page.style.color = '#000000';
       page.style.position = 'relative';
-      page.style.overflow = 'hidden';
       page.style.fontFamily = "'Times New Roman', Times, serif";
 
       const contentArea = document.createElement('div');
@@ -96,11 +97,11 @@ export async function downloadPaginatedTablePdf(
       table.appendChild(tbody);
       contentArea.appendChild(table);
 
-      // Page numbering footer
+      // Page numbering footer placeholder
       const footerNum = document.createElement('div');
       footerNum.className = 'pdf-page-number';
       footerNum.style.position = 'absolute';
-      footerNum.style.bottom = '12px';
+      footerNum.style.bottom = '10px';
       footerNum.style.right = isLandscape ? '40px' : '38px';
       footerNum.style.fontSize = '10px';
       footerNum.style.color = '#555555';
@@ -109,20 +110,25 @@ export async function downloadPaginatedTablePdf(
       scratchpad.appendChild(page);
       pages.push(page);
 
-      return { page, tbody };
+      return { page, tbody, contentArea };
     };
 
     // 1. Start with Page 1
     let current = createNewPage(true);
 
-    // 2. Distribute rows sequentially. If a row exceeds available height, move it to next page.
+    // 2. Distribute rows sequentially. 
+    // Fill as many rows as possible. ONLY when a row does not fit on the current page,
+    // push that overflow row to the next page!
     for (let i = 0; i < rowNodes.length; i++) {
       const rowClone = rowNodes[i].cloneNode(true) as HTMLElement;
+      // Strip any interactive elements marked print:hidden
+      rowClone.querySelectorAll('.print\\:hidden').forEach(el => el.remove());
+      
       current.tbody.appendChild(rowClone);
 
-      // Check if page height exceeded
-      if (current.page.scrollHeight > maxContentHeight) {
-        // Remove row from current page
+      // Check if contentArea exceeds max usable height on this page
+      if (current.contentArea.offsetHeight > maxContentHeight && current.tbody.children.length > 1) {
+        // This row does not fit on the current page, move it to the beginning of next page
         current.tbody.removeChild(rowClone);
 
         // Start next page with table headers intact
@@ -136,19 +142,25 @@ export async function downloadPaginatedTablePdf(
     // 3. Attach official signature / footer section
     if (footerNode) {
       const footerClone = footerNode.cloneNode(true) as HTMLElement;
-      const contentArea = current.page.querySelector('.pdf-page-content') as HTMLElement;
-      contentArea.appendChild(footerClone);
+      current.contentArea.appendChild(footerClone);
 
-      // If signature block overflows current page, move it to a dedicated new page
-      if (current.page.scrollHeight > maxContentHeight) {
-        contentArea.removeChild(footerClone);
+      // If signature block overflows current page, move it to a clean next page
+      if (current.contentArea.offsetHeight > maxContentHeight && current.tbody.children.length > 0) {
+        current.contentArea.removeChild(footerClone);
         current = createNewPage(false);
-        const nextContentArea = current.page.querySelector('.pdf-page-content') as HTMLElement;
-        nextContentArea.appendChild(footerClone);
+        current.contentArea.appendChild(footerClone);
       }
     }
 
-    // 4. Update page numbers (Halaman X dari Y)
+    // 4. Lock each page height to exactly pageHeight for accurate PDF canvas capture
+    pages.forEach(p => {
+      p.style.height = `${pageHeight}px`;
+      p.style.minHeight = `${pageHeight}px`;
+      p.style.maxHeight = `${pageHeight}px`;
+      p.style.overflow = 'hidden';
+    });
+
+    // 5. Update page numbers (Halaman X dari Y)
     const totalPages = pages.length;
     pages.forEach((p, idx) => {
       const numEl = p.querySelector('.pdf-page-number');
