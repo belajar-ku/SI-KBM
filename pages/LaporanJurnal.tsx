@@ -17,7 +17,8 @@ import {
   FileCheck2
 } from 'lucide-react';
 import { formatDateIndo, formatDateSignature } from '../utils/dateUtils';
-import { downloadElementAsPdf, printCleanDocument } from '../utils/printAndPdf';
+import { downloadPaginatedTablePdf, printCleanDocument } from '../utils/printAndPdf';
+import { LOGO_SMPN1_BASE64 } from '../utils/logoData';
 
 interface JournalReportItem {
   id: string;
@@ -259,7 +260,7 @@ const LaporanJurnal: React.FC = () => {
     const filename = `Laporan_Jurnal_${teacherName}_${(settings.semester || 'Ganjil')}_${(settings.academic_year || '2026-2027').replace('/', '-')}`;
 
     try {
-      await downloadElementAsPdf(componentRef.current, filename, {
+      await downloadPaginatedTablePdf(componentRef.current, filename, {
         orientation: 'portrait',
         onProgress: (msg) => setPdfProgressText(msg),
       });
@@ -505,65 +506,67 @@ const LaporanJurnal: React.FC = () => {
               className="bg-white text-black p-6 sm:p-10 shadow-md mx-auto max-w-[950px] rounded-lg border border-slate-300 print:border-none print:shadow-none print:p-0 print:m-0"
               style={{ fontFamily: "'Times New Roman', Times, serif" }}
             >
-              {/* Kop Surat Resmi */}
-              <div className="flex items-center gap-4 mb-4 border-b-2 border-black pb-3">
-                <img
-                  src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0"
-                  alt="Logo SMPN 1 Pasuruan"
-                  className="h-16 sm:h-20 w-auto shrink-0"
-                  crossOrigin="anonymous"
-                />
-                <div className="flex-1">
-                  <h1 className="text-base sm:text-lg font-bold uppercase tracking-wide leading-tight text-black m-0">
-                    UPT SATUAN PENDIDIKAN FORMAL SMP NEGERI 1 PASURUAN
-                  </h1>
-                  <h2 className="text-sm sm:text-base font-bold leading-tight text-black mt-0.5 m-0">
-                    LAPORAN JURNAL KEGIATAN BELAJAR MENGAJAR (KBM)
-                  </h2>
-                  <p className="text-xs text-gray-700 mt-1 m-0">
-                    Jl. Nusantara No. 04 Pasuruan | Telp. (0343) 424161 | Website: smpn1pasuruan.sch.id
-                  </p>
+              {/* Header Dokumen (Kop Surat + Identitas Guru) */}
+              <div data-doc-header="true" className="doc-header mb-4">
+                {/* Kop Surat Resmi */}
+                <div className="flex items-center gap-4 border-b-2 border-black pb-3 mb-3">
+                  <img
+                    src={LOGO_SMPN1_BASE64}
+                    alt="Logo UPT SMP Negeri 1 Pasuruan"
+                    className="h-16 sm:h-20 w-auto shrink-0"
+                  />
+                  <div className="flex-1">
+                    <h1 className="text-base sm:text-lg font-bold uppercase tracking-wide leading-tight text-black m-0">
+                      UPT SMP NEGERI 1 PASURUAN
+                    </h1>
+                    <h2 className="text-sm sm:text-base font-bold leading-tight text-black mt-0.5 m-0">
+                      LAPORAN JURNAL KEGIATAN BELAJAR MENGAJAR (KBM)
+                    </h2>
+                    <p className="text-xs text-gray-700 mt-1 m-0">
+                      Jalan Balaikota 7 Pasuruan | Website: smpn1pasuruan.sch.id
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              {/* Identitas Guru & Laporan */}
-              <div className="mb-4 text-xs leading-relaxed text-black border border-gray-400 p-3 bg-gray-50/50">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
-                  <div className="flex">
-                    <span className="w-32 font-bold shrink-0">Nama Guru</span>
-                    <span className="mr-2">:</span>
-                    <span className="font-semibold">{selectedTeacher?.full_name || '-'}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold shrink-0">Tahun Ajaran</span>
-                    <span className="mr-2">:</span>
-                    <span>{activeYearDisplay}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold shrink-0">NIP</span>
-                    <span className="mr-2">:</span>
-                    <span>{selectedTeacher?.nip || '-'}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold shrink-0">Semester</span>
-                    <span className="mr-2">:</span>
-                    <span>{activeSemDisplay}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold shrink-0">Mata Pelajaran</span>
-                    <span className="mr-2">:</span>
-                    <span>{selectedTeacher?.mengajar_mapel || (filteredJournals[0]?.subject || '-')}</span>
-                  </div>
-                  <div className="flex">
-                    <span className="w-32 font-bold shrink-0">Total Pertemuan</span>
-                    <span className="mr-2">:</span>
-                    <span className="font-bold">{filteredJournals.length} Pertemuan KBM</span>
+                {/* Identitas Guru & Laporan */}
+                <div className="text-xs leading-relaxed text-black border border-gray-400 p-2.5 bg-gray-50/50">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+                    <div className="flex">
+                      <span className="w-32 font-bold shrink-0">Nama Guru</span>
+                      <span className="mr-2">:</span>
+                      <span className="font-semibold">{selectedTeacher?.full_name || '-'}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-32 font-bold shrink-0">Tahun Ajaran</span>
+                      <span className="mr-2">:</span>
+                      <span>{activeYearDisplay}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-32 font-bold shrink-0">NIP</span>
+                      <span className="mr-2">:</span>
+                      <span>{selectedTeacher?.nip || '-'}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-32 font-bold shrink-0">Semester</span>
+                      <span className="mr-2">:</span>
+                      <span>{activeSemDisplay}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-32 font-bold shrink-0">Mata Pelajaran</span>
+                      <span className="mr-2">:</span>
+                      <span>{selectedTeacher?.mengajar_mapel || (filteredJournals[0]?.subject || '-')}</span>
+                    </div>
+                    <div className="flex">
+                      <span className="w-32 font-bold shrink-0">Total Pertemuan</span>
+                      <span className="mr-2">:</span>
+                      <span className="font-bold">{filteredJournals.length} Pertemuan KBM</span>
+                    </div>
                   </div>
                 </div>
               </div>
 
               {/* Tabel Seluruh Jurnal Guru */}
-              <table className="w-full border-collapse border border-black text-xs text-black">
+              <table data-doc-table="true" className="w-full border-collapse border border-black text-xs text-black">
                 <thead>
                   <tr className="bg-gray-100 text-center">
                     <th className="border border-black p-1.5 w-8">No</th>
@@ -576,7 +579,7 @@ const LaporanJurnal: React.FC = () => {
                 </thead>
                 <tbody>
                   {filteredJournals.map((journal, index) => (
-                    <tr key={journal.id} className="align-top" style={{ pageBreakInside: 'avoid' }}>
+                    <tr key={journal.id} className="align-top" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                       <td className="border border-black p-1.5 text-center font-bold">{index + 1}</td>
                       <td className="border border-black p-1.5">
                         <div className="font-bold">{formatDateIndo(journal.created_at)}</div>
@@ -611,8 +614,9 @@ const LaporanJurnal: React.FC = () => {
 
               {/* Lembar Tanda Tangan Resmi */}
               <div
-                className="mt-8 flex justify-between items-start text-xs text-black"
-                style={{ pageBreakInside: 'avoid' }}
+                data-doc-footer="true"
+                className="mt-8 flex justify-between items-start text-xs text-black signature-section"
+                style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}
               >
                 <div className="text-center w-64">
                   <p className="m-0 leading-tight">

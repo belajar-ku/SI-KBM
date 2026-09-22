@@ -2,10 +2,12 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, Filter, Search, Gavel, Calendar, ChevronUp } from 'lucide-react';
+import { ShieldAlert, Loader2, Save, Plus, Trash2, Check, ChevronDown, X, Filter, Search, Gavel, Calendar, ChevronUp, Printer, Download, UserCheck, AlertTriangle } from 'lucide-react';
 import { Student } from '../types';
-import { getWIBISOString } from '../utils/dateUtils';
+import { getWIBISOString, formatDateSignature, formatDateIndo } from '../utils/dateUtils';
 import { showAlert } from '../utils/alert';
+import { downloadPaginatedTablePdf, printCleanDocument } from '../utils/printAndPdf';
+import { LOGO_SMPN1_BASE64 } from '../utils/logoData';
 
 interface NoteItem {
     category: string;
@@ -59,7 +61,9 @@ const Kedisiplinan: React.FC = () => {
       academic_year: '',
       semester: '',
       semester_start: '',
-      semester_end: ''
+      semester_end: '',
+      headmaster: '',
+      headmaster_nip: ''
   });
 
   const activeAcademicYear = (settings.academic_year && settings.academic_year !== '...') 
@@ -73,6 +77,7 @@ const Kedisiplinan: React.FC = () => {
   const [classes, setClasses] = useState<string[]>([]);
   const [selectedClass, setSelectedClass] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilterTab, setActiveFilterTab] = useState<'all' | 'alpa' | 'violations'>('all');
   const [isStartDateInitialized, setIsStartDateInitialized] = useState(false);
   const [startDate, setStartDate] = useState(() => {
       const d = new Date();
@@ -83,6 +88,11 @@ const Kedisiplinan: React.FC = () => {
 
   // Data
   const [reportData, setReportData] = useState<DisciplineData[]>([]);
+
+  // Print & PDF References and states
+  const componentRef = useRef<HTMLDivElement>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfProgressText, setPdfProgressText] = useState('');
 
   // --- INPUT FORM STATE (ACCORDION) ---
   const [showInputForm, setShowInputForm] = useState(false);
@@ -99,6 +109,30 @@ const Kedisiplinan: React.FC = () => {
   const [massCommonData, setMassCommonData] = useState({ category: '', followUp: '', note: '' });
   const [massRows, setMassRows] = useState<{ class: string; studentIds: string[] }[]>([{ class: '', studentIds: [] }]);
   const [studentsCache, setStudentsCache] = useState<Record<string, Student[]>>({});
+
+  const handlePrintClean = () => {
+    if (!componentRef.current) return;
+    const docTitle = `Laporan Kedisiplinan Siswa - ${selectedClass ? `Kelas ${selectedClass} - ` : ''}${activeAcademicYear}`;
+    printCleanDocument(componentRef.current, docTitle);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!componentRef.current) return;
+    setDownloadingPdf(true);
+    const filename = `Laporan_Kedisiplinan_${selectedClass ? `Kelas_${selectedClass}_` : ''}${activeAcademicYear.replace('/', '-')}_${activeSemester}`;
+    try {
+      await downloadPaginatedTablePdf(componentRef.current, filename, {
+        orientation: 'portrait',
+        onProgress: (msg) => setPdfProgressText(msg),
+      });
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      showAlert("Gagal membuat berkas PDF. Anda dapat menggunakan tombol 'Cetak Dokumen' sebagai alternatif.");
+    } finally {
+      setDownloadingPdf(false);
+      setPdfProgressText('');
+    }
+  };
 
   useEffect(() => {
     fetchInitData();
@@ -182,10 +216,20 @@ const Kedisiplinan: React.FC = () => {
   const fetchReportData = async () => {
       setLoading(true);
       try {
-          const currentActiveYear = activeAcademicYear;
-          const currentActiveSem = activeSemester;
-          const currentSemesterStart = settings.semester_start || semesterStart;
-          const currentSemesterEnd = settings.semester_end || semesterEnd;
+          // Selalu pastikan membaca app_settings terkini dari admin
+          const { data: settingsData } = await supabase.from('app_settings').select('*');
+          const latestSettings: any = {};
+          if (settingsData) {
+              settingsData.forEach(item => {
+                  latestSettings[item.key] = item.value;
+              });
+              setSettings(prev => ({ ...prev, ...latestSettings }));
+          }
+
+          const currentActiveYear = latestSettings.academic_year || activeAcademicYear;
+          const currentActiveSem = latestSettings.semester || activeSemester;
+          const currentSemesterStart = latestSettings.semester_start || settings.semester_start || semesterStart;
+          const currentSemesterEnd = latestSettings.semester_end || settings.semester_end || semesterEnd;
 
           const start = `${startDate}T00:00:00+07:00`;
           const end = `${endDate}T23:59:59+07:00`;
@@ -210,6 +254,16 @@ const Kedisiplinan: React.FC = () => {
               targetStudents = fbRes.data;
           }
 
+          // Fallback if students with currentActiveYear is empty
+          if (!targetStudents || targetStudents.length === 0) {
+              let fbQuery = supabase.from('students').select('*').order('kelas').order('name');
+              if (selectedClass) fbQuery = fbQuery.eq('kelas', selectedClass);
+              const fbRes = await fbQuery;
+              if (fbRes.data && fbRes.data.length > 0) {
+                  targetStudents = fbRes.data;
+              }
+          }
+
           if (!targetStudents || targetStudents.length === 0) {
               setReportData([]);
               setLoading(false);
@@ -226,8 +280,6 @@ const Kedisiplinan: React.FC = () => {
                     .select('student_id, date, status')
                     .eq('academic_year', currentActiveYear)
                     .eq('semester', currentActiveSem)
-                    .gte('date', currentSemesterStart ? `${currentSemesterStart}` : '2000-01-01')
-                    .lte('date', currentSemesterEnd ? `${currentSemesterEnd}` : '2100-01-01')
                     .gte('date', startDate)
                     .lte('date', endDate)
                     .range(from, to)
@@ -556,14 +608,20 @@ const Kedisiplinan: React.FC = () => {
       );
   };
 
-  // Filtered by Search Query
+  // Filtered by Search Query & Tab Filter
   const filteredReportData = reportData.filter(item => {
+      if (activeFilterTab === 'alpa' && item.alpaCount === 0) return false;
+      if (activeFilterTab === 'violations' && item.violations.length === 0) return false;
+
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return item.student.name.toLowerCase().includes(q) || 
              (item.student.nisn && item.student.nisn.toLowerCase().includes(q)) ||
              item.student.kelas.toLowerCase().includes(q);
   });
+
+  const totalAlpaStudents = reportData.filter(d => d.alpaCount > 0).length;
+  const totalViolationsStudents = reportData.filter(d => d.violations.length > 0).length;
 
   return (
     <Layout>
@@ -806,14 +864,65 @@ const Kedisiplinan: React.FC = () => {
                     </div>
                 </div>
             </div>
-            <button 
-                onClick={fetchReportData} 
-                disabled={loading}
-                className="w-full md:w-auto bg-slate-800 hover:bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm flex items-center justify-center gap-2 shadow-lg transition-all"
-            >
-                {loading ? <Loader2 className="animate-spin" size={16}/> : <Search size={16} />} 
-                Tampilkan
-            </button>
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                <button 
+                    onClick={fetchReportData} 
+                    disabled={loading}
+                    className="flex-1 md:flex-initial bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                >
+                    {loading ? <Loader2 className="animate-spin" size={15}/> : <Search size={15} />} 
+                    Tampilkan
+                </button>
+                <button 
+                    onClick={handlePrintClean} 
+                    disabled={loading || reportData.length === 0}
+                    className="flex-1 md:flex-initial bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+                    title="Cetak Dokumen Resmi"
+                >
+                    <Printer size={15} /> 
+                    Cetak
+                </button>
+                <button 
+                    onClick={handleDownloadPdf} 
+                    disabled={loading || downloadingPdf || reportData.length === 0}
+                    className="flex-1 md:flex-initial bg-red-600 hover:bg-red-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all disabled:opacity-50"
+                    title="Unduh Berkas PDF"
+                >
+                    {downloadingPdf ? <Loader2 className="animate-spin" size={15}/> : <Download size={15} />} 
+                    {downloadingPdf ? (pdfProgressText || 'PDF...') : 'Unduh PDF'}
+                </button>
+            </div>
+         </div>
+
+         {/* QUICK FILTER TABS */}
+         <div className="flex flex-wrap items-center justify-between gap-3">
+             <div className="flex bg-slate-200/70 p-1 rounded-xl gap-1 text-xs font-bold">
+                 <button
+                     onClick={() => setActiveFilterTab('all')}
+                     className={`px-3 py-1.5 rounded-lg transition-all ${activeFilterTab === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                 >
+                     Semua Siswa ({reportData.length})
+                 </button>
+                 <button
+                     onClick={() => setActiveFilterTab('alpa')}
+                     className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${activeFilterTab === 'alpa' ? 'bg-red-600 text-white shadow-sm' : 'text-slate-600 hover:text-red-600'}`}
+                 >
+                     <span className="w-2 h-2 rounded-full bg-red-400"></span>
+                     Ada Alpa ({totalAlpaStudents})
+                 </button>
+                 <button
+                     onClick={() => setActiveFilterTab('violations')}
+                     className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${activeFilterTab === 'violations' ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-600 hover:text-amber-600'}`}
+                 >
+                     <span className="w-2 h-2 rounded-full bg-amber-400"></span>
+                     Catatan Guru ({totalViolationsStudents})
+                 </button>
+             </div>
+
+             <div className="text-xs text-slate-500 font-medium flex items-center gap-1.5">
+                 <span className="inline-block w-2 h-2 rounded-full bg-orange-500"></span>
+                 <span>Urutan Teratas: <strong>Akumulasi Alpa Terbanyak</strong></span>
+             </div>
          </div>
 
          {/* TABLE DATA */}
@@ -910,6 +1019,127 @@ const Kedisiplinan: React.FC = () => {
                  </span>
              </div>
          </div>
+
+         {/* DOKUMEN CETAK & PDF RESMI UPT SMP NEGERI 1 PASURUAN */}
+         {reportData.length > 0 && (
+             <div
+                 ref={componentRef}
+                 className="mt-8 bg-white p-6 md:p-10 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full rounded-2xl"
+                 style={{ fontFamily: "'Times New Roman', Times, serif" }}
+             >
+                 {/* KOP SURAT */}
+                 <div data-doc-header="true" className="border-b-2 border-black pb-4 mb-6">
+                     <div className="flex items-center justify-between gap-4">
+                         <div className="flex items-center gap-4">
+                             <img src={LOGO_SMPN1_BASE64} alt="Logo UPT SMPN 1 Pasuruan" className="h-16 md:h-20 w-auto object-contain" />
+                             <div>
+                                 <h3 className="text-xs font-bold uppercase tracking-wider text-black">PEMERINTAH KOTA PASURUAN</h3>
+                                 <h3 className="text-xs font-bold uppercase tracking-wider text-black">DINAS PENDIDIKAN DAN KEBUDAYAAN</h3>
+                                 <h1 className="text-base md:text-xl font-bold uppercase tracking-wide text-black leading-tight mt-0.5">UPT SMP NEGERI 1 PASURUAN</h1>
+                                 <p className="text-xs text-gray-800">Jalan Balaikota 7 Pasuruan | Website: smpn1pasuruan.sch.id</p>
+                             </div>
+                         </div>
+                         {selectedClass && (
+                             <div className="border-2 border-black px-3 py-1.5 text-center min-w-[60px]">
+                                 <span className="text-[10px] font-bold block uppercase text-gray-600">Kelas</span>
+                                 <span className="text-lg md:text-xl font-bold text-black">{selectedClass}</span>
+                             </div>
+                         )}
+                     </div>
+
+                     <div className="text-center mt-5">
+                         <h2 className="text-sm md:text-base font-bold uppercase tracking-wide text-black underline">
+                             LAPORAN KEDISIPLINAN DAN KETIDAKHADIRAN (ALPA) SISWA
+                         </h2>
+                         <p className="text-xs text-gray-800 mt-1">
+                             Tahun Ajaran: {activeAcademicYear} &nbsp;|&nbsp; Semester: {activeSemester}
+                         </p>
+                         <p className="text-xs text-gray-700">
+                             Periode: {formatDateIndo(startDate)} s.d. {formatDateIndo(endDate)}
+                         </p>
+                     </div>
+                 </div>
+
+                 {/* TABEL DOKUMEN CETAK / PDF */}
+                 <div className="overflow-x-auto print:overflow-visible">
+                     <table data-doc-table="true" className="w-full border-collapse border border-black text-xs text-black min-w-[700px]">
+                         <thead>
+                             <tr className="bg-gray-100 text-center font-bold uppercase text-[11px]">
+                                 <th className="border border-black p-2 w-10">No</th>
+                                 <th className="border border-black p-2 w-24">NISN</th>
+                                 <th className="border border-black p-2 text-left w-44">Nama Murid</th>
+                                 <th className="border border-black p-2 w-16 text-center">Kelas</th>
+                                 <th className="border border-black p-2 text-left w-52">Ketidakhadiran (Alpa)</th>
+                                 <th className="border border-black p-2 text-left">Catatan Pelanggaran dari Guru</th>
+                             </tr>
+                         </thead>
+                         <tbody>
+                             {filteredReportData.map((item, idx) => (
+                                 <tr key={idx} style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                                     <td className="border border-black p-2 text-center font-bold align-top">{idx + 1}</td>
+                                     <td className="border border-black p-2 text-center align-top font-mono text-[10px]">{item.student.nisn || '-'}</td>
+                                     <td className="border border-black p-2 align-top font-bold">{item.student.name}</td>
+                                     <td className="border border-black p-2 text-center align-top font-semibold">{item.student.kelas}</td>
+                                     <td className="border border-black p-2 align-top">
+                                         {item.alpaCount > 0 ? (
+                                             <div>
+                                                 <div className="font-bold text-red-700">Alpa: {item.alpaCount} Hari</div>
+                                                 <div className="text-[10px] text-gray-700 mt-0.5 leading-snug">
+                                                     Tgl: {item.alpaDates.join(', ')}
+                                                 </div>
+                                             </div>
+                                         ) : (
+                                             <span className="text-gray-400 italic text-[11px]">- Nihil -</span>
+                                         )}
+                                     </td>
+                                     <td className="border border-black p-2 align-top space-y-1.5">
+                                         {item.violations.length > 0 ? (
+                                             item.violations.map((v) => (
+                                                 <div key={v.id} className="border-b border-gray-200 pb-1 last:border-b-0 last:pb-0">
+                                                     <div className="font-bold text-black flex items-center justify-between gap-1">
+                                                         <span>• {v.category}</span>
+                                                         <span className="text-[10px] text-gray-600 font-normal">{v.date}</span>
+                                                     </div>
+                                                     <div className="text-[10px] text-gray-700">
+                                                         Guru: {v.reporter} {v.followUp ? `| Tindak Lanjut: ${v.followUp}` : ''}
+                                                     </div>
+                                                     {v.note && !v.note.startsWith('Laporan Manual oleh') && !v.note.startsWith('Laporan Massal oleh') && (
+                                                         <div className="text-[10px] italic text-gray-800 mt-0.5 pl-2 border-l border-gray-400">
+                                                             "{v.note}"
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             ))
+                                         ) : (
+                                             <span className="text-gray-400 italic text-[11px]">- Nihil -</span>
+                                         )}
+                                     </td>
+                                 </tr>
+                             ))}
+                         </tbody>
+                     </table>
+                 </div>
+
+                 {/* FOOTER & TANDA TANGAN */}
+                 <div data-doc-footer="true" className="mt-8 flex justify-between items-start text-xs pt-4" style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                     <div className="text-center w-64">
+                         <p className="font-medium text-black">Mengetahui,</p>
+                         <p className="font-bold text-black">Kepala UPT SMP Negeri 1 Pasuruan</p>
+                         <div className="h-20"></div>
+                         <p className="font-bold underline text-black">{settings.headmaster || '..................................................'}</p>
+                         <p className="text-black">NIP. {settings.headmaster_nip || '..........................................'}</p>
+                     </div>
+
+                     <div className="text-center w-64">
+                         <p className="font-medium text-black">Pasuruan, {formatDateSignature(endDate)}</p>
+                         <p className="font-bold text-black">Guru Bimbingan Konseling / Kesiswaan</p>
+                         <div className="h-20"></div>
+                         <p className="font-bold underline text-black">..................................................</p>
+                         <p className="text-black">NIP. ..........................................</p>
+                     </div>
+                 </div>
+             </div>
+         )}
       </div>
     </Layout>
   );

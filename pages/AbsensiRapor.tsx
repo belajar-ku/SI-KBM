@@ -4,8 +4,10 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
-import {  Printer, Loader2, BookX, CalendarDays, ChevronDown, ChevronUp , UserMinus } from 'lucide-react';
+import { Printer, Download, Loader2, BookX, CalendarDays, ChevronDown, ChevronUp, UserMinus } from 'lucide-react';
 import { formatDateSignature, getWIBISOString, formatDateIndo } from '../utils/dateUtils';
+import { downloadPaginatedTablePdf, printCleanDocument } from '../utils/printAndPdf';
+import { LOGO_SMPN1_BASE64 } from '../utils/logoData';
 
 interface ReportDetail {
     date: string;
@@ -43,6 +45,8 @@ const AbsensiRapor: React.FC = () => {
   const [settings, setSettings] = useState({
       academic_year: '...',
       semester: '...',
+      semester_start: '',
+      semester_end: '',
       headmaster: '...',
       headmaster_nip: ''
   });
@@ -102,12 +106,17 @@ useEffect(() => {
           const activeYear = (settings.academic_year && settings.academic_year !== '...') 
             ? settings.academic_year 
             : (academicYear || localStorage.getItem('app_academic_year') || '2026/2027');
+          const activeSem = (settings.semester && settings.semester !== '...')
+            ? settings.semester
+            : (semester || localStorage.getItem('app_semester') || 'Ganjil');
+          const currentSemesterStart = settings.semester_start || semesterStart;
+          const currentSemesterEnd = settings.semester_end || semesterEnd;
           const start = `${startDate}T00:00:00+07:00`;
           const end = `${endDate}T23:59:59+07:00`;
 
           let { data: students, error: errSt2 } = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', activeYear).order('name');
           if (errSt2 && (errSt2.code === '42703' || errSt2.message?.includes('academic_year'))) {
-              const res = await supabase.from('students').select('*').eq('kelas', selectedClass).eq('academic_year', activeYear).order('name');
+              const res = await supabase.from('students').select('*').eq('kelas', selectedClass).order('name');
               students = res.data;
           }
           
@@ -117,8 +126,24 @@ useEffect(() => {
 
           const studentIds = students.map(s => s.id);
 
-          const { data: hLogs } = await supabase.from('homeroom_attendance').select('student_id, date, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').in('student_id', studentIds).gte('date', startDate).lte('date', endDate);
-          const { data: tLogs } = await supabase.from('attendance_logs').select('student_id, created_at, status').eq('academic_year', academicYear || '2025/2026').eq('semester', semester || 'Ganjil').gte('created_at', semesterStart ? `${semesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00').lte('created_at', semesterEnd ? `${semesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00').in('student_id', studentIds).gte('created_at', start).lte('created_at', end).neq('status', 'D');
+          const { data: hLogs } = await supabase.from('homeroom_attendance')
+            .select('student_id, date, status')
+            .eq('academic_year', activeYear)
+            .eq('semester', activeSem)
+            .in('student_id', studentIds)
+            .gte('date', startDate)
+            .lte('date', endDate);
+
+          const { data: tLogs } = await supabase.from('attendance_logs')
+            .select('student_id, created_at, status')
+            .eq('academic_year', activeYear)
+            .eq('semester', activeSem)
+            .gte('created_at', currentSemesterStart ? `${currentSemesterStart}T00:00:00+07:00` : '2000-01-01T00:00:00+07:00')
+            .lte('created_at', currentSemesterEnd ? `${currentSemesterEnd}T23:59:59+07:00` : '2100-01-01T23:59:59+07:00')
+            .in('student_id', studentIds)
+            .gte('created_at', start)
+            .lte('created_at', end)
+            .neq('status', 'D');
 
           const processedStudents: ReportStudent[] = students.map(student => {
               let s_total = 0, i_total = 0, a_total = 0, d_total = 0;
@@ -174,7 +199,33 @@ useEffect(() => {
       finally { setLoading(false); }
   };
 
-  const handlePrint = () => window.print();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfProgressText, setPdfProgressText] = useState('');
+
+  const handlePrintClean = () => {
+    if (!componentRef.current) return;
+    const docTitle = `Rekap Ketidakhadiran Rapor - Kelas ${selectedClass} - ${settings.academic_year || ''}`;
+    printCleanDocument(componentRef.current, docTitle);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!componentRef.current) return;
+    setDownloadingPdf(true);
+    const filename = `Rekap_Ketidakhadiran_Rapor_Kelas_${selectedClass}_${(settings.academic_year || '').replace('/', '-')}_${settings.semester || ''}`;
+    try {
+      await downloadPaginatedTablePdf(componentRef.current, filename, {
+        orientation: 'portrait',
+        onProgress: (msg) => setPdfProgressText(msg),
+      });
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      alert("Gagal membuat berkas PDF. Anda dapat menggunakan opsi 'Cetak Dokumen' sebagai alternatif.");
+    } finally {
+      setDownloadingPdf(false);
+      setPdfProgressText('');
+    }
+  };
+
   const currentDateStr = formatDateSignature(new Date());
 
   const toggleAccordion = (studentId: string) => {
@@ -226,29 +277,46 @@ useEffect(() => {
                     />
                 </div>
                 <div>
-                    <button 
-                        onClick={handlePrint}
-                        disabled={loading || reportData.length === 0}
-                        className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all"
-                    >
-                        <Printer size={20} /> Cetak / PDF
-                    </button>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Aksi Dokumen</label>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={handlePrintClean}
+                            disabled={loading || reportData.length === 0}
+                            className="flex-1 bg-slate-800 hover:bg-slate-900 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 transition-all text-xs"
+                        >
+                            <Printer size={16} /> Cetak
+                        </button>
+                        <button 
+                            onClick={handleDownloadPdf}
+                            disabled={loading || reportData.length === 0 || downloadingPdf}
+                            className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-sm disabled:opacity-50 transition-all text-xs"
+                        >
+                            {downloadingPdf ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
+                            {downloadingPdf ? 'PDF...' : 'Unduh PDF'}
+                        </button>
+                    </div>
                 </div>
             </div>
              {loading && <div className="mt-4 flex items-center gap-2 text-red-600 text-sm"><Loader2 className="animate-spin" size={16}/> Mengkalkulasi data kehadiran...</div>}
+             {downloadingPdf && <div className="mt-2 text-xs text-blue-600 font-medium">{pdfProgressText || 'Menyiapkan berkas PDF...'}</div>}
         </div>
       </div>
 
       {reportData.length > 0 && (
-          <div className="mt-8 bg-white p-4 md:p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in rounded-2xl" ref={componentRef}>
+          <div
+            className="mt-8 bg-white p-4 md:p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in rounded-2xl"
+            ref={componentRef}
+            style={{ fontFamily: "'Times New Roman', Times, serif" }}
+          >
              {/* Header Kop Surat */}
-            <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
+            <div data-doc-header="true" className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
                 <div className="flex items-center gap-4">
-                     <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-12 md:h-20 w-auto" />
+                     <img src={LOGO_SMPN1_BASE64} alt="Logo UPT SMP Negeri 1 Pasuruan" className="h-14 md:h-20 w-auto" />
                      <div>
                          <h1 className="text-md md:text-xl font-bold uppercase tracking-wide text-black leading-tight">UPT SMP NEGERI 1 PASURUAN</h1>
                          <h2 className="text-sm md:text-lg font-bold text-black leading-tight">Rekap Ketidakhadiran (Rapor)</h2>
-                         <p className="text-xs md:text-sm text-gray-600">Semester {settings.semester} | Tahun Ajaran {settings.academic_year}</p>
+                         <p className="text-xs md:text-sm text-gray-700">Semester {settings.semester} | Tahun Ajaran {settings.academic_year}</p>
+                         <p className="text-[11px] text-gray-600 mt-0.5">Jalan Balaikota 7 Pasuruan | Website: smpn1pasuruan.sch.id</p>
                      </div>
                 </div>
                 <div className="border-4 border-black p-2 min-w-[50px] md:min-w-[80px] text-center">
@@ -258,7 +326,7 @@ useEffect(() => {
 
             {/* Content Table */}
             <div className="overflow-x-auto print:overflow-visible">
-                <table className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
+                <table data-doc-table="true" className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
                     <thead>
                         <tr className="bg-gray-100 text-center text-xs font-bold uppercase">
                             <th className="border border-gray-400 p-2 w-10">No</th>
@@ -335,7 +403,7 @@ useEffect(() => {
             </div>
 
             {/* Signature Area */}
-            <div className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0">
+            <div data-doc-footer="true" className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0 signature-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                 <div className="text-center md:text-left md:ml-4">
                     <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>
                     <p className="font-bold underline">{settings.headmaster}</p>

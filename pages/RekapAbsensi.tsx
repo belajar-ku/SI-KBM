@@ -5,7 +5,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
 import { Printer, Download, Loader2, Search, UserCheck } from 'lucide-react';
 import { formatDateSignature } from '../utils/dateUtils';
-import { downloadElementAsPdf, printCleanDocument } from '../utils/printAndPdf';
+import { downloadPaginatedTablePdf, printCleanDocument } from '../utils/printAndPdf';
+import { LOGO_SMPN1_BASE64 } from '../utils/logoData';
 
 interface AttendanceSummary {
   student: Student;
@@ -241,7 +242,7 @@ const RekapAbsensi: React.FC = () => {
     setDownloadingPdf(true);
     const filename = `Rekap_Kehadiran_Kelas_${selectedClass}_${activeAcademicYear.replace('/', '-')}_${activeSemester}`;
     try {
-      await downloadElementAsPdf(componentRef.current, filename, {
+      await downloadPaginatedTablePdf(componentRef.current, filename, {
         orientation: 'portrait',
         onProgress: (msg) => setPdfProgressText(msg),
       });
@@ -340,14 +341,19 @@ const RekapAbsensi: React.FC = () => {
       </div>
 
       {selectedClass && reportData.length > 0 && (
-        <div className="mt-8 bg-white p-4 md:p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in rounded-2xl" ref={componentRef}>
-            <div className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
+        <div
+          className="mt-8 bg-white p-4 md:p-8 shadow-lg border border-gray-200 print:shadow-none print:border-none print:p-0 print:m-0 print:w-full animate-fade-in rounded-2xl"
+          ref={componentRef}
+          style={{ fontFamily: "'Times New Roman', Times, serif" }}
+        >
+            <div data-doc-header="true" className="flex justify-between items-start mb-6 border-b-2 border-black pb-4">
                 <div className="flex items-center gap-4">
-                     <img src="https://lh3.googleusercontent.com/d/1tQPCSlVqJv08xNKeZRZhtRKC8T8PF-Uj?authuser=0" alt="Logo" className="h-12 md:h-20 w-auto" />
+                     <img src={LOGO_SMPN1_BASE64} alt="Logo UPT SMP Negeri 1 Pasuruan" className="h-14 md:h-20 w-auto" />
                      <div>
                          <h1 className="text-md md:text-xl font-bold uppercase tracking-wide text-black leading-tight">UPT SMP NEGERI 1 PASURUAN</h1>
                          <h2 className="text-sm md:text-lg font-bold text-black leading-tight">Rekap Absensi Mata Pelajaran : {selectedSubject}</h2>
-                         <p className="text-xs md:text-sm text-gray-600">Semester {settings.semester || activeSemester} | Tahun Ajaran {settings.academic_year || activeAcademicYear}</p>
+                         <p className="text-xs md:text-sm text-gray-700">Semester {settings.semester || activeSemester} | Tahun Ajaran {settings.academic_year || activeAcademicYear}</p>
+                         <p className="text-[11px] text-gray-600 mt-0.5">Jalan Balaikota 7 Pasuruan | Website: smpn1pasuruan.sch.id</p>
                      </div>
                 </div>
                 <div className="border-4 border-black p-2 min-w-[50px] md:min-w-[60px] text-center">
@@ -357,7 +363,7 @@ const RekapAbsensi: React.FC = () => {
 
             {/* Print Friendly Table: No scrollbar, full visible */}
             <div className="overflow-x-auto print:overflow-visible">
-                <table className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
+                <table data-doc-table="true" className="w-full border-collapse border border-gray-400 text-sm text-black min-w-[600px]">
                     <thead>
                         <tr className="bg-gray-200 text-center">
                             <th className="border border-gray-400 p-2 w-10" rowSpan={2}>No</th>
@@ -375,7 +381,7 @@ const RekapAbsensi: React.FC = () => {
                     </thead>
                     <tbody>
                         {reportData.map((item, index) => (
-                            <tr key={item.student.id} className="text-center hover:bg-gray-50 print:hover:bg-transparent">
+                            <tr key={item.student.id} className="text-center hover:bg-gray-50 print:hover:bg-transparent" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                                 <td className="border border-gray-400 p-1.5">{index + 1}</td>
                                 <td className="border border-gray-400 p-1.5 font-mono text-xs">{item.student.nisn || '-'}</td>
                                 <td className="border border-gray-400 p-1.5 text-left pl-3">{item.student.name}</td>
@@ -390,7 +396,7 @@ const RekapAbsensi: React.FC = () => {
                 </table>
             </div>
 
-            <div className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0">
+            <div data-doc-footer="true" className="mt-10 flex flex-col md:flex-row justify-between text-black break-inside-avoid gap-8 md:gap-0 signature-section" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                 <div className="text-center md:text-left md:ml-4">
                     <p className="mb-16">Mengetahui<br/>Kepala Sekolah,</p>
                     <p className="font-bold underline">{settings.headmaster || 'Agung Budiartati, M.Pd.'}</p>
