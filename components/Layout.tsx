@@ -369,8 +369,6 @@ export const Layout: React.FC<{ children: React.ReactNode; showNav?: boolean; co
                             <div className="space-y-1">
                                 <NavItem path="/rekap-kinerja" label="Rekap Kinerja Bulanan" description="Target JP & hari non-efektif" icon={Table} badge="Baru" />
                                 <NavItem path="/kinerja" label="Monitoring Kinerja" description="Evaluasi jam mengajar guru" icon={Activity} />
-                                <NavItem path="/laporan" label="Laporan Jurnal" description="Arsip jurnal KBM & cetak" icon={BookOpen} />
-                                <NavItem path="/rekap-absensi" label="Rekap Kehadiran" description="Presensi harian & kehadiran siswa" icon={Users} />
                                 <NavItem path="/absensi-rapor" label="Absensi Rapor" description="Rekap S/I/A buku rapor" icon={ClipboardList} />
                                 <NavItem path="/rekap-dhuha" label="Rekap Sholat Dhuha" description="Monitoring pembiasaan ibadah" icon={Sunset} />
                                 <NavItem path="/kedisiplinan" label="Buku Kedisiplinan" description="Catatan pelanggaran siswa" icon={Siren} />

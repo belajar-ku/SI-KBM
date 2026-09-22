@@ -3,8 +3,9 @@ import { Layout } from '../components/Layout';
 import { supabase } from '../services/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Student } from '../types';
-import { Printer, Loader2, Search, UserCheck } from 'lucide-react';
+import { Printer, Download, Loader2, Search, UserCheck } from 'lucide-react';
 import { formatDateSignature } from '../utils/dateUtils';
+import { downloadElementAsPdf, printCleanDocument } from '../utils/printAndPdf';
 
 interface AttendanceSummary {
   student: Student;
@@ -226,7 +227,32 @@ const RekapAbsensi: React.FC = () => {
     }
   };
 
-  const handlePrint = () => window.print();
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [pdfProgressText, setPdfProgressText] = useState('');
+
+  const handlePrintClean = () => {
+    if (!componentRef.current) return;
+    const docTitle = `Rekap Kehadiran - Kelas ${selectedClass} - ${activeAcademicYear}`;
+    printCleanDocument(componentRef.current, docTitle);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!componentRef.current) return;
+    setDownloadingPdf(true);
+    const filename = `Rekap_Kehadiran_Kelas_${selectedClass}_${activeAcademicYear.replace('/', '-')}_${activeSemester}`;
+    try {
+      await downloadElementAsPdf(componentRef.current, filename, {
+        orientation: 'portrait',
+        onProgress: (msg) => setPdfProgressText(msg),
+      });
+    } catch (err) {
+      console.error("Error downloading PDF:", err);
+      alert("Gagal membuat berkas PDF. Anda dapat menggunakan opsi 'Cetak Dokumen' sebagai alternatif.");
+    } finally {
+      setDownloadingPdf(false);
+      setPdfProgressText('');
+    }
+  };
 
   const currentDateStr = formatDateSignature(new Date());
 
@@ -273,13 +299,33 @@ const RekapAbsensi: React.FC = () => {
                         placeholder="Otomatis sesuai kelas..."
                     />
                 </div>
-                <div>
+                <div className="flex gap-2">
                     <button 
-                        onClick={handlePrint}
-                        disabled={!selectedClass || loading || reportData.length === 0}
-                        className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 transition-all"
+                        onClick={handleDownloadPdf}
+                        disabled={!selectedClass || loading || downloadingPdf || reportData.length === 0}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white py-3 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 transition-all"
+                        title="Unduh file dokumen PDF (.pdf) resmi"
                     >
-                        <Printer size={20} /> Cetak / PDF
+                        {downloadingPdf ? (
+                            <>
+                                <Loader2 size={16} className="animate-spin" />
+                                <span>{pdfProgressText || 'Membuat PDF...'}</span>
+                            </>
+                        ) : (
+                            <>
+                                <Download size={16} />
+                                <span>Unduh PDF</span>
+                            </>
+                        )}
+                    </button>
+                    <button 
+                        onClick={handlePrintClean}
+                        disabled={!selectedClass || loading || downloadingPdf || reportData.length === 0}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white py-3 px-3 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 shadow-md disabled:opacity-50 transition-all"
+                        title="Cetak dokumen bersih tanpa elemen browser"
+                    >
+                        <Printer size={16} />
+                        <span>Cetak Dokumen</span>
                     </button>
                 </div>
             </div>
